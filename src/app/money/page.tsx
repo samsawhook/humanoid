@@ -18,9 +18,12 @@ const COLOR: Record<string, string> = {
   mortgage_current: seriesColor(0),
   car_payoff: seriesColor(1),
   childcare: seriesColor(2),
-  living: seriesColor(3),
-  nth_investments: seriesColor(4),
-  debt_paydown: seriesColor(5),
+  living_home: seriesColor(3),
+  living_deployed: seriesColor(3),
+  support_home: seriesColor(4),
+  support_home_deployed: seriesColor(4),
+  nth_investments: seriesColor(5),
+  debt_paydown: 'var(--series-rest)',
   emergency_fund: 'var(--series-rest)',
   mortgage_arrears: 'var(--accent)',
 }
@@ -97,6 +100,33 @@ export default function MoneyPage() {
         crisis while every actual bill was covered.
       </div>
 
+      <h2>What each paycheck is made of</h2>
+      <Figure
+        title="Earnings by entitlement, first 12 paydays"
+        caption="Gross before tax. CZTE does not change gross — it changes what survives to net, which is why the stack looks flat across the September boundary while net jumps."
+      >
+        <StackedBars
+          height={260}
+          format={(n) => usd0(n)}
+          columns={allocations.slice(0, 12).map((a) => ({
+            label: a.paycheck.payDate.slice(5),
+            sublabel: a.paycheck.czte ? 'CZTE' : '',
+            segments: a.paycheck.lines.map((l, i) => ({
+              key: l.key,
+              label: l.label,
+              value: l.amount,
+              color: seriesColor(i),
+            })),
+          }))}
+        />
+        <Legend
+          items={ENTITLEMENTS.map((e, i) => ({
+            label: e.label.split(' — ')[0] ?? e.key,
+            color: seriesColor(i),
+          }))}
+        />
+      </Figure>
+
       <h2>Where each paycheck goes</h2>
       <Figure
         title="Allocation per payday — first 12"
@@ -115,6 +145,7 @@ export default function MoneyPage() {
             <thead>
               <tr>
                 <th>Payday</th>
+                <th>Earned</th>
                 <th>Net</th>
                 {OBLIGATIONS.map((o) => (
                   <th key={o.key}>{o.label.split(' — ')[0]}</th>
@@ -125,6 +156,11 @@ export default function MoneyPage() {
               {allocations.map((a) => (
                 <tr key={a.paycheck.scheduledDate}>
                   <td>{a.paycheck.payDate}</td>
+                  <td className="muted" style={{ whiteSpace: 'normal' }}>
+                    {a.paycheck.lines
+                      .map((l) => `${l.key} ${usd0(l.amount)}`)
+                      .join(' · ')}
+                  </td>
                   <td>{usd(a.paycheck.net)}</td>
                   {OBLIGATIONS.map((o) => {
                     const l = a.lines.find((x) => x.key === o.key)

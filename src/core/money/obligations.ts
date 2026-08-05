@@ -17,6 +17,15 @@
 
 import type { Obligation } from './allocation'
 import { TIMELINE } from './rates'
+import { householdTotals } from './household'
+
+/**
+ * Household running costs, split by profile and derived from the Monarch categories
+ * rather than typed in as one number. `deployed` drops personal consumption and
+ * raises what is sent home; see household.ts for the per-category multipliers.
+ */
+const HOME = householdTotals('home')
+const DEPLOYED = householdTotals('deployed')
 
 /** Four months behind at roughly $1,300 a month. */
 export const MORTGAGE_ARREARS_BALANCE = 5200
@@ -68,22 +77,53 @@ export const OBLIGATIONS: Obligation[] = [
       'Monarch history, so this is additive to the household line, not inside it.',
   },
   {
-    key: 'living',
-    label: 'Household running costs',
-    /**
-     * ~$1,400 per paycheck ≈ $2,800/mo. Derived from your Monarch history, which ran
-     * ~$3,500/mo of total spend — with the mortgage and car payments backed out,
-     * since those are their own lines and would otherwise be counted twice.
-     *
-     * This is the least-verified number in the file and the plan is sensitive to it.
-     */
-    amountPerPaycheck: 1400,
+    key: 'living_home',
+    label: 'Household running costs (at home)',
+    amountPerPaycheck: HOME.categoryTotal / 2,
     payDays: 'both',
     activeFrom: null,
+    activeTo: TIMELINE.deploymentStart,
+    priority: 30,
+    kind: 'living',
+    note: 'Derived from Monarch categories, excluding support sent home. See household.ts.',
+  },
+  {
+    key: 'living_deployed',
+    label: 'Household running costs (deployed)',
+    amountPerPaycheck: DEPLOYED.categoryTotal / 2,
+    payDays: 'both',
+    activeFrom: TIMELINE.deploymentStart,
     activeTo: null,
     priority: 30,
     kind: 'living',
-    note: 'Estimated from Monarch, mortgage and car excluded to avoid double-counting.',
+    note: 'Personal consumption collapses on deployment; the household’s does not.',
+  },
+  {
+    key: 'support_home',
+    label: 'Support sent home',
+    /**
+     * Monarch's "Gifts" line — the largest discretionary outflow in your history, and
+     * the one most likely to be mis-modelled. Split out so it is visible and arguable
+     * rather than buried inside a household average.
+     */
+    amountPerPaycheck: HOME.support / 2,
+    payDays: 'both',
+    activeFrom: null,
+    activeTo: TIMELINE.deploymentStart,
+    priority: 28,
+    kind: 'living',
+    note: '$754/mo, 12-month Monarch average.',
+  },
+  {
+    key: 'support_home_deployed',
+    label: 'Support sent home (deployed)',
+    amountPerPaycheck: DEPLOYED.support / 2,
+    payDays: 'both',
+    activeFrom: TIMELINE.deploymentStart,
+    activeTo: null,
+    priority: 28,
+    kind: 'living',
+    note: 'Modelled 40% higher: while away this becomes the funding channel, not a top-up.',
   },
   {
     key: 'nth_investments',

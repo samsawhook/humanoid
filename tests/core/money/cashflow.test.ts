@@ -216,8 +216,10 @@ describe('the real plan', () => {
   it('cures the arrears at whatever rate the paydays allow, and stops there', () => {
     expect(cleared.mortgage_arrears?.cap).toBe(MORTGAGE_ARREARS_BALANCE)
     expect(cleared.mortgage_arrears?.paid).toBe(MORTGAGE_ARREARS_BALANCE)
-    // A measurement, not a target — this date falls out of the plan rather than setting it.
-    expect(cleared.mortgage_arrears?.clearedOn).toBe('2027-02-15')
+    // A measurement, not a target — this date falls out of the plan rather than setting
+    // it. It moved a month earlier when the deployed household profile landed, because
+    // lower personal consumption leaves more for the gauge. That is the gauge working.
+    expect(cleared.mortgage_arrears?.clearedOn).toBe('2027-01-15')
   })
 
   /**
