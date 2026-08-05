@@ -252,75 +252,86 @@ describe('the real plan', () => {
   })
 
   /**
-   * The gauge reads ZERO, and that is the finding — not a bug to tune away.
-   *
-   * It is last in priority, so it only ever sees what survives everything above it.
-   * Above it sit two lines I invented rather than obligations you owe: $1,000/mo of
-   * unsecured debt paydown and $500/mo into an emergency fund. Steady-state slack after
-   * the genuinely committed lines is about $808/mo, so those two absorb all of it and
-   * the arrears never move.
-   *
-   * The gauge was built to answer "how fast can I actually cure this". The honest
-   * answer, at these targets, is "not at all" — which is information about the targets.
+   * Nothing below the bills is owed a particular amount, so nothing below the bills can
+   * report a shortfall. That is the whole point of the waterfall: the fixed monthly
+   * savings targets it replaced were figures I invented, and their permanent "unmet ask"
+   * made a solvent plan read like a crisis while telling nobody anything.
    */
-  it('separates a bill going unpaid from a savings target going unfunded', () => {
-    // Both are shortfalls; only one is a missed payment. Reporting them as one number
-    // makes a solvent month read like a crisis.
-    expect(summary.targetShortfall).toBeGreaterThan(0)
-    expect(summary.bindingShortfall).toBeLessThan(summary.targetShortfall)
-
+  it('reports no phantom shortfall below the bills', () => {
+    expect(summary.targetShortfall).toBe(0)
     for (const a of allocations) {
-      for (const l of a.lines.filter((x) => x.target)) {
-        expect(['debt_paydown', 'emergency_fund']).toContain(l.key)
+      for (const l of a.lines.filter((x) => x.swept)) {
+        expect(l.shortfall).toBe(0)
       }
     }
+    // Every shortfall left is a genuine bill going unpaid.
+    expect(summary.totalShortfall).toBe(summary.bindingShortfall)
   })
 
   /**
-   * Regression. The forward reserve first throttled only the gauge, leaving the savings
-   * targets free to drain the buffer. Ranking the arrears above them then changed
-   * nothing at all — the ordering silently did not matter, which is the worst kind of
-   * wrong: the plan looked like it was answering a question it was ignoring.
+   * Regression. The forward reserve once throttled only the gauge, leaving the savings
+   * targets free to drain the buffer, so ranking the arrears above them changed nothing
+   * at all — the plan looked like it was answering a question it was quietly ignoring.
    */
-  it('lets the priority order between the flexible claims actually decide who gets the slack', () => {
+  it('lets the order between the waterfall lines actually decide who gets the slack', () => {
     const pays = projectPaychecks('2026-08-15', '2027-08-01')
-    const arrearsFirst = OBLIGATIONS.map((o) =>
-      o.key === 'mortgage_arrears' ? { ...o, priority: 38 } : o,
+    // Demote the arrears from the top of the waterfall to the bottom of it.
+    const arrearsLast = OBLIGATIONS.map((o) =>
+      o.key === 'mortgage_arrears' ? { ...o, priority: 80 } : o,
     )
+    const demoted = balanceClearedOn(allocateAll(pays, arrearsLast), arrearsLast)
 
-    const asIs = balanceClearedOn(allocateAll(pays, OBLIGATIONS), OBLIGATIONS)
-    const reordered = balanceClearedOn(allocateAll(pays, arrearsFirst), arrearsFirst)
-
-    expect(asIs.mortgage_arrears?.clearedOn).toBe(null)
-    expect(reordered.mortgage_arrears?.clearedOn).not.toBe(null)
-    expect(reordered.mortgage_arrears?.paid).toBeGreaterThan(
-      asIs.mortgage_arrears?.paid ?? 0,
-    )
+    expect(cleared.mortgage_arrears?.clearedOn).not.toBe(null)
+    expect(demoted.mortgage_arrears?.clearedOn).toBe(null)
+    expect(demoted.mortgage_arrears?.paid).toBeLessThan(cleared.mortgage_arrears?.paid ?? 0)
   })
 
-  it('measures the pot the flexible claims compete for, excluding the claims themselves', () => {
+  it('measures the pot the waterfall competes for, excluding the waterfall itself', () => {
     const slack = steadyMonthlySlack(allocations)
-    // Roughly $800/mo against ~$4,100/mo of flexible asks. The exact figure moves with
-    // every upstream correction; what must hold is that it is real, positive, and far
-    // smaller than what is being asked of it.
+    // The exact figure moves with every upstream correction; what must hold is that it
+    // is real, positive, and far smaller than the balances queued behind it.
     expect(slack).toBeGreaterThan(0)
-    expect(slack).toBeLessThan(2 * 500 + 2 * 250) // less than the savings targets alone
-  })
-
-  it('reports the arrears uncured, because the savings targets above it eat the slack', () => {
-    expect(cleared.mortgage_arrears?.cap).toBe(MORTGAGE_ARREARS_BALANCE)
-    expect(cleared.mortgage_arrears?.clearedOn).toBe(null)
-    expect(cleared.mortgage_arrears?.paid).toBeLessThan(MORTGAGE_ARREARS_BALANCE)
+    expect(slack).toBeLessThan(MORTGAGE_ARREARS_BALANCE)
   })
 
   /**
-   * The gauge deliberately asks for more than it can get; that unmet ask is how it
-   * measures slack, not a bill going unpaid. `bindingShortfall` is the honest number.
+   * Each line takes everything until its balance is cleared, then vanishes and hands the
+   * whole flow to the next. The clearance dates are measurements, not targets: they fall
+   * out of the plan and move whenever anything upstream does.
    */
-  it('separates the gauge’s unmet ask from obligations that genuinely went unpaid', () => {
-    expect(summary.totalShortfall).toBeGreaterThan(summary.bindingShortfall)
-    expect(summary.firstShortPayday).toBe('2026-08-14') // gauge unmet from the very first payday
-    expect(summary.firstBindingShortPayday).toBe('2026-09-01') // first real miss
+  it('runs the waterfall one balance at a time, in the order chosen', () => {
+    expect(cleared.mortgage_arrears?.paid).toBe(MORTGAGE_ARREARS_BALANCE)
+    expect(cleared.mortgage_arrears?.clearedOn).toBe('2027-03-01')
+
+    // The open cards only start once the house is current.
+    expect(cleared.debt_paydown_open?.clearedOn).toBe('2027-04-15')
+    expect(cleared.debt_paydown_open?.clearedOn! > cleared.mortgage_arrears?.clearedOn!).toBe(true)
+
+    // And the reserve only starts once those are gone. It does not finish before you
+    // come home, which is information about the horizon rather than about the target.
+    expect(cleared.emergency_fund?.clearedOn).toBe(null)
+    expect(cleared.emergency_fund?.paid).toBeGreaterThan(0)
+
+    // The closed balances are last and never get reached inside the deployment.
+    expect(cleared.debt_paydown_closed?.paid).toBe(0)
+  })
+
+  it('never lets a waterfall line start before the one above it has cleared', () => {
+    const ORDER = [
+      'mortgage_arrears',
+      'debt_paydown_open',
+      'emergency_fund',
+      'debt_paydown_closed',
+    ]
+    for (let i = 1; i < ORDER.length; i++) {
+      const above = cleared[ORDER[i - 1]!]
+      for (const a of allocations) {
+        const line = a.lines.find((l) => l.key === ORDER[i])
+        if (!line || line.allocated === 0) continue
+        // Something reached line i on this payday, so line i-1 must be settled.
+        expect(above!.paid).toBeGreaterThanOrEqual(above!.cap - 0.005)
+      }
+    }
   })
 
   it('cuts strictly from the bottom of the priority order', () => {

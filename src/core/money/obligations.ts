@@ -1,23 +1,33 @@
 /**
  * Your actual obligations. Edit this file; it is meant to be edited.
  *
- * The priority order is a claim about what matters, and one thing in it is
- * deliberately unusual:
+ * It has two halves, and they work differently on purpose.
  *
- *   **The mortgage arrears catch-up sits LAST, not first.**
+ * **Bills** come first: mortgage, truck, nannies, household, support home, Nth. Each
+ * asks for a specific figure on a specific payday because someone else chose that
+ * figure. If one goes unpaid the model says so out loud.
  *
- * Curing arrears matters, but it is the only line here whose *rate* is genuinely
- * yours to choose — the servicer wants the money, not a particular monthly figure.
- * So it is the pressure gauge: everything else is paid at its real cost, and
- * whatever survives flows into the arrears. The number that falls out is "how fast
- * can I actually cure this", which is a measurement rather than a wish. Paying the
- * *current* mortgage on time is a separate line and stays at the top, because
- * missing that is what creates new arrears.
+ * **The waterfall** comes second, and asks for no figure at all. Each line takes ALL
+ * the free money until its balance is cleared, then disappears and hands the whole
+ * flow to the next:
+ *
+ *     arrears → open unsecured → emergency fund → closed unsecured → law school
+ *
+ * That shape matters more than it looks. Fixed monthly targets I invented — "$500 a
+ * payday at the cards", "$250 a payday to savings" — quietly competed with the arrears
+ * and lost the plan about $800/mo of real slack to three claims that each got a third
+ * of what they needed. Sweeps finish things instead: one balance at a time, in an order
+ * you chose, with the clearance dates falling out as measurements rather than wishes.
+ *
+ * Nothing below the bills can report a shortfall, because nothing below the bills is
+ * owed a particular amount. The only question the model answers down there is "in what
+ * order", and the answer is yours.
  */
 
 import type { Obligation } from './allocation'
 import { TIMELINE } from './rates'
 import { householdTotals } from './household'
+import { DEBTS, openDebts, totalBalance } from './debts'
 
 /**
  * Household running costs, split by profile and derived from the Monarch categories
@@ -29,6 +39,20 @@ const DEPLOYED = householdTotals('deployed')
 
 /** One month of household running costs. Capped, so it completes rather than billing forever. */
 export const EMERGENCY_FUND_TARGET = 4500
+
+/**
+ * The three accounts that are genuinely still open — the only balances that carry a
+ * credit line and therefore the only ones where paying down moves utilisation.
+ */
+export const OPEN_DEBT_BALANCE = totalBalance(openDebts())
+/**
+ * Citi, Capital One and Chase. Real balances, closed accounts: worth clearing, but they
+ * buy no score improvement, so they queue behind the cash reserve rather than ahead of
+ * it. Goldman and PSECU are excluded entirely — sued on and dismissed; see debts.ts.
+ */
+export const CLOSED_DEBT_BALANCE = totalBalance(
+  DEBTS.filter((d) => d.posture === 'closed'),
+)
 
 /** Four months behind at roughly $1,300 a month. */
 export const MORTGAGE_ARREARS_BALANCE = 5200
@@ -158,63 +182,106 @@ export const OBLIGATIONS: Obligation[] = [
     execution: 'automatic',
     note: '$461/mo, billed on the 15th.',
   },
-  {
-    key: 'debt_paydown',
-    label: 'Unsecured debt paydown (live accounts only)',
-    amountPerPaycheck: 500,
-    payDays: 'both',
-    activeFrom: TIMELINE.czteStart,
-    activeTo: null,
-    priority: 40,
-    kind: 'unsecured_debt',
-    /** A figure I picked, not one a creditor demands. See Obligation.target. */
-    target: true,
-    execution: 'manual',
-    howTo:
-      'Open accounts first — Platinum, Brightway, Credit One. Only those three still ' +
-      'have a credit line, so only those move utilisation. NEVER Goldman or PSECU.',
-    note:
-      'The three OPEN accounts total $2,221; the closed Citi/Capital One/Chase balances ' +
-      '($12.6k) are real but buy no score improvement. Goldman and PSECU were sued on ' +
-      'and dismissed — paying those is a legal decision, not a scheduling one. See debts.ts.',
-  },
-  {
-    key: 'emergency_fund',
-    label: 'Emergency fund — rebuild to one month',
-    amountPerPaycheck: 250,
-    payDays: 'both',
-    activeFrom: TIMELINE.czteStart,
-    activeTo: null,
-    priority: 50,
-    kind: 'savings',
-    target: true,
-    balanceCap: EMERGENCY_FUND_TARGET,
-    execution: 'manual',
-    howTo: 'Move to a separate account you do not carry a card for.',
-    note: 'Liquid balances are near zero. This is the first thing that should exist.',
-  },
+  /**
+   * ────────────────────────────────────────────────────────────────────────────
+   *  THE WATERFALL. Everything below this point takes ALL available free dollars,
+   *  not a chosen monthly figure.
+   *
+   *  Each line sweeps whatever survives the bills above it until its balance is
+   *  cleared, then vanishes and hands the whole flow to the next. No line asks for
+   *  an amount I invented, so none of them can report a phantom shortfall — the
+   *  only question the model answers is "in what order", and that order is yours:
+   *
+   *     arrears → open unsecured → emergency fund → closed unsecured → law school
+   *
+   *  Cure the house first. Then the three accounts that still have a credit line,
+   *  because those are the only ones that move a score. Then a cash reserve, so the
+   *  next surprise does not recreate the arrears. Then the closed balances, which
+   *  are real debts but buy nothing back. Whatever outlives all of that is the law
+   *  school fund.
+   * ────────────────────────────────────────────────────────────────────────────
+   */
   {
     key: 'mortgage_arrears',
     label: 'Mortgage — arrears catch-up',
     /**
-     * The ask is a full extra payment per payday; what actually gets paid is whatever
-     * survives everything above it. Being last is the entire design — see the file
-     * header. `balanceCap` stops it the moment the arrears are cured rather than
-     * billing forever.
+     * First claim on every free dollar, and capped at the balance so it stops the
+     * moment the house is current rather than billing forever. Still the pressure
+     * gauge — the clearance date falls out of the plan rather than setting it — but
+     * now it is measuring the top of the waterfall instead of the bottom.
      */
-    amountPerPaycheck: 1300,
+    amountPerPaycheck: 0,
+    sweep: true,
     payDays: 'both',
     activeFrom: null,
     activeTo: null,
-    priority: 60,
+    priority: 40,
     kind: 'arrears_catchup',
     balanceCap: MORTGAGE_ARREARS_BALANCE,
     execution: 'manual',
     howTo: 'Extra principal payment to the servicer, marked for arrears — not as a prepayment.',
     note:
-      'THE PRESSURE GAUGE. Last in priority on purpose: everything else is paid at ' +
-      'its real cost and this absorbs what is left, so the clearance date is a ' +
-      'measurement rather than a hope.',
+      'Takes everything free until the house is current. Paying the CURRENT mortgage ' +
+      'on time is a separate line at the top of the file; missing that is what creates ' +
+      'new arrears in the first place.',
+  },
+  {
+    key: 'debt_paydown_open',
+    label: 'Unsecured debt — open accounts',
+    amountPerPaycheck: 0,
+    sweep: true,
+    payDays: 'both',
+    activeFrom: null,
+    activeTo: null,
+    priority: 50,
+    kind: 'unsecured_debt',
+    balanceCap: OPEN_DEBT_BALANCE,
+    execution: 'manual',
+    howTo:
+      'Platinum, then Brightway, then Credit One. These three are the only accounts ' +
+      'with a live credit line. NEVER Goldman or PSECU.',
+    note:
+      'Capped at the real balance of the open accounts, so it clears and stops. ' +
+      'Smaller than it looks — which is the argument for putting it ahead of the ' +
+      'emergency fund rather than behind it: it is over quickly.',
+  },
+  {
+    key: 'emergency_fund',
+    label: 'Emergency fund — rebuild to one month',
+    amountPerPaycheck: 0,
+    sweep: true,
+    payDays: 'both',
+    activeFrom: null,
+    activeTo: null,
+    priority: 60,
+    kind: 'savings',
+    /** Still a figure I picked rather than a balance anyone is owed. */
+    target: true,
+    balanceCap: EMERGENCY_FUND_TARGET,
+    execution: 'manual',
+    howTo: 'Move to a separate account you do not carry a card for.',
+    note:
+      'One month of household running costs. Liquid balances are near zero, and no ' +
+      'reserve is what turns an ordinary bad month into arrears.',
+  },
+  {
+    key: 'debt_paydown_closed',
+    label: 'Unsecured debt — closed accounts',
+    amountPerPaycheck: 0,
+    sweep: true,
+    payDays: 'both',
+    activeFrom: null,
+    activeTo: null,
+    priority: 70,
+    kind: 'unsecured_debt',
+    balanceCap: CLOSED_DEBT_BALANCE,
+    execution: 'manual',
+    howTo: 'Citi, Capital One, Chase. NEVER Goldman or PSECU — see debts.ts.',
+    note:
+      'Real balances on closed accounts: worth clearing, but there is no credit line ' +
+      'to free up, so they queue behind the cash reserve. Goldman and PSECU are not ' +
+      'in this figure — they were sued on and dismissed, and paying them is a legal ' +
+      'decision rather than a scheduling one.',
   },
   {
     key: 'future_fund',

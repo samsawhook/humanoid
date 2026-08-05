@@ -6,7 +6,13 @@ import {
   steadyMonthlySlack,
   summarize,
 } from '@/core/money/allocation'
-import { OBLIGATIONS, CAR_LOAN_BALANCE, MORTGAGE_ARREARS_BALANCE } from '@/core/money/obligations'
+import {
+  OBLIGATIONS,
+  CAR_LOAN_BALANCE,
+  CLOSED_DEBT_BALANCE,
+  MORTGAGE_ARREARS_BALANCE,
+  OPEN_DEBT_BALANCE,
+} from '@/core/money/obligations'
 import { ENTITLEMENTS, TAX, TIMELINE } from '@/core/money/rates'
 import {
   Figure,
@@ -38,8 +44,9 @@ const COLOR: Record<string, string> = {
   support_home: seriesColor(4),
   support_home_deployed: seriesColor(4),
   nth_investments: seriesColor(5),
-  debt_paydown: seriesColor(6),
-  emergency_fund: seriesColor(7),
+  debt_paydown_open: seriesColor(6),
+  debt_paydown_closed: seriesColor(7),
+  emergency_fund: seriesColor(8),
   mortgage_arrears: 'var(--accent)',
   future_fund: 'var(--series-rest)',
 }
@@ -55,13 +62,13 @@ export default function MoneyPage() {
     label: a.paycheck.payDate.slice(5),
     sublabel: a.paycheck.czte ? 'CZTE' : '',
     segments: a.lines
-      .filter((l) => l.allocated > 0 || (l.kind !== 'arrears_catchup' && l.shortfall > 0))
+      .filter((l) => l.allocated > 0 || l.shortfall > 0)
       .map((l) => ({
         key: l.key,
         label: l.label,
         value: l.allocated,
-        // The gauge asks for more than it can get by design; that is not a cut.
-        ...(l.kind !== 'arrears_catchup' && l.shortfall > 0 ? { unmet: l.shortfall } : {}),
+        // Only bills can be short. Waterfall lines never ask for a set amount.
+        ...(l.shortfall > 0 ? { unmet: l.shortfall } : {}),
         color: COLOR[l.key] ?? 'var(--series-rest)',
       })),
   }))
@@ -127,9 +134,10 @@ export default function MoneyPage() {
           sub={`${summary.bindingShortPaydays.length} of ${summary.paychecks} paydays`}
         />
         <Card
-          k="Savings targets missed"
-          v={usd0(summary.targetShortfall)}
-          sub="a gap to argue with, not a bill"
+          k="Open cards cleared"
+          v={cleared.debt_paydown_open?.clearedOn ?? 'not within horizon'}
+          tone={cleared.debt_paydown_open?.clearedOn ? 'good' : 'bad'}
+          sub={`${usd0(OPEN_DEBT_BALANCE)} across 3 live accounts`}
         />
         <Card
           k="Car paid off"
@@ -146,28 +154,27 @@ export default function MoneyPage() {
       </div>
 
       <div className="note">
-        <strong>The catch-up is the pressure gauge.</strong> The arrears line is paid{' '}
-        <em>last</em>, so it absorbs whatever survives every other obligation. Its clearance
-        date is a measurement of your real slack, not a target you picked. Its unmet ask is
-        excluded from the shortfall figure above — otherwise the headline would read like a
-        crisis while every actual bill was covered.
+        <strong>Below the bills, nothing asks for an amount — each line takes everything.</strong>{' '}
+        Steady-state slack after every committed bill is about{' '}
+        <strong>{usd0(steadySlack)} a month</strong>, and all of it goes to one balance at
+        a time, in this order: arrears, then the three open cards, then the emergency fund,
+        then the closed balances, then the law-school fund. A line clears and vanishes, and
+        the whole flow moves to the next.
       </div>
 
       <div className="note">
-        <strong>Three claims, one pot — and the pot is small.</strong> After every
-        genuinely committed line (mortgage, truck, nannies, household, support home, Nth)
-        steady-state slack is about <strong>{usd0(steadySlack)} a month</strong>. Competing
-        for it: {usd0(1000)}/mo of unsecured paydown, {usd0(500)}/mo into the emergency
-        fund, and the arrears. That is {usd0(1500)} of savings targets alone against{' '}
-        {usd0(steadySlack)} available, so the order between them decides the outcome
-        outright. As currently ranked — unsecured debt, then emergency fund, then arrears
-        — the arrears reach{' '}
-        <strong>
-          {usd0(cleared.mortgage_arrears?.paid ?? 0)} of {usd0(MORTGAGE_ARREARS_BALANCE)}
-        </strong>{' '}
-        and are not cured within the horizon. Rank the arrears first instead and they cure
-        in early 2027, at the cost of roughly half the debt paydown. That ordering is a
-        decision, not a calculation, so this page states it rather than resolving it.
+        <strong>What that buys inside the deployment.</strong> The house comes current{' '}
+        <strong>{cleared.mortgage_arrears?.clearedOn ?? 'not within the horizon'}</strong>.
+        The open cards — {usd0(OPEN_DEBT_BALANCE)}, the only balances with a live credit
+        line and so the only ones that move a score — clear{' '}
+        <strong>{cleared.debt_paydown_open?.clearedOn ?? 'not within the horizon'}</strong>.
+        The emergency fund then reaches {usd0(cleared.emergency_fund?.paid ?? 0)} of its{' '}
+        {usd0(cleared.emergency_fund?.cap ?? 0)} target by the time you come home. The{' '}
+        {usd0(CLOSED_DEBT_BALANCE)} on closed accounts is queued behind all of that and is
+        not reached — worth clearing eventually, but there is no credit line to free up, so
+        it does not outrank a cash reserve. Goldman and PSECU are in no line here at all:
+        both were sued on and dismissed, and paying them is a legal decision rather than a
+        scheduling one.
       </div>
 
       <h2>Uses of funds — every dollar has a job</h2>
@@ -232,10 +239,10 @@ export default function MoneyPage() {
         caption={
           <>
             Both bars are dollars on one axis, so where they cross means what it looks
-            like it means. <strong>Expenses exclude the arrears catch-up</strong> — that
-            line absorbs whatever is left by design, so including it would make every
+            like it means. <strong>Expenses are bills only</strong> — the waterfall below
+            them absorbs whatever is left by design, so including it would make every
             period look exactly break-even and tell you nothing. The gap between the bars
-            IS what goes at the arrears.
+            IS what the waterfall gets.
           </>
         }
       >
@@ -274,8 +281,8 @@ export default function MoneyPage() {
                 <th>Carried in</th>
                 <th>Committed out</th>
                 <th>Difference</th>
-                <th>To arrears</th>
-                <th>To law school</th>
+                <th>To waterfall</th>
+                <th>Filling</th>
                 <th>Carried out</th>
               </tr>
             </thead>
@@ -285,9 +292,12 @@ export default function MoneyPage() {
                   .filter((l) => l.kind !== 'arrears_catchup' && !l.swept)
                   .reduce((s, l) => s + l.requested, 0)
                 const diff = a.paycheck.net - committed
-                const toArrears =
-                  a.lines.find((l) => l.kind === 'arrears_catchup')?.allocated ?? 0
-                const toFuture = a.lines.find((l) => l.swept)?.allocated ?? 0
+                const waterfall = a.lines.filter((l) => l.swept && l.allocated > 0)
+                const toWaterfall = waterfall.reduce((s2, l) => s2 + l.allocated, 0)
+                // Which balance the money is actually landing on this payday.
+                const filling = waterfall
+                  .map((l) => l.label.split(' — ')[0] ?? l.label)
+                  .join(', ')
                 return (
                   <tr key={`io-${a.paycheck.scheduledDate}`}>
                     <td>{a.paycheck.payDate}</td>
@@ -304,10 +314,10 @@ export default function MoneyPage() {
                     </td>
                     <td>{usd(committed)}</td>
                     <td className={diff >= 0 ? 'good' : 'bad'}>{usd(diff)}</td>
-                    <td className="muted">{toArrears > 0 ? usd(toArrears) : '—'}</td>
-                    <td className={toFuture > 0 ? 'good' : 'muted'}>
-                      {toFuture > 0 ? usd(toFuture) : '—'}
+                    <td className={toWaterfall > 0 ? 'good' : 'muted'}>
+                      {toWaterfall > 0 ? usd(toWaterfall) : '—'}
                     </td>
+                    <td className="muted">{filling || '—'}</td>
                     <td className="muted">{a.remainder > 0 ? usd(a.remainder) : '—'}</td>
                   </tr>
                 )

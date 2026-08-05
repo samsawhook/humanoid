@@ -41,7 +41,7 @@ export default function JdPage() {
   const paid = (key: string) =>
     allocations.reduce((s, a) => s + (a.lines.find((l) => l.key === key)?.allocated ?? 0), 0)
 
-  const debtPaid = paid('debt_paydown')
+  const debtPaid = paid('debt_paydown_open') + paid('debt_paydown_closed')
   const savings = paid('emergency_fund')
   const mortgagePrincipal = paid('mortgage_current') * 0.3 + (cleared.mortgage_arrears?.paid ?? 0)
 
