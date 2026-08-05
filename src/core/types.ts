@@ -115,6 +115,8 @@ export interface Item {
   recurrenceRule?: string
   /** Hand-set nudge. Added to the computed score, never a replacement for it. */
   priorityHint?: number
+  /** Free text carried onto the digest and the calendar entry. */
+  notes?: string
 }
 
 export interface Commitment {

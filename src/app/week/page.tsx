@@ -1,4 +1,8 @@
 import { loadPlan } from '@/db/load'
+import { adminItemsFor } from '@/core/money/adminItems'
+import { allocateAll } from '@/core/money/allocation'
+import { OBLIGATIONS } from '@/core/money/obligations'
+import { projectPaychecks } from '@/core/money/paychecks'
 import { orderQueue } from '@/core/schedule/order'
 import {
   DEFAULT_DAY_TEMPLATE,
@@ -30,7 +34,13 @@ export default async function WeekPage() {
 
   const weekStart = startOfIsoWeek(TODAY)
   const days = Array.from({ length: 7 }, (_, i) => addLocalDays(weekStart, i))
-  const queue = orderQueue(plan.items, plan.nodes, TODAY)
+  // Payday transfers are real, dated, pinned work — they belong in the queue, not
+  // only on a finance page nobody opens at 06:00.
+  const admin = adminItemsFor(
+    allocateAll(projectPaychecks(TODAY, addLocalDays(TODAY, 60)), OBLIGATIONS),
+    plan.resolveId('money'),
+  )
+  const queue = orderQueue([...plan.items, ...admin.items], plan.nodes, TODAY)
   const orderedItems = queue.map((r) => r.item)
 
   // Template blocks reference seed slugs; resolve them to whatever ids the source uses.
@@ -194,7 +204,22 @@ export default async function WeekPage() {
             {queue.map((r, i) => (
               <tr key={r.item.id}>
                 <td className="muted">{r.pinned ? '📌' : i + 1}</td>
-                <td style={{ whiteSpace: 'normal' }}>{r.item.title}</td>
+                <td style={{ whiteSpace: 'normal' }}>
+                  {r.item.title}
+                  {r.item.notes && (
+                    <details style={{ marginTop: 2 }}>
+                      <summary className="muted" style={{ fontSize: 12, cursor: 'pointer' }}>
+                        detail
+                      </summary>
+                      <pre
+                        className="muted"
+                        style={{ fontSize: 12, whiteSpace: 'pre-wrap', margin: '4px 0 0' }}
+                      >
+                        {r.item.notes}
+                      </pre>
+                    </details>
+                  )}
+                </td>
                 <td className="muted">{r.item.effortMinutes}m</td>
                 <td className={r.pinned ? 'warn' : 'muted'} style={{ whiteSpace: 'normal' }}>
                   {r.reason}

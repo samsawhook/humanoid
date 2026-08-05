@@ -43,6 +43,16 @@ export interface Obligation {
    */
   prorate?: boolean
   /**
+   * Whether this moves on its own or you have to make it move.
+   *
+   * The distinction the whole action list rests on: an allocation table tells you
+   * where the money should go, but only some of those rows require you to open an app
+   * on the 1st and press send. Those are the ones that get missed.
+   */
+  execution?: 'automatic' | 'manual'
+  /** Where it actually happens. Shown on the action, so there is no thinking to do. */
+  howTo?: string
+  /**
    * Total to pay across all paydays before this obligation stops — a balance rather
    * than a recurring charge. The car loan has $1,800 left on it; once that is paid
    * the line disappears instead of billing forever.
@@ -54,6 +64,8 @@ export interface Obligation {
 export interface AllocationLine {
   key: string
   label: string
+  execution: 'automatic' | 'manual'
+  howTo?: string
   /** After proration. This is what the payday is actually asked for. */
   requested: number
   /** Set when proration reduced the ask, so a part-period charge is legible. */
@@ -147,6 +159,8 @@ export function allocate(
     lines.push({
       key: o.key,
       label: o.label,
+      execution: o.execution ?? 'manual',
+      ...(o.howTo ? { howTo: o.howTo } : {}),
       requested,
       ...(requested !== o.amountPerPaycheck ? { proratedFrom: o.amountPerPaycheck } : {}),
       allocated,
@@ -202,6 +216,36 @@ export function balanceClearedOn(
     out[o.key] = { cap: o.balanceCap, paid, clearedOn }
   }
   return out
+}
+
+export interface PaydayAction {
+  key: string
+  label: string
+  amount: number
+  howTo?: string
+  /** True when the amount is less than was owed — you are choosing what to underpay. */
+  partial: boolean
+  shortfall: number
+}
+
+/**
+ * What you personally have to do on a given payday.
+ *
+ * Automatic lines are excluded — they are real money but not real tasks, and putting
+ * them on a list trains you to skim it. Anything paid at less than the full ask is
+ * flagged, because a partial payment is a decision and should not slip past as a tick.
+ */
+export function paydayActions(allocation: Allocation): PaydayAction[] {
+  return allocation.lines
+    .filter((l) => l.execution === 'manual' && l.allocated > 0)
+    .map((l) => ({
+      key: l.key,
+      label: l.label,
+      amount: l.allocated,
+      ...(l.howTo ? { howTo: l.howTo } : {}),
+      partial: l.shortfall > 0,
+      shortfall: l.shortfall,
+    }))
 }
 
 export interface CashflowSummary {

@@ -70,14 +70,25 @@ export interface StackSegment {
   label: string
   value: number
   color: string
+  /**
+   * The part of this line that was asked for and NOT covered.
+   *
+   * Drawn hatched, directly above its own paid portion, in its own colour. A single
+   * red cap on top of the stack tells you that something was cut but not what — which
+   * is a chart that raises an alarm and then withholds the answer.
+   */
+  unmet?: number
+  /**
+   * Drawn faded and dashed rather than solid: present in the total but not part of
+   * what you keep. Used for tax withheld, so the solid stack height IS net pay.
+   */
+  hatched?: boolean
 }
 
 export interface StackColumn {
   label: string
   sublabel?: string
   segments: StackSegment[]
-  /** Drawn hatched above the stack — money owed that the column could not cover. */
-  shortfall?: number
   /** Reference line, e.g. net pay for that column. */
   rule?: number
 }
@@ -105,7 +116,7 @@ export function StackedBars({
   const width = padL * 2 + columns.length * colW + (columns.length - 1) * gap
 
   const max = Math.max(
-    ...columns.map((c) => c.segments.reduce((s, x) => s + x.value, 0) + (c.shortfall ?? 0)),
+    ...columns.map((c) => c.segments.reduce((s, x) => s + x.value + (x.unmet ?? 0), 0)),
     1,
   )
   const y = (v: number) => plotH - (v / max) * plotH
@@ -126,51 +137,69 @@ export function StackedBars({
           return (
             <g key={col.label}>
               {col.segments.map((seg, si) => {
-                if (seg.value <= 0) return null
-                const yTop = y(cursor + seg.value)
-                const h = Math.max(0, y(cursor) - yTop - 2) // 2px surface gap
-                cursor += seg.value
-                const isTop = si === col.segments.length - 1 && !col.shortfall
-                return (
-                  <g className="mark" key={seg.key}>
-                    <title>{`${col.label} — ${seg.label}: ${format(seg.value)}`}</title>
-                    <rect
-                      x={x}
-                      y={yTop}
-                      width={colW}
-                      height={h}
-                      fill={seg.color}
-                      rx={isTop ? 4 : 0}
-                    />
-                    {h >= minLabel && (
-                      <text
-                        x={x + colW / 2}
-                        y={yTop + h / 2 + 4}
-                        textAnchor="middle"
-                        style={{ fill: 'var(--surface-1)', fontWeight: 600 }}
-                      >
-                        {format(seg.value)}
-                      </text>
-                    )}
-                  </g>
-                )
-              })}
+                const unmet = seg.unmet ?? 0
+                if (seg.value <= 0 && unmet <= 0) return null
+                const isTop = si === col.segments.length - 1
+                const parts = []
 
-              {col.shortfall ? (
-                <g className="mark">
-                  <title>{`${col.label} — short ${format(col.shortfall)}`}</title>
-                  <rect
-                    x={x}
-                    y={y(cursor + col.shortfall)}
-                    width={colW}
-                    height={Math.max(0, y(cursor) - y(cursor + col.shortfall) - 2)}
-                    fill="url(#hatch)"
-                    stroke="var(--status-critical)"
-                    strokeWidth={1.5}
-                    rx={4}
-                  />
-                </g>
-              ) : null}
+                if (seg.value > 0) {
+                  const yTop = y(cursor + seg.value)
+                  const h = Math.max(0, y(cursor) - yTop - 2)
+                  parts.push(
+                    <g className="mark" key={seg.key}>
+                      <title>{`${col.label} — ${seg.label}: ${format(seg.value)}`}</title>
+                      <rect
+                        x={x}
+                        y={yTop}
+                        width={colW}
+                        height={h}
+                        fill={seg.color}
+                        fillOpacity={seg.hatched ? 0.18 : 1}
+                        stroke={seg.hatched ? seg.color : 'none'}
+                        strokeWidth={seg.hatched ? 1.5 : 0}
+                        strokeDasharray={seg.hatched ? '3 2' : undefined}
+                        rx={isTop && unmet <= 0 ? 4 : 0}
+                      />
+                      {h >= minLabel && !seg.hatched && (
+                        <text
+                          x={x + colW / 2}
+                          y={yTop + h / 2 + 4}
+                          textAnchor="middle"
+                          style={{ fill: 'var(--surface-1)', fontWeight: 600 }}
+                        >
+                          {format(seg.value)}
+                        </text>
+                      )}
+                    </g>,
+                  )
+                  cursor += seg.value
+                }
+
+                if (unmet > 0) {
+                  const yTop = y(cursor + unmet)
+                  const h = Math.max(0, y(cursor) - yTop - 2)
+                  parts.push(
+                    <g className="mark" key={`${seg.key}-unmet`}>
+                      <title>{`${col.label} — ${seg.label}: ${format(unmet)} NOT covered`}</title>
+                      <rect
+                        x={x}
+                        y={yTop}
+                        width={colW}
+                        height={h}
+                        fill={seg.color}
+                        fillOpacity={0.18}
+                        stroke={seg.color}
+                        strokeWidth={1.5}
+                        strokeDasharray="3 2"
+                        rx={isTop ? 4 : 0}
+                      />
+                    </g>,
+                  )
+                  cursor += unmet
+                }
+
+                return <g key={`${seg.key}-group`}>{parts}</g>
+              })}
 
               <text x={x + colW / 2} y={plotH + 15} textAnchor="middle" className="lbl">
                 {col.label}

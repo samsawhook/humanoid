@@ -1,5 +1,5 @@
 import { projectPaychecks } from '@/core/money/paychecks'
-import { allocateAll, balanceClearedOn, summarize } from '@/core/money/allocation'
+import { allocateAll, balanceClearedOn, paydayActions, summarize } from '@/core/money/allocation'
 import { OBLIGATIONS, CAR_LOAN_BALANCE, MORTGAGE_ARREARS_BALANCE } from '@/core/money/obligations'
 import { ENTITLEMENTS, TAX, TIMELINE } from '@/core/money/rates'
 import { Figure, Legend, StackedBars, TableView, Timeline, Sparkline, seriesColor } from '@/components/viz'
@@ -38,16 +38,15 @@ export default function MoneyPage() {
     label: a.paycheck.payDate.slice(5),
     sublabel: a.paycheck.czte ? 'CZTE' : '',
     segments: a.lines
-      .filter((l) => l.allocated > 0)
+      .filter((l) => l.allocated > 0 || (l.kind !== 'arrears_catchup' && l.shortfall > 0))
       .map((l) => ({
         key: l.key,
         label: l.label,
         value: l.allocated,
+        // The gauge asks for more than it can get by design; that is not a cut.
+        ...(l.kind !== 'arrears_catchup' && l.shortfall > 0 ? { unmet: l.shortfall } : {}),
         color: COLOR[l.key] ?? 'var(--series-rest)',
       })),
-    shortfall: a.lines
-      .filter((l) => l.kind !== 'arrears_catchup')
-      .reduce((s, l) => s + l.shortfall, 0),
   }))
 
   const arrearsCurve = allocations.reduce<{ label: string; value: number }[]>((acc, a) => {
@@ -102,28 +101,52 @@ export default function MoneyPage() {
 
       <h2>What each paycheck is made of</h2>
       <Figure
-        title="Earnings by entitlement, first 12 paydays"
-        caption="Gross before tax. CZTE does not change gross — it changes what survives to net, which is why the stack looks flat across the September boundary while net jumps."
+        title="Net pay by entitlement, first 12 paydays"
+        caption={
+          <>
+            The <strong>solid stack is net</strong> — what actually lands. The dashed block
+            on top is tax withheld, so the full bar height is gross. Watch it collapse at
+            the CZTE boundary: federal income tax goes to zero while FICA keeps coming out
+            of base pay, which is why the bar barely moves but net jumps{' '}
+            {usd0(
+              (allocations.find((a) => a.paycheck.czte)?.paycheck.net ?? 0) -
+                (allocations.find((a) => !a.paycheck.czte)?.paycheck.net ?? 0),
+            )}
+            .
+          </>
+        }
       >
         <StackedBars
-          height={260}
+          height={280}
           format={(n) => usd0(n)}
           columns={allocations.slice(0, 12).map((a) => ({
             label: a.paycheck.payDate.slice(5),
-            sublabel: a.paycheck.czte ? 'CZTE' : '',
-            segments: a.paycheck.lines.map((l, i) => ({
-              key: l.key,
-              label: l.label,
-              value: l.amount,
-              color: seriesColor(i),
-            })),
+            sublabel: `${a.paycheck.czte ? 'CZTE ' : ''}${usd0(a.paycheck.net)}`,
+            segments: [
+              ...a.paycheck.lines.map((l, i) => ({
+                key: l.key,
+                label: l.label,
+                value: l.amount,
+                color: seriesColor(i),
+              })),
+              {
+                key: 'withheld',
+                label: `Tax withheld (fed ${usd0(a.paycheck.federalTax)} + FICA ${usd0(a.paycheck.fica)})`,
+                value: a.paycheck.federalTax + a.paycheck.fica,
+                color: 'var(--series-rest)',
+                hatched: true,
+              },
+            ],
           }))}
         />
         <Legend
-          items={ENTITLEMENTS.map((e, i) => ({
-            label: e.label.split(' — ')[0] ?? e.key,
-            color: seriesColor(i),
-          }))}
+          items={[
+            ...ENTITLEMENTS.map((e, i) => ({
+              label: e.label.split(' — ')[0] ?? e.key,
+              color: seriesColor(i),
+            })),
+            { label: 'Tax withheld (not kept)', color: 'var(--series-rest)' },
+          ]}
         />
       </Figure>
 
@@ -132,9 +155,12 @@ export default function MoneyPage() {
         title="Allocation per payday — first 12"
         caption={
           <>
-            Stacked by obligation in payment order, bottom to top. The hatched red cap is
-            money owed that the payday could not cover, excluding the arrears gauge. Columns
-            marked CZTE carry no federal income tax.
+            Stacked by obligation in payment order, bottom to top. A dashed, faded block
+            sits directly above its own solid one and in its own colour: that is the part of{' '}
+            <em>that specific line</em> the payday could not cover, so you can see what is
+            being curtailed rather than only that something was. The arrears gauge is
+            excluded — it asks for more than it can get by design. Columns marked CZTE carry
+            no federal income tax.
           </>
         }
       >
@@ -176,6 +202,61 @@ export default function MoneyPage() {
           </table>
         </TableView>
       </Figure>
+
+      <h2>What you have to actually do, per payday</h2>
+      <p className="sub">
+        Escrow and autopay are excluded — they are real money but not real tasks, and
+        putting them on a list trains you to skim it. These are the transfers that only
+        happen if you make them happen.
+      </p>
+      {allocations.slice(0, 6).map((a) => {
+        const actions = paydayActions(a)
+        const automatic = a.lines.filter((l) => l.execution === 'automatic' && l.allocated > 0)
+        return (
+          <div className="panel" key={`act-${a.paycheck.scheduledDate}`}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+              <strong>{a.paycheck.payDate}</strong>
+              <span className="muted">
+                {usd(a.paycheck.net)} in · {actions.length} action(s) ·{' '}
+                {usd(actions.reduce((s, x) => s + x.amount, 0))} to move by hand
+              </span>
+            </div>
+            <div className="scroll">
+              <table>
+                <tbody>
+                  {actions.map((action) => (
+                    <tr key={action.key}>
+                      <td style={{ width: 24 }}>☐</td>
+                      <td style={{ whiteSpace: 'normal' }}>
+                        <strong>{action.label}</strong>
+                        {action.howTo && (
+                          <div className="muted" style={{ fontSize: 12.5 }}>
+                            {action.howTo}
+                          </div>
+                        )}
+                      </td>
+                      <td>{usd(action.amount)}</td>
+                      <td className={action.partial ? 'bad' : 'muted'}>
+                        {action.partial ? `short ${usd(action.shortfall)}` : ''}
+                      </td>
+                    </tr>
+                  ))}
+                  {actions.length === 0 && (
+                    <tr>
+                      <td className="muted">Nothing to do by hand on this payday.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {automatic.length > 0 && (
+              <div className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
+                Automatic: {automatic.map((l) => `${l.label} ${usd(l.allocated)}`).join(' · ')}
+              </div>
+            )}
+          </div>
+        )
+      })}
 
       <h2>Arrears burn-down</h2>
       <Figure

@@ -12,7 +12,10 @@
  */
 
 export type DebtPosture =
+  /** Open revolving account. Paying this down lowers utilisation. */
   | 'active'
+  /** Closed to further use. The balance is real; the credit line is gone. */
+  | 'closed'
   /** Creditor sued and the case was dismissed. */
   | 'sued_dismissed'
   | 'charged_off'
@@ -45,52 +48,56 @@ export const TEXAS_LIMITATIONS_YEARS = 4
 
 export const DEBTS: Debt[] = [
   {
-    key: 'chase',
-    label: 'Chase',
-    balance: 7290,
-    posture: 'active',
-    priority: 10,
-    note: 'Largest live account. Clearing it does the most for utilisation.',
-  },
-  {
     key: 'capital_one',
     label: 'Capital One',
     balance: 3489,
     posture: 'active',
-    priority: 20,
-    note: '',
+    priority: 10,
+    note: 'Largest OPEN balance — the one that actually moves utilisation. VERIFY still open.',
   },
   {
     key: 'citi',
     label: 'Citi',
     balance: 1777,
     posture: 'active',
-    priority: 30,
-    note: '',
+    priority: 20,
+    note: 'VERIFY still open.',
   },
   {
     key: 'platinum',
     label: 'Platinum Card',
     balance: 1198.89,
     posture: 'active',
-    priority: 40,
-    note: '',
+    priority: 30,
+    note: 'VERIFY still open.',
   },
   {
     key: 'brightway',
     label: 'Brightway',
     balance: 568,
     posture: 'active',
-    priority: 50,
-    note: 'Small enough to clear in one payday. Closing accounts entirely has its own value.',
+    priority: 40,
+    note: 'Clears in one payday. VERIFY still open.',
   },
   {
     key: 'credit_one',
     label: 'Credit One',
     balance: 454,
     posture: 'active',
-    priority: 60,
-    note: 'Smallest live balance.',
+    priority: 50,
+    note: 'Smallest open balance. VERIFY still open.',
+  },
+  {
+    key: 'chase',
+    label: 'Chase',
+    balance: 7290,
+    posture: 'closed',
+    priority: 500,
+    note:
+      'CLOSED. A closed account has no credit line, so paying it does nothing for ' +
+      'utilisation — my earlier "Chase first, it helps the score most" was simply wrong. ' +
+      'It ranks below every open account and above the dismissed ones: the balance is ' +
+      'real and unlike Goldman and PSECU there is no limitations trap in paying it.',
   },
   {
     key: 'goldman',
@@ -115,12 +122,23 @@ export const DEBTS: Debt[] = [
   },
 ]
 
+/** Everything the paydown is allowed to touch: open accounts, then closed ones. */
 export function activeDebts(debts: Debt[] = DEBTS): Debt[] {
+  return debts
+    .filter((d) => d.posture === 'active' || d.posture === 'closed')
+    .sort((a, b) => a.priority - b.priority)
+}
+
+/** Open revolving accounts only — the balances that drive utilisation. */
+export function openDebts(debts: Debt[] = DEBTS): Debt[] {
   return debts.filter((d) => d.posture === 'active').sort((a, b) => a.priority - b.priority)
 }
 
+/** Never touched by the paydown: the two that were sued on and dismissed. */
 export function deprioritisedDebts(debts: Debt[] = DEBTS): Debt[] {
-  return debts.filter((d) => d.posture !== 'active').sort((a, b) => a.priority - b.priority)
+  return debts
+    .filter((d) => d.posture === 'sued_dismissed')
+    .sort((a, b) => a.priority - b.priority)
 }
 
 export function totalBalance(debts: Debt[]): number {

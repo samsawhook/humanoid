@@ -4,6 +4,7 @@ import { projectPaychecks } from '@/core/money/paychecks'
 import { allocateAll } from '@/core/money/allocation'
 import { OBLIGATIONS } from '@/core/money/obligations'
 import { localDaysBetween, startOfIsoWeek, addLocalDays } from '@/core/time/localDay'
+import { adminItemsFor } from '@/core/money/adminItems'
 import { Figure, TableView, Timeline, seriesColor } from '@/components/viz'
 
 export const dynamic = 'force-dynamic'
@@ -19,6 +20,7 @@ const TODAY = '2026-08-05'
  */
 export default function CalendarPage() {
   const allocations = allocateAll(projectPaychecks(TODAY, '2027-08-01'), OBLIGATIONS)
+  const admin = adminItemsFor(allocations)
 
   const eras = [
     {
@@ -66,6 +68,11 @@ export default function CalendarPage() {
       date: m.targetDate!,
       kind: 'milestone',
     })),
+    ...admin.items.slice(0, 8).map((i) => ({
+      label: i.title,
+      date: i.dueAt!.toISOString().slice(0, 10),
+      kind: 'admin',
+    })),
   ]
     .map((e) => ({ ...e, days: localDaysBetween(TODAY, e.date) }))
     .filter((e) => e.days >= 0)
@@ -112,6 +119,37 @@ export default function CalendarPage() {
                 <td className={e.days <= 45 ? 'warn' : ''}>{e.days}</td>
                 <td style={{ whiteSpace: 'normal' }}>{e.label}</td>
                 <td className="muted">{e.kind}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <h2>Payday admin</h2>
+      <p className="sub">
+        Each payday&rsquo;s manual transfers, as one pinned item rather than six. Six
+        separate to-dos on the 1st is a list you learn to ignore; one item you do in a
+        single sitting is a thing that gets done.
+      </p>
+      <div className="panel scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Due</th>
+              <th>What</th>
+              <th>Est.</th>
+              <th>Detail</th>
+            </tr>
+          </thead>
+          <tbody>
+            {admin.items.slice(0, 8).map((i) => (
+              <tr key={i.id}>
+                <td>{i.dueAt!.toISOString().slice(0, 10)}</td>
+                <td>📌 {i.title}</td>
+                <td className="muted">{i.effortMinutes}m</td>
+                <td className="muted" style={{ whiteSpace: 'pre-wrap', fontSize: 12 }}>
+                  {i.notes}
+                </td>
               </tr>
             ))}
           </tbody>

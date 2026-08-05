@@ -42,6 +42,8 @@ export const OBLIGATIONS: Obligation[] = [
     activeTo: null,
     priority: 10,
     kind: 'secured_recurring',
+    execution: 'automatic',
+    howTo: 'Escrowed with the servicer. Confirm it drafted — do not send it twice.',
     note: 'Paid first, always. Missing this is what creates new arrears.',
   },
   {
@@ -54,6 +56,8 @@ export const OBLIGATIONS: Obligation[] = [
     priority: 20,
     kind: 'secured_recurring',
     balanceCap: CAR_LOAN_BALANCE,
+    execution: 'automatic',
+    howTo: 'Autopay. On the final payment, confirm it closes the loan rather than leaving $2 behind.',
     note: '$1,800 left. Capped at the balance, so it clears and then stops.',
   },
   {
@@ -70,6 +74,8 @@ export const OBLIGATIONS: Obligation[] = [
      */
     priority: 25,
     kind: 'living',
+    execution: 'manual',
+    howTo: 'Send to the nannies on the day the pay lands.',
     note:
       '$750 on each of your paydays from 2026-08-09, so the first charge lands ' +
       '2026-08-14. Not prorated — paid on your pay dates, not accrued daily. ' +
@@ -85,6 +91,7 @@ export const OBLIGATIONS: Obligation[] = [
     activeTo: TIMELINE.deploymentStart,
     priority: 30,
     kind: 'living',
+    execution: 'automatic',
     note: 'Derived from Monarch categories, excluding support sent home. See household.ts.',
   },
   {
@@ -96,6 +103,7 @@ export const OBLIGATIONS: Obligation[] = [
     activeTo: null,
     priority: 30,
     kind: 'living',
+    execution: 'automatic',
     note: 'Personal consumption collapses on deployment; the household’s does not.',
   },
   {
@@ -112,6 +120,8 @@ export const OBLIGATIONS: Obligation[] = [
     activeTo: TIMELINE.deploymentStart,
     priority: 28,
     kind: 'living',
+    execution: 'manual',
+    howTo: 'Transfer to the joint account.',
     note: '$754/mo, 12-month Monarch average.',
   },
   {
@@ -123,6 +133,8 @@ export const OBLIGATIONS: Obligation[] = [
     activeTo: null,
     priority: 28,
     kind: 'living',
+    execution: 'manual',
+    howTo: 'Transfer to the joint account. Set a standing order before you ship — this is the one that hurts if it slips.',
     note: 'Modelled 40% higher: while away this becomes the funding channel, not a top-up.',
   },
   {
@@ -134,6 +146,7 @@ export const OBLIGATIONS: Obligation[] = [
     activeTo: null,
     priority: 35,
     kind: 'secured_recurring',
+    execution: 'automatic',
     note: '$461/mo, paid on the 1st.',
   },
   {
@@ -145,6 +158,8 @@ export const OBLIGATIONS: Obligation[] = [
     activeTo: null,
     priority: 40,
     kind: 'unsecured_debt',
+    execution: 'manual',
+    howTo: 'Pay the live accounts in order — Chase first. NEVER Goldman or PSECU; see debts.ts.',
     note:
       'Targets the six LIVE accounts (~$14.8k), not Goldman or PSECU. Those were sued ' +
       'on and dismissed; paying them is a legal decision, not a scheduling one. See debts.ts.',
@@ -158,6 +173,8 @@ export const OBLIGATIONS: Obligation[] = [
     activeTo: null,
     priority: 50,
     kind: 'savings',
+    execution: 'manual',
+    howTo: 'Move to a separate account you do not carry a card for.',
     note: 'Liquid balances are near zero. This is the first thing that should exist.',
   },
   {
@@ -176,6 +193,8 @@ export const OBLIGATIONS: Obligation[] = [
     priority: 60,
     kind: 'arrears_catchup',
     balanceCap: MORTGAGE_ARREARS_BALANCE,
+    execution: 'manual',
+    howTo: 'Extra principal payment to the servicer, marked for arrears — not as a prepayment.',
     note:
       'THE PRESSURE GAUGE. Last in priority on purpose: everything else is paid at ' +
       'its real cost and this absorbs what is left, so the clearance date is a ' +
