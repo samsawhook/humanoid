@@ -1,5 +1,11 @@
 import { projectPaychecks } from '@/core/money/paychecks'
-import { allocateAll, balanceClearedOn, paydayActions, summarize } from '@/core/money/allocation'
+import {
+  allocateAll,
+  balanceClearedOn,
+  paydayActions,
+  steadyMonthlySlack,
+  summarize,
+} from '@/core/money/allocation'
 import { OBLIGATIONS, CAR_LOAN_BALANCE, MORTGAGE_ARREARS_BALANCE } from '@/core/money/obligations'
 import { ENTITLEMENTS, TAX, TIMELINE } from '@/core/money/rates'
 import {
@@ -32,9 +38,10 @@ const COLOR: Record<string, string> = {
   support_home: seriesColor(4),
   support_home_deployed: seriesColor(4),
   nth_investments: seriesColor(5),
-  debt_paydown: 'var(--series-rest)',
-  emergency_fund: 'var(--series-rest)',
+  debt_paydown: seriesColor(6),
+  emergency_fund: seriesColor(7),
   mortgage_arrears: 'var(--accent)',
+  future_fund: 'var(--series-rest)',
 }
 
 export default function MoneyPage() {
@@ -42,6 +49,7 @@ export default function MoneyPage() {
   const allocations = allocateAll(paychecks, OBLIGATIONS)
   const summary = summarize(allocations)
   const cleared = balanceClearedOn(allocations, OBLIGATIONS)
+  const steadySlack = steadyMonthlySlack(allocations)
 
   const columns = allocations.slice(0, 12).map((a) => ({
     label: a.paycheck.payDate.slice(5),
@@ -70,6 +78,38 @@ export default function MoneyPage() {
     color: COLOR[o.key] ?? 'var(--series-rest)',
   }))
 
+  /**
+   * Every dollar, one destination. Sums allocations across the whole horizon, so the
+   * parts add exactly to net income — no "miscellaneous", no residue. The last row is
+   * cash still in hand at the end of the horizon, which is a job too: it is what funds
+   * the 1st, and it is the only row that is not yet spent.
+   */
+  const usesOfFunds = (() => {
+    const byKey = new Map<string, number>()
+    for (const a of allocations) {
+      for (const l of a.lines) {
+        byKey.set(l.key, (byKey.get(l.key) ?? 0) + l.allocated)
+      }
+    }
+    const rows = OBLIGATIONS.filter((o) => (byKey.get(o.key) ?? 0) > 0.005).map((o) => ({
+      key: o.key,
+      label: o.label.split(' — ')[0] ?? o.label,
+      value: Math.round(byKey.get(o.key) ?? 0),
+      color: COLOR[o.key] ?? 'var(--series-rest)',
+    }))
+    const closing = Math.round(allocations[allocations.length - 1]?.remainder ?? 0)
+    if (closing > 0) {
+      rows.push({
+        key: 'buffer',
+        label: 'Still in hand (funds the next 1st)',
+        value: closing,
+        color: 'var(--series-rest)',
+      })
+    }
+    const assigned = rows.reduce((s, r) => s + r.value, 0)
+    return { rows, assigned }
+  })()
+
   return (
     <>
       <h1>Money</h1>
@@ -81,10 +121,15 @@ export default function MoneyPage() {
       <div className="cards">
         <Card k="Net income" v={usd0(summary.totalNet)} />
         <Card
-          k="Unmet obligations"
+          k="Bills unpaid"
           v={usd0(summary.bindingShortfall)}
           tone={summary.bindingShortfall > 0 ? 'bad' : 'good'}
           sub={`${summary.bindingShortPaydays.length} of ${summary.paychecks} paydays`}
+        />
+        <Card
+          k="Savings targets missed"
+          v={usd0(summary.targetShortfall)}
+          sub="a gap to argue with, not a bill"
         />
         <Card
           k="Car paid off"
@@ -108,6 +153,74 @@ export default function MoneyPage() {
         crisis while every actual bill was covered.
       </div>
 
+      <div className="note">
+        <strong>Right now the gauge reads roughly zero, and that is the finding.</strong>{' '}
+        After every genuinely committed line — mortgage, truck, nannies, household,
+        support home, Nth — steady-state slack is about{' '}
+        <strong>{usd0(steadySlack)} a month</strong>. Sitting above the gauge are two
+        targets that are aspirations rather than bills: {usd0(2 * 500)}/mo of unsecured
+        paydown and {usd0(2 * 250)}/mo into the emergency fund. Together they ask{' '}
+        {usd0(1500)} against {usd0(steadySlack)} available, so they absorb all of it and
+        the arrears never move. Three claims, one pot — the order between them is a
+        decision, not a calculation, and it is currently set to pay unsecured debt first.
+      </div>
+
+      <h2>Uses of funds — every dollar has a job</h2>
+      <Figure
+        title={`Where all ${usd0(usesOfFunds.assigned)} of net pay goes, ${HORIZON_START} → ${HORIZON_END}`}
+        caption={
+          <>
+            One bar, sliced by destination. There is deliberately no{' '}
+            <em>miscellaneous</em> and no remainder: the law-school sweep takes whatever
+            survives, so the slices add to net pay exactly. Money without a named
+            destination is the money that disappears.
+            {usesOfFunds.rows.some((r) => r.key === 'buffer') && (
+              <>
+                {' '}
+                The last slice is cash still in hand at the horizon — not spare, but
+                reserved: the 1st carries the mortgage and the truck while the 15th is
+                light, so a buffer has to survive the 15th for the 1st to clear.
+              </>
+            )}
+          </>
+        }
+      >
+        <StackedBars
+          height={120}
+          format={(n) => usd0(n)}
+          columns={[
+            {
+              label: 'All paydays',
+              sublabel: usd0(usesOfFunds.assigned),
+              segments: usesOfFunds.rows,
+            },
+          ]}
+        />
+        <Legend items={usesOfFunds.rows.map((r) => ({ label: r.label, color: r.color }))} />
+        <TableView>
+          <table>
+            <thead>
+              <tr>
+                <th>Destination</th>
+                <th>Total</th>
+                <th>Share</th>
+              </tr>
+            </thead>
+            <tbody>
+              {usesOfFunds.rows.map((r) => (
+                <tr key={`uof-${r.key}`}>
+                  <td>{r.label}</td>
+                  <td>{usd0(r.value)}</td>
+                  <td className="muted">
+                    {((r.value / usesOfFunds.assigned) * 100).toFixed(1)}%
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TableView>
+      </Figure>
+
       <h2>In against out, per pay period</h2>
       <Figure
         title="Net income vs committed expenses"
@@ -126,7 +239,7 @@ export default function MoneyPage() {
           format={(n) => usd0(n)}
           columns={allocations.slice(0, 12).map((a) => {
             const committed = a.lines
-              .filter((l) => l.kind !== 'arrears_catchup')
+              .filter((l) => l.kind !== 'arrears_catchup' && !l.swept)
               .reduce((s, l) => s + l.requested, 0)
             return {
               label: a.paycheck.payDate.slice(5),
@@ -153,20 +266,23 @@ export default function MoneyPage() {
                 <th>Tax</th>
                 <th>Deducted</th>
                 <th>Net in</th>
+                <th>Carried in</th>
                 <th>Committed out</th>
                 <th>Difference</th>
                 <th>To arrears</th>
-                <th>Left</th>
+                <th>To law school</th>
+                <th>Carried out</th>
               </tr>
             </thead>
             <tbody>
               {allocations.map((a) => {
                 const committed = a.lines
-                  .filter((l) => l.kind !== 'arrears_catchup')
+                  .filter((l) => l.kind !== 'arrears_catchup' && !l.swept)
                   .reduce((s, l) => s + l.requested, 0)
                 const diff = a.paycheck.net - committed
                 const toArrears =
                   a.lines.find((l) => l.kind === 'arrears_catchup')?.allocated ?? 0
+                const toFuture = a.lines.find((l) => l.swept)?.allocated ?? 0
                 return (
                   <tr key={`io-${a.paycheck.scheduledDate}`}>
                     <td>{a.paycheck.payDate}</td>
@@ -178,10 +294,16 @@ export default function MoneyPage() {
                       {a.paycheck.deductionsTotal > 0 ? usd(a.paycheck.deductionsTotal) : '—'}
                     </td>
                     <td>{usd(a.paycheck.net)}</td>
+                    <td className="muted">
+                      {a.openingBuffer > 0 ? usd(a.openingBuffer) : '—'}
+                    </td>
                     <td>{usd(committed)}</td>
                     <td className={diff >= 0 ? 'good' : 'bad'}>{usd(diff)}</td>
-                    <td className="muted">{usd(toArrears)}</td>
-                    <td className={a.remainder > 0 ? 'good' : 'muted'}>{usd(a.remainder)}</td>
+                    <td className="muted">{toArrears > 0 ? usd(toArrears) : '—'}</td>
+                    <td className={toFuture > 0 ? 'good' : 'muted'}>
+                      {toFuture > 0 ? usd(toFuture) : '—'}
+                    </td>
+                    <td className="muted">{a.remainder > 0 ? usd(a.remainder) : '—'}</td>
                   </tr>
                 )
               })}

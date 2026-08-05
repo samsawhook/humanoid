@@ -27,6 +27,9 @@ import { householdTotals } from './household'
 const HOME = householdTotals('home')
 const DEPLOYED = householdTotals('deployed')
 
+/** One month of household running costs. Capped, so it completes rather than billing forever. */
+export const EMERGENCY_FUND_TARGET = 4500
+
 /** Four months behind at roughly $1,300 a month. */
 export const MORTGAGE_ARREARS_BALANCE = 5200
 /** What is actually left on the auto loan — it pays off and the line disappears. */
@@ -68,8 +71,10 @@ export const OBLIGATIONS: Obligation[] = [
     label: 'Nannies',
     amountPerPaycheck: 750,
     payDays: 'both',
-    activeFrom: '2026-08-09',
+    activeFrom: '2026-08-07',
     activeTo: null,
+    /** First payday covers one week, not two — the nannies start on the 7th. */
+    firstPeriodAmount: 375,
     /**
      * Above household spend, below the secured lines. The house forecloses and the
      * truck gets repossessed; nannies quit, and childcare failing while you are
@@ -80,8 +85,9 @@ export const OBLIGATIONS: Obligation[] = [
     execution: 'manual',
     howTo: 'Send to the nannies on the day the pay lands.',
     note:
-      '$750 on each of your paydays from 2026-08-09, so the first charge lands ' +
-      '2026-08-14. Not prorated — paid on your pay dates, not accrued daily. ' +
+      '$750 on each of your paydays from 2026-08-07; the first charge lands 2026-08-14 ' +
+      'at $375, being one week rather than two. Not day-prorated after that — paid on ' +
+      'your pay dates. ' +
       'Confirmed new spend: nothing resembling childcare appears anywhere in the ' +
       'Monarch history, so this is additive to the household line, not inside it.',
   },
@@ -144,13 +150,13 @@ export const OBLIGATIONS: Obligation[] = [
     key: 'nth_investments',
     label: 'Nth Investments',
     amountPerPaycheck: 461,
-    payDays: 'first',
+    payDays: 'fifteenth',
     activeFrom: null,
     activeTo: null,
     priority: 35,
     kind: 'secured_recurring',
     execution: 'automatic',
-    note: '$461/mo, paid on the 1st.',
+    note: '$461/mo, billed on the 15th.',
   },
   {
     key: 'debt_paydown',
@@ -161,11 +167,16 @@ export const OBLIGATIONS: Obligation[] = [
     activeTo: null,
     priority: 40,
     kind: 'unsecured_debt',
+    /** A figure I picked, not one a creditor demands. See Obligation.target. */
+    target: true,
     execution: 'manual',
-    howTo: 'Pay the live accounts in order — Chase first. NEVER Goldman or PSECU; see debts.ts.',
+    howTo:
+      'Open accounts first — Platinum, Brightway, Credit One. Only those three still ' +
+      'have a credit line, so only those move utilisation. NEVER Goldman or PSECU.',
     note:
-      'Targets the six LIVE accounts (~$14.8k), not Goldman or PSECU. Those were sued ' +
-      'on and dismissed; paying them is a legal decision, not a scheduling one. See debts.ts.',
+      'The three OPEN accounts total $2,221; the closed Citi/Capital One/Chase balances ' +
+      '($12.6k) are real but buy no score improvement. Goldman and PSECU were sued on ' +
+      'and dismissed — paying those is a legal decision, not a scheduling one. See debts.ts.',
   },
   {
     key: 'emergency_fund',
@@ -176,6 +187,8 @@ export const OBLIGATIONS: Obligation[] = [
     activeTo: null,
     priority: 50,
     kind: 'savings',
+    target: true,
+    balanceCap: EMERGENCY_FUND_TARGET,
     execution: 'manual',
     howTo: 'Move to a separate account you do not carry a card for.',
     note: 'Liquid balances are near zero. This is the first thing that should exist.',
@@ -202,5 +215,27 @@ export const OBLIGATIONS: Obligation[] = [
       'THE PRESSURE GAUGE. Last in priority on purpose: everything else is paid at ' +
       'its real cost and this absorbs what is left, so the clearance date is a ' +
       'measurement rather than a hope.',
+  },
+  {
+    key: 'future_fund',
+    label: 'Law school fund — everything left',
+    /**
+     * The terminal line: it takes whatever survives, so the remainder is always zero
+     * and every dollar has a named destination. Unassigned money is the money that
+     * disappears, and this is the first year of your life where a surplus exists at
+     * all — it should not be discovered accidentally at the end of a month.
+     */
+    amountPerPaycheck: 0,
+    sweep: true,
+    payDays: 'both',
+    activeFrom: null,
+    activeTo: null,
+    priority: 999,
+    kind: 'savings',
+    execution: 'manual',
+    howTo: 'Move to the law-school account the same day. If it stays in checking, it is spent.',
+    note:
+      'Sweeps the remainder. Zero on most paydays while the arrears run; it starts ' +
+      'filling once those clear.',
   },
 ]

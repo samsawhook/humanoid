@@ -4,6 +4,7 @@ import {
   allocate,
   allocateAll,
   balanceClearedOn,
+  steadyMonthlySlack,
   summarize,
   type Obligation,
 } from '@/core/money/allocation'
@@ -142,10 +143,38 @@ describe('allocation', () => {
     expect(result.remainder).toBe(0)
   })
 
-  it('never allocates more than the paycheck holds', () => {
+  it('never allocates more than the payday actually has in hand', () => {
+    // Not "more than the paycheck" — a payday can spend last payday's leftover too.
+    // What it can never do is spend money that does not exist.
     for (const a of allocateAll(projectPaychecks('2026-08-01', '2027-06-01'), OBLIGATIONS)) {
-      expect(a.totalAllocated).toBeLessThanOrEqual(a.paycheck.net + 0.001)
+      expect(a.totalAllocated).toBeLessThanOrEqual(a.paycheck.net + a.openingBuffer + 0.001)
       expect(a.remainder).toBeGreaterThanOrEqual(0)
+    }
+  })
+
+  it('carries the leftover forward instead of dropping it on the floor', () => {
+    const all = allocateAll(projectPaychecks('2026-08-01', '2027-06-01'), OBLIGATIONS)
+    expect(all[0]?.openingBuffer).toBe(0)
+    for (let i = 1; i < all.length; i++) {
+      expect(all[i]!.openingBuffer).toBe(all[i - 1]!.remainder)
+    }
+  })
+
+  /**
+   * The 1st carries the mortgage and the truck; the 15th carries comparatively little.
+   * Allocating each payday in isolation made the 1st look insolvent while the 15th
+   * handed its surplus to the arrears gauge — a fake shortfall paid for with real money.
+   */
+  it('does not drain the gauge past the point where a later payday comes up short', () => {
+    const all = allocateAll(projectPaychecks('2026-08-01', '2027-06-01'), OBLIGATIONS)
+    for (const a of all) {
+      const gauge = a.lines.find((l) => l.kind === 'arrears_catchup')
+      if (!gauge || gauge.allocated === 0) continue
+      // Anything the gauge took was genuinely spare: no committed line went unpaid here.
+      const committedShort = a.lines
+        .filter((l) => l.kind !== 'arrears_catchup')
+        .reduce((s, l) => s + l.shortfall, 0)
+      expect(committedShort).toBe(0)
     }
   })
 
@@ -222,16 +251,44 @@ describe('the real plan', () => {
     expect(after.every((a) => !a.lines.some((l) => l.key === 'car_payoff'))).toBe(true)
   })
 
-  it('cures the arrears at whatever rate the paydays allow, and stops there', () => {
+  /**
+   * The gauge reads ZERO, and that is the finding — not a bug to tune away.
+   *
+   * It is last in priority, so it only ever sees what survives everything above it.
+   * Above it sit two lines I invented rather than obligations you owe: $1,000/mo of
+   * unsecured debt paydown and $500/mo into an emergency fund. Steady-state slack after
+   * the genuinely committed lines is about $808/mo, so those two absorb all of it and
+   * the arrears never move.
+   *
+   * The gauge was built to answer "how fast can I actually cure this". The honest
+   * answer, at these targets, is "not at all" — which is information about the targets.
+   */
+  it('separates a bill going unpaid from a savings target going unfunded', () => {
+    // Both are shortfalls; only one is a missed payment. Reporting them as one number
+    // makes a solvent month read like a crisis.
+    expect(summary.targetShortfall).toBeGreaterThan(0)
+    expect(summary.bindingShortfall).toBeLessThan(summary.targetShortfall)
+
+    for (const a of allocations) {
+      for (const l of a.lines.filter((x) => x.target)) {
+        expect(['debt_paydown', 'emergency_fund']).toContain(l.key)
+      }
+    }
+  })
+
+  it('measures the pot the flexible claims compete for, excluding the claims themselves', () => {
+    const slack = steadyMonthlySlack(allocations)
+    // Roughly $800/mo against ~$4,100/mo of flexible asks. The exact figure moves with
+    // every upstream correction; what must hold is that it is real, positive, and far
+    // smaller than what is being asked of it.
+    expect(slack).toBeGreaterThan(0)
+    expect(slack).toBeLessThan(2 * 500 + 2 * 250) // less than the savings targets alone
+  })
+
+  it('reports the arrears uncured, because the savings targets above it eat the slack', () => {
     expect(cleared.mortgage_arrears?.cap).toBe(MORTGAGE_ARREARS_BALANCE)
-    expect(cleared.mortgage_arrears?.paid).toBe(MORTGAGE_ARREARS_BALANCE)
-    // A measurement, not a target — this date falls out of the plan rather than setting
-    // it, and it moves whenever anything upstream does: 01-15 with the deployed
-    // household profile, back to 02-15 when home improvement was corrected upward,
-    // forward again to 01-15 once the car turned out to bill monthly rather than
-    // twice a month, then back to 03-15 when the SGLI and DFAC deductions landed.
-    // Each move is the gauge doing its job: it is the slack, so it absorbs everything.
-    expect(cleared.mortgage_arrears?.clearedOn).toBe('2027-03-15')
+    expect(cleared.mortgage_arrears?.clearedOn).toBe(null)
+    expect(cleared.mortgage_arrears?.paid).toBeLessThan(MORTGAGE_ARREARS_BALANCE)
   })
 
   /**

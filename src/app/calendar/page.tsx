@@ -184,7 +184,7 @@ export default function CalendarPage() {
                     <td className="muted">
                       {biggest ? `${biggest.label} $${biggest.allocated.toLocaleString()}` : '—'}
                     </td>
-                    <td className={a.remainder > 0 ? 'good' : 'muted'}>
+                    <td className="muted">
                       ${a.remainder.toLocaleString()}
                     </td>
                   </tr>

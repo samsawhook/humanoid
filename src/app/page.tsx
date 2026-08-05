@@ -74,7 +74,7 @@ export default function HomePage() {
                 </li>
               ))}
             </ul>
-            <div className="muted">Left over: ${next.remainder.toLocaleString()}</div>
+            <div className="muted">Carried to next payday: ${next.remainder.toLocaleString()}</div>
           </>
         ) : (
           <span className="muted">No paydays in range.</span>

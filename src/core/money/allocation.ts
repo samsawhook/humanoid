@@ -49,6 +49,30 @@ export interface Obligation {
    * where the money should go, but only some of those rows require you to open an app
    * on the 1st and press send. Those are the ones that get missed.
    */
+  /**
+   * A known one-off for the first payday this applies to — a part-week of childcare,
+   * a pro-rata first bill. Cleaner than fighting the day-proration maths when you
+   * already know what the first invoice says.
+   */
+  firstPeriodAmount?: number
+  /**
+   * A goal you set, not a bill you owe.
+   *
+   * The emergency fund and the debt paydown are figures chosen from ambition; the
+   * mortgage is a figure chosen by the servicer. Underfunding the first is a plan
+   * adjusting to reality, underfunding the second is a missed payment, and reporting
+   * them in one number makes a solvent month read like a crisis. Targets still hold
+   * their priority slot — they just do not count as obligations gone unpaid.
+   */
+  target?: boolean
+  /**
+   * Takes whatever is left rather than a fixed amount.
+   *
+   * The terminal line. Without one, "remainder" is a quiet pile of unassigned money —
+   * and unassigned money is the money that disappears. A sweep gives every dollar a
+   * named destination by construction.
+   */
+  sweep?: boolean
   execution?: 'automatic' | 'manual'
   /** Where it actually happens. Shown on the action, so there is no thinking to do. */
   howTo?: string
@@ -64,6 +88,10 @@ export interface Obligation {
 export interface AllocationLine {
   key: string
   label: string
+  /** True when this line took the remainder rather than asking for a set figure. */
+  swept?: boolean
+  /** True when this is a goal you set rather than a bill you owe. See `Obligation.target`. */
+  target?: boolean
   execution: 'automatic' | 'manual'
   howTo?: string
   /** After proration. This is what the payday is actually asked for. */
@@ -80,7 +108,13 @@ export interface Allocation {
   lines: AllocationLine[]
   totalRequested: number
   totalAllocated: number
-  /** Money left after everything that could be paid, was. */
+  /** Cash carried in from the previous payday. */
+  openingBuffer: number
+  /**
+   * Money left after everything that could be paid, was — and therefore carried
+   * forward to the next payday. Not "spare": it is what funds the 1st, which is
+   * front-loaded with the mortgage and the truck while the 15th is comparatively light.
+   */
   remainder: number
   /** Money that was owed and could not be covered. The number that matters. */
   totalShortfall: number
@@ -126,6 +160,34 @@ function requestedAmount(obligation: Obligation, paycheck: Paycheck): number {
   return round2((obligation.amountPerPaycheck * coveredDays) / periodDays)
 }
 
+/** The pressure gauge's kind. Excluded from binding shortfall; squeezed by the reserve. */
+const GAUGE: ObligationKind = 'arrears_catchup'
+
+/**
+ * Lines that exist to absorb slack rather than to pay a bill on a date.
+ *
+ * The arrears gauge and the terminal sweep are both "whatever is left" lines. They are
+ * the only ones allowed to be squeezed by the forward reserve, because they are the
+ * only ones where paying less this fortnight costs nothing but time.
+ */
+function isDiscretionary(o: Obligation): boolean {
+  return o.sweep === true || o.kind === GAUGE
+}
+
+export interface AllocateOptions {
+  /** Cumulative paid per obligation key so far. Only matters for `balanceCap`. */
+  paidSoFar?: Record<string, number>
+  /** Which obligations have already been billed at least once, for firstPeriodAmount. */
+  seen?: Set<string>
+  /** Cash carried in from the previous payday. */
+  openingBuffer?: number
+  /**
+   * The most the discretionary lines may take. Everything above that stays in the
+   * buffer for a later payday that would otherwise come up short.
+   */
+  drainCeiling?: number
+}
+
 /**
  * Strict priority, not proportional. A partial mortgage payment and a partial car
  * payment is worse than one whole payment — cure the roof first, then the truck.
@@ -133,18 +195,28 @@ function requestedAmount(obligation: Obligation, paycheck: Paycheck): number {
 export function allocate(
   paycheck: Paycheck,
   obligations: Obligation[],
-  /** Cumulative paid per obligation key so far. Only matters for `balanceCap`. */
-  paidSoFar: Record<string, number> = {},
+  opts: AllocateOptions = {},
 ): Allocation {
+  const { paidSoFar = {}, seen = new Set<string>(), openingBuffer = 0 } = opts
+  let drainLeft = opts.drainCeiling ?? Infinity
+
   const due = obligations
     .filter((o) => appliesOn(o, paycheck))
     .sort((a, b) => a.priority - b.priority)
 
-  let available = paycheck.net
+  let available = round2(paycheck.net + openingBuffer)
   const lines: AllocationLine[] = []
 
   for (const o of due) {
-    let requested = requestedAmount(o, paycheck)
+    const discretionary = isDiscretionary(o)
+    const ceiling = discretionary ? Math.min(available, drainLeft) : available
+
+    let requested = o.sweep
+      ? Math.max(0, ceiling)
+      : o.firstPeriodAmount !== undefined && !seen.has(o.key)
+        ? o.firstPeriodAmount
+        : requestedAmount(o, paycheck)
+    seen.add(o.key)
 
     if (o.balanceCap !== undefined) {
       const remaining = round2(o.balanceCap - (paidSoFar[o.key] ?? 0))
@@ -154,15 +226,21 @@ export function allocate(
 
     if (requested <= 0) continue
 
-    const allocated = round2(Math.max(0, Math.min(available, requested)))
+    const allocated = round2(Math.max(0, Math.min(ceiling, requested)))
     available = round2(available - allocated)
+    if (discretionary) drainLeft = round2(drainLeft - allocated)
+
     lines.push({
       key: o.key,
       label: o.label,
+      ...(o.sweep ? { swept: true } : {}),
+      ...(o.target ? { target: true } : {}),
       execution: o.execution ?? 'manual',
       ...(o.howTo ? { howTo: o.howTo } : {}),
       requested,
-      ...(requested !== o.amountPerPaycheck ? { proratedFrom: o.amountPerPaycheck } : {}),
+      ...(!o.sweep && requested !== o.amountPerPaycheck
+        ? { proratedFrom: o.amountPerPaycheck }
+        : {}),
       allocated,
       shortfall: round2(requested - allocated),
       kind: o.kind,
@@ -177,21 +255,82 @@ export function allocate(
     lines,
     totalRequested,
     totalAllocated,
+    openingBuffer: round2(openingBuffer),
     remainder: round2(available),
     totalShortfall: round2(lines.reduce((s, l) => s + l.shortfall, 0)),
   }
 }
 
-export function allocateAll(paychecks: Paycheck[], obligations: Obligation[]): Allocation[] {
-  // Balances are cumulative across paydays, so this has to walk them in order.
+/** One forward walk, carrying the buffer between paydays. */
+function walk(
+  paychecks: Paycheck[],
+  obligations: Obligation[],
+  ceilingAt: (index: number) => number,
+  onAllocated: (a: Allocation) => void = () => {},
+): Allocation[] {
   const paidSoFar: Record<string, number> = {}
-  return paychecks.map((p) => {
-    const a = allocate(p, obligations, paidSoFar)
+  const seen = new Set<string>()
+  let buffer = 0
+  const out: Allocation[] = []
+  paychecks.forEach((p, i) => {
+    const a = allocate(p, obligations, {
+      paidSoFar,
+      seen,
+      openingBuffer: buffer,
+      drainCeiling: ceilingAt(i),
+    })
     for (const line of a.lines) {
       paidSoFar[line.key] = round2((paidSoFar[line.key] ?? 0) + line.allocated)
     }
-    return a
+    buffer = a.remainder
+    onAllocated(a)
+    out.push(a)
   })
+  return out
+}
+
+/**
+ * Two passes, because the 1st and the 15th are not independent.
+ *
+ * The 1st carries the mortgage and the truck; the 15th carries comparatively little.
+ * Allocating each paycheck in isolation makes the 1st look insolvent while the 15th
+ * hands its surplus to the arrears — a fake shortfall paid for with real money.
+ *
+ *  - **Forward pass** funds every committed obligation, letting the leftover carry.
+ *  - **Backward pass** takes the suffix minimum of those buffers. Draining `x` at one
+ *    payday lowers every later buffer by `x`, so the most that can safely leave on
+ *    payday `i` is the smallest buffer from `i` onward. Anything more would create a
+ *    shortfall later that the money on hand could have prevented.
+ *  - **Second forward pass** replays with that ceiling, so the gauge and the sweep
+ *    take only what is genuinely spare.
+ *
+ * Same shape as the planner's own two-pass: backward for what is required, forward for
+ * what is available, and the gap stated rather than smoothed away.
+ */
+export function allocateAll(paychecks: Paycheck[], obligations: Obligation[]): Allocation[] {
+  const committed = walk(paychecks, obligations, () => 0)
+
+  const suffixMin: number[] = new Array(committed.length)
+  let running = Infinity
+  for (let i = committed.length - 1; i >= 0; i--) {
+    running = Math.min(running, committed[i]!.remainder)
+    suffixMin[i] = running
+  }
+
+  let drained = 0
+  return walk(
+    paychecks,
+    obligations,
+    (i) => Math.max(0, round2((suffixMin[i] ?? 0) - drained)),
+    (a) => {
+      drained = round2(
+        drained +
+          a.lines
+            .filter((l) => l.kind === GAUGE || l.swept)
+            .reduce((s, l) => s + l.allocated, 0),
+      )
+    },
+  )
 }
 
 /**
@@ -258,28 +397,58 @@ export interface CashflowSummary {
   shortPaydays: LocalDate[]
   firstShortPayday: LocalDate | null
   /**
-   * Shortfall on everything EXCEPT the pressure gauge.
+   * Shortfall on bills you actually owe — excluding the pressure gauge and excluding
+   * savings targets.
    *
-   * The arrears line deliberately asks for more than it can get — that is how it
-   * measures available slack. Counting its unmet ask as a failure would make the
-   * headline read like a crisis when every real obligation is covered. This is the
-   * number that actually means "something did not get paid".
+   * The arrears line deliberately asks for more than it can get; that is how it measures
+   * slack. The savings targets are ambitions, and an ambition going partly unfunded is
+   * the plan meeting reality, not a payment missed. Counting either as a failure would
+   * make the headline read like a crisis while every real obligation was covered. This
+   * is the number that actually means "something did not get paid".
    */
   bindingShortfall: number
   bindingShortPaydays: LocalDate[]
   firstBindingShortPayday: LocalDate | null
+  /** How far short the savings targets fell. A gap to argue with, not a bill missed. */
+  targetShortfall: number
 }
 
-/** The gauge kind, excluded from binding shortfall. */
-const GAUGE: ObligationKind = 'arrears_catchup'
+/**
+ * Average monthly cash left after every committed bill — the size of the pot that the
+ * savings targets, the arrears gauge and the law-school sweep are all competing for.
+ *
+ * Deliberately excludes targets, the gauge and the sweep: including any of them would
+ * fold a claim on the pot into the measurement of the pot.
+ */
+export function steadyMonthlySlack(allocations: Allocation[]): number {
+  if (allocations.length === 0) return 0
+  const total = allocations.reduce((s, a) => {
+    const bills = a.lines
+      .filter((l) => l.kind !== GAUGE && !l.swept && !l.target)
+      .reduce((t, l) => t + l.requested, 0)
+    return s + (a.paycheck.net - bills)
+  }, 0)
+  // Two paydays a month, so the per-month figure is the per-payday average doubled.
+  return round2((total / allocations.length) * 2)
+}
 
 export function summarize(allocations: Allocation[]): CashflowSummary {
   const short = allocations.filter((a) => a.totalShortfall > 0)
   const bindingOf = (a: Allocation) =>
-    round2(a.lines.filter((l) => l.kind !== GAUGE).reduce((s, l) => s + l.shortfall, 0))
+    round2(
+      a.lines
+        .filter((l) => l.kind !== GAUGE && !l.target)
+        .reduce((s, l) => s + l.shortfall, 0),
+    )
   const bindingShort = allocations.filter((a) => bindingOf(a) > 0)
 
   return {
+    targetShortfall: round2(
+      allocations.reduce(
+        (s, a) => s + a.lines.filter((l) => l.target).reduce((t, l) => t + l.shortfall, 0),
+        0,
+      ),
+    ),
     bindingShortfall: round2(allocations.reduce((s, a) => s + bindingOf(a), 0)),
     bindingShortPaydays: bindingShort.map((a) => a.paycheck.payDate),
     firstBindingShortPayday: bindingShort[0]?.paycheck.payDate ?? null,

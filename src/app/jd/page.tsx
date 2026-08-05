@@ -12,7 +12,7 @@ import {
 import { EXPENSE_CATEGORIES, SUPPORT_HOME, householdTotals, TRICARE_SELECT_RESERVE } from '@/core/money/household'
 import { projectPaychecks } from '@/core/money/paychecks'
 import { allocateAll, balanceClearedOn } from '@/core/money/allocation'
-import { OBLIGATIONS } from '@/core/money/obligations'
+import { OBLIGATIONS, MORTGAGE_ARREARS_BALANCE } from '@/core/money/obligations'
 import { TIMELINE } from '@/core/money/rates'
 import {
   DEBTS,
@@ -133,7 +133,7 @@ export default function JdPage() {
 
       <Figure
         title="Opening vs projected, by line"
-        caption={`Projection applies the cash-flow model: car cleared ${cleared.car_payoff?.clearedOn ?? '—'}, arrears cured ${cleared.mortgage_arrears?.clearedOn ?? '—'}, ${usd0(debtPaid)} against unsecured debt and ${usd0(savings)} saved. No market appreciation or vehicle depreciation — guessing at either would add noise to a number whose job is to be roughly right.`}
+        caption={`Projection applies the cash-flow model: car cleared ${cleared.car_payoff?.clearedOn ?? '—'}, arrears ${cleared.mortgage_arrears?.clearedOn ? `cured ${cleared.mortgage_arrears.clearedOn}` : `still open — only ${usd0(cleared.mortgage_arrears?.paid ?? 0)} of ${usd0(MORTGAGE_ARREARS_BALANCE)} paid, because the savings targets above the gauge absorb the slack`}, ${usd0(debtPaid)} against unsecured debt and ${usd0(savings)} saved. No market appreciation or vehicle depreciation — guessing at either would add noise to a number whose job is to be roughly right.`}
       >
         <div className="scroll">
           <table>
