@@ -158,10 +158,10 @@ export default function CalendarPage() {
       </div>
 
       <div className="note">
-        <strong>No day-level scheduling yet.</strong> Blocks, the daily queue, and the ICS
-        feed need the database, which is not migrated. Until then this page shows the
-        horizon it can honestly show. Week of {startOfIsoWeek(TODAY)} through{' '}
-        {addLocalDays(startOfIsoWeek(TODAY), 6)} has no scheduled work because none exists yet.
+        <strong>Day-level scheduling lives on <a href="/week">This week</a>.</strong> The
+        queue, the deterministic re-slotter and the ICS feed are all pure functions — they
+        never needed the database, only persistence does. What is still missing is the
+        record of what actually happened, which is what the schema is for.
       </div>
     </>
   )

@@ -111,6 +111,10 @@ export interface Item {
    * unconditionally.
    */
   autopilotCritical: boolean
+  /** RRULE string. Present for daily drills and recurring obligations. */
+  recurrenceRule?: string
+  /** Hand-set nudge. Added to the computed score, never a replacement for it. */
+  priorityHint?: number
 }
 
 export interface Commitment {
