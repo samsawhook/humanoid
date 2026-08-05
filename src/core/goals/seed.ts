@@ -20,7 +20,7 @@ import { TIMELINE } from '../money/rates'
 
 const n = (node: GoalNode): GoalNode => node
 
-export const NODES: GoalNode[] = [
+const BASE_NODES: GoalNode[] = [
   // ── Domains ────────────────────────────────────────────────────────────────
   n({
     id: 'service',
@@ -254,6 +254,195 @@ export const NODES: GoalNode[] = [
     reversible: true,
     status: 'active',
   }),
+]
+
+
+/**
+ * The era layer.
+ *
+ * The spec's ladder runs life → decade/era → campaign → year → quarter, and the tree
+ * skipped straight from life to campaign. Without eras there is nothing to render a
+ * horizon breakdown from, and more importantly nothing that expresses *phase intent* —
+ * the thing that makes a decade legible when its campaigns are still vague.
+ */
+export const ERAS: GoalNode[] = [
+  n({
+    id: 'era_mob',
+    parentId: 'service',
+    title: 'Mobilised era',
+    level: 'decade',
+    kind: 'achievement',
+    outcomeDefinition: 'Deployment served, career optionality intact, body and marriage intact.',
+    targetDate: TIMELINE.ordersMaxEnd,
+    dateBasis: 'external_fixed',
+    dateConfidence: 'medium',
+    windowOpen: TIMELINE.premobStart,
+    windowClose: TIMELINE.ordersMaxEnd,
+    requiredVelocity: null,
+    reversible: false,
+    status: 'active',
+  }),
+  n({
+    id: 'era_law_entry',
+    parentId: 'law',
+    title: 'Entry to the profession',
+    level: 'decade',
+    kind: 'achievement',
+    outcomeDefinition: 'Admitted, enrolled, JD conferred and bar passed.',
+    targetDate: '2032-07-31',
+    dateBasis: 'estimated',
+    dateConfidence: 'low',
+    windowOpen: '2026-08-05',
+    windowClose: '2033-12-31',
+    requiredVelocity: null,
+    reversible: true,
+    status: 'active',
+  }),
+  n({
+    id: 'era_credential',
+    parentId: 'macc',
+    title: 'Accounting credential',
+    level: 'decade',
+    kind: 'achievement',
+    outcomeDefinition: 'MAcc conferred; CPA eligibility established.',
+    targetDate: '2028-12-31',
+    dateBasis: 'estimated',
+    dateConfidence: 'low',
+    windowOpen: null,
+    windowClose: null,
+    requiredVelocity: null,
+    reversible: true,
+    status: 'active',
+  }),
+  n({
+    id: 'era_solvency',
+    parentId: 'money',
+    title: 'Back to solvent',
+    level: 'decade',
+    kind: 'achievement',
+    outcomeDefinition:
+      'Net worth positive and liquid: no consumer debt, house current, one year of runway.',
+    targetDate: '2029-12-31',
+    dateBasis: 'self_imposed',
+    dateConfidence: 'medium',
+    windowOpen: '2026-08-05',
+    windowClose: null,
+    requiredVelocity: null,
+    reversible: true,
+    status: 'active',
+  }),
+  n({
+    id: 'era_young_family',
+    parentId: 'family',
+    title: 'Years with young children',
+    level: 'decade',
+    kind: 'state',
+    outcomeDefinition: null,
+    targetDate: null,
+    dateBasis: null,
+    dateConfidence: null,
+    windowOpen: '2026-08-05',
+    windowClose: '2038-12-31',
+    requiredVelocity: null,
+    /** The defining irreversible window: these years do not come back. */
+    reversible: false,
+    status: 'active',
+  }),
+  n({
+    id: 'era_capable_body',
+    parentId: 'health',
+    title: 'Years the body can do hard things',
+    level: 'decade',
+    kind: 'state',
+    outcomeDefinition: null,
+    targetDate: null,
+    dateBasis: null,
+    dateConfidence: null,
+    windowOpen: '2026-08-05',
+    windowClose: '2041-12-31',
+    requiredVelocity: null,
+    reversible: false,
+    status: 'active',
+  }),
+]
+
+/**
+ * Year and quarter nodes for the near horizon only.
+ *
+ * Deliberately shallow: resolution decays with distance, and storing quarters at five
+ * years out would be fiction with a schema. These exist because the next eighteen
+ * months are where the plan is actually load-bearing.
+ */
+export const PERIODS: GoalNode[] = [
+  n({
+    id: 'y2026_law',
+    parentId: 'lsat',
+    title: '2026 — get a score',
+    level: 'year',
+    kind: 'achievement',
+    outcomeDefinition: 'An official LSAT score in hand before the 2027 cycle opens.',
+    targetDate: '2026-12-31',
+    dateBasis: 'self_imposed',
+    dateConfidence: 'medium',
+    windowOpen: '2026-08-05',
+    windowClose: '2027-02-28',
+    requiredVelocity: null,
+    reversible: true,
+    status: 'active',
+  }),
+  n({
+    id: 'q3_2026_law',
+    parentId: 'y2026_law',
+    title: 'Q3 2026 — blitz and register',
+    level: 'quarter',
+    kind: 'achievement',
+    outcomeDefinition:
+      'Diagnostic scored, LSAC military exception filed, sitting chosen and registered.',
+    targetDate: '2026-09-30',
+    dateBasis: 'self_imposed',
+    dateConfidence: 'high',
+    windowOpen: '2026-08-05',
+    windowClose: '2026-09-30',
+    requiredVelocity: null,
+    reversible: false,
+    status: 'active',
+  }),
+  n({
+    id: 'y2026_money',
+    parentId: 'arrears',
+    title: '2026 — stop the bleeding',
+    level: 'year',
+    kind: 'achievement',
+    outcomeDefinition: 'Auto loan cleared and the mortgage arrears materially reduced.',
+    targetDate: '2026-12-31',
+    dateBasis: 'self_imposed',
+    dateConfidence: 'medium',
+    windowOpen: '2026-08-05',
+    windowClose: '2026-12-31',
+    requiredVelocity: null,
+    reversible: true,
+    status: 'active',
+  }),
+]
+
+/** Campaigns re-parented under their era, so every path runs life → era → campaign. */
+const ERA_OF: Record<string, string> = {
+  deployment: 'era_mob',
+  lsat: 'era_law_entry',
+  applications: 'era_law_entry',
+  macc_coursework: 'era_credential',
+  arrears: 'era_solvency',
+  czte_window: 'era_solvency',
+  emergency_fund: 'era_solvency',
+}
+
+/** The whole tree: domains, eras, campaigns, and the near-horizon year and quarter nodes. */
+export const NODES: GoalNode[] = [
+  ...BASE_NODES.map((node) =>
+    ERA_OF[node.id] ? { ...node, parentId: ERA_OF[node.id]! } : node,
+  ),
+  ...ERAS,
+  ...PERIODS,
 ]
 
 export const MILESTONES: Milestone[] = [

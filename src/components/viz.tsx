@@ -235,16 +235,23 @@ export function Timeline({
   const x = (d: string) =>
     labelW + ((Date.parse(d + 'T00:00:00Z') - t0) / (t1 - t0)) * plotW
 
+  // Tick density has to follow the span, or a life-scale chart prints a hundred
+  // overlapping labels. Aim for roughly 8 ticks whatever the horizon.
+  const totalMonths = Math.max(1, Math.round((t1 - t0) / (30.44 * 86_400_000)))
+  const stepMonths = [1, 3, 6, 12, 24, 60, 120].find((s) => totalMonths / s <= 9) ?? 240
+  const yearOnly = stepMonths >= 12
+
   const months: { label: string; at: string }[] = []
   const start = new Date(t0)
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 600; i++) {
     const d = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + i, 1))
     if (d.getTime() > t1) break
     if (d.getTime() < t0) continue
+    const monthsFromStart = (d.getUTCFullYear() - start.getUTCFullYear()) * 12 +
+      (d.getUTCMonth() - start.getUTCMonth())
+    if (monthsFromStart % stepMonths !== 0) continue
     const iso = d.toISOString().slice(0, 10)
-    if (d.getUTCMonth() % 3 === 0) {
-      months.push({ label: iso.slice(0, 7), at: iso })
-    }
+    months.push({ label: yearOnly ? iso.slice(0, 4) : iso.slice(0, 7), at: iso })
   }
 
   return (
