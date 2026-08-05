@@ -13,8 +13,12 @@ import {
   MORTGAGE_ARREARS_BALANCE,
   OPEN_DEBT_BALANCE,
   AGREEMENT_MONTHLY,
+  ONE_OFFS,
+  LATE_PAYMENTS_BALANCE,
 } from '@/core/money/obligations'
 import { ENTITLEMENTS, TAX, TIMELINE } from '@/core/money/rates'
+import { backPay, EXPECTED_BACK_PAY } from '@/core/money/drillPay'
+import { SCRA_INTEREST_CAP, SCRA_TARGETS, SCRA_EXCLUDED } from '@/core/money/debts'
 import {
   Figure,
   GroupedBars,
@@ -31,6 +35,7 @@ export const dynamic = 'force-dynamic'
 const usd0 = (n: number) =>
   n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+const round0 = (n: number) => Math.round(n)
 
 const HORIZON_START = '2026-08-15'
 const HORIZON_END = '2027-08-01'
@@ -55,10 +60,17 @@ const COLOR: Record<string, string> = {
 
 export default function MoneyPage() {
   const paychecks = projectPaychecks(HORIZON_START, HORIZON_END)
-  const allocations = allocateAll(paychecks, OBLIGATIONS)
+  const allocations = allocateAll(paychecks, OBLIGATIONS, ONE_OFFS)
   const summary = summarize(allocations)
   const cleared = balanceClearedOn(allocations, OBLIGATIONS)
   const steadySlack = steadyMonthlySlack(allocations)
+  const bp = backPay(EXPECTED_BACK_PAY)
+  const bpAlt = backPay({ ...EXPECTED_BACK_PAY, basis: 'idt_two_mutas' })
+  const oneOffIn = allocations.reduce(
+    (t, a) => t + (a.oneOffs ?? []).reduce((u, o) => u + o.amount, 0),
+    0,
+  )
+  const closingBuffer = allocations[allocations.length - 1]?.remainder ?? 0
 
   const columns = allocations.slice(0, 12).map((a) => ({
     label: a.paycheck.payDate.slice(5),
@@ -182,14 +194,135 @@ export default function MoneyPage() {
         scheduling one.
       </div>
 
+      <h2>Two things to do now</h2>
+      <div className="note">
+        <strong>1. Drill back pay — 7 MUTAs plus 3 days on a 1380.</strong> A drill period
+        pays <strong>one thirtieth of MONTHLY basic pay</strong> and carries no allowances
+        at all — no BAH, no BAS. So this is worth more than it feels like and none of it
+        is the tax-free part.
+        <table style={{ marginTop: 8 }}>
+          <tbody>
+            {bp.lines.map((l) => (
+              <tr key={l.key}>
+                <td>{l.label}</td>
+                <td style={{ textAlign: 'right' }}>{usd(l.amount)}</td>
+              </tr>
+            ))}
+            <tr>
+              <td className="muted">Federal tax and FICA</td>
+              <td className="muted" style={{ textAlign: 'right' }}>
+                − {usd(bp.federalTax + bp.fica)}
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <strong>Net to you</strong>
+              </td>
+              <td style={{ textAlign: 'right' }}>
+                <strong>{usd(bp.net)}</strong>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p style={{ marginTop: 8 }}>
+          <strong>Where it goes: the {usd0(LATE_PAYMENTS_BALANCE)} of tolls and late
+          fees, in full, the day it lands.</strong> That leaves{' '}
+          {usd0(bp.net - LATE_PAYMENTS_BALANCE)} which falls straight through to the
+          arrears. Toll charges escalate administratively rather than by interest —
+          violations block a registration renewal, and a blocked registration is not a
+          problem you can solve from overseas. It is the cheapest thing on this page to
+          fix and the most expensive to ignore.
+        </p>
+        <p className="muted" style={{ fontSize: 12.5 }}>
+          The three 1380 days are read conservatively, as active-duty days at 1/30th of
+          basic pay plus BAS. If they were inactive duty in day status they pay two drill
+          periods each and the whole batch is worth {usd(bpAlt.net)} net —{' '}
+          {usd(bpAlt.net - bp.net)} more. Check which the orders say. Not CZTE either way:
+          drills performed at home station before you shipped are ordinary taxable wages.
+        </p>
+      </div>
+
+      <div className="note">
+        <strong>2. File SCRA interest-cap requests — before you ship.</strong> Caps
+        interest at {Math.round(SCRA_INTEREST_CAP * 100)}% on every debt incurred before
+        active duty began. Three things make this worth an afternoon:{' '}
+        <strong>it is retroactive to 2026-07-31</strong>, so filing late still recovers
+        the months in between; the excess above {Math.round(SCRA_INTEREST_CAP * 100)}% is{' '}
+        <strong>forgiven, not deferred</strong> — the rare case where the creditor does
+        not get it back later; and <strong>it is not automatic</strong>, so nothing
+        happens until you write to them with a copy of the orders.
+        <ul className="tight" style={{ marginTop: 8 }}>
+          {SCRA_TARGETS.map((t) => (
+            <li key={t.creditor}>
+              <strong>{t.creditor}</strong> — {t.reason}
+            </li>
+          ))}
+        </ul>
+        <p style={{ marginTop: 8 }}>Deliberately not on that list:</p>
+        <ul className="tight">
+          {SCRA_EXCLUDED.map((t) => (
+            <li key={t.creditor} className="muted">
+              <strong>{t.creditor}</strong> — {t.reason}
+            </li>
+          ))}
+        </ul>
+        <p className="muted" style={{ fontSize: 12.5 }}>
+          Mortgage and auto already have SCRA active — verify the cap actually appears on
+          a statement rather than assuming the request was processed. Not legal advice.
+        </p>
+      </div>
+
+      <h2>Sources of funds</h2>
+      <div className="note">
+        <strong>Where the money comes from, so the uses below have something to add up to.</strong>
+        <table style={{ marginTop: 8 }}>
+          <tbody>
+            <tr>
+              <td>Net pay, {summary.paychecks} cheques</td>
+              <td style={{ textAlign: 'right' }}>{usd(summary.totalNet)}</td>
+            </tr>
+            <tr>
+              <td>One-off money (drill back pay)</td>
+              <td style={{ textAlign: 'right' }}>+ {usd(oneOffIn)}</td>
+            </tr>
+            <tr>
+              <td>
+                <strong>Total available</strong>
+              </td>
+              <td style={{ textAlign: 'right' }}>
+                <strong>{usd(summary.totalNet + oneOffIn)}</strong>
+              </td>
+            </tr>
+            <tr>
+              <td className="muted">Allocated below</td>
+              <td className="muted" style={{ textAlign: 'right' }}>
+                − {usd(summary.totalNet + oneOffIn - closingBuffer)}
+              </td>
+            </tr>
+            <tr>
+              <td className="muted">Still in hand at the horizon</td>
+              <td className="muted" style={{ textAlign: 'right' }}>{usd(closingBuffer)}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p style={{ marginTop: 8 }}>
+          These balance to the cent by construction, and that is the point: if the uses
+          below ever fail to add to the total above, the model has lost money and the
+          page should be disbelieved. Within a single payday the two sides will NOT match
+          — the 1st carries the mortgage and spends the 15th&rsquo;s surplus to do it. The
+          &ldquo;+ Carried in&rdquo; column further down is that draw, shown rather than
+          hidden.
+        </p>
+      </div>
+
       <h2>Uses of funds — every dollar has a job</h2>
       <Figure
-        title={`Where all ${usd0(usesOfFunds.assigned)} of net pay goes, ${HORIZON_START} → ${HORIZON_END}`}
+        title={`Where all ${usd0(usesOfFunds.assigned)} goes — net pay plus the back pay, ${HORIZON_START} → ${HORIZON_END}`}
         caption={
           <>
             One bar, sliced by destination. There is deliberately no{' '}
             <em>miscellaneous</em> and no remainder: the law-school sweep takes whatever
-            survives, so the slices add to net pay exactly. Money without a named
+            survives, so the slices add to the total above exactly. Money without a named
             destination is the money that disappears.
             {usesOfFunds.rows.some((r) => r.key === 'buffer') && (
               <>
@@ -244,10 +377,13 @@ export default function MoneyPage() {
         caption={
           <>
             Both bars are dollars on one axis, so where they cross means what it looks
-            like it means. <strong>Expenses are bills only</strong> — the waterfall below
-            them absorbs whatever is left by design, so including it would make every
-            period look exactly break-even and tell you nothing. The gap between the bars
-            IS what the waterfall gets.
+            like it means. The income bar is <strong>available cash</strong>, not the
+            cheque: on the 1st the cheque alone does not cover the bills, and the surplus
+            carried from the 15th is what closes the gap. That draw is included here, so
+            the two bars are on the same basis and a month that balances looks like one.{' '}
+            <strong>Expenses are bills only</strong> — the waterfall absorbs whatever is
+            left by design, so including it would make every period look exactly
+            break-even. The gap between the bars IS what the waterfall gets.
           </>
         }
       >
@@ -262,8 +398,16 @@ export default function MoneyPage() {
               label: a.paycheck.payDate.slice(5),
               sublabel: a.paycheck.czte ? 'CZTE' : '',
               bars: [
-                { key: 'in', label: 'Net in', value: a.paycheck.net, color: seriesColor(2) },
-                { key: 'out', label: 'Committed out', value: committed, color: seriesColor(1) },
+                {
+                  key: 'in',
+                  label:
+                    a.openingBuffer > 0
+                      ? `Available: ${usd0(a.paycheck.net)} cheque + ${usd0(a.openingBuffer)} drawn from surplus`
+                      : 'Net in',
+                  value: round0(a.paycheck.net + a.openingBuffer),
+                  color: seriesColor(2),
+                },
+                { key: 'out', label: 'Committed out', value: round0(committed), color: seriesColor(1) },
               ],
             }
           })}
@@ -283,7 +427,8 @@ export default function MoneyPage() {
                 <th>Tax</th>
                 <th>Deducted</th>
                 <th>Net in</th>
-                <th>Carried in</th>
+                <th>+ Carried in</th>
+                <th>= Available</th>
                 <th>Committed out</th>
                 <th>Difference</th>
                 <th>To waterfall</th>
@@ -296,7 +441,10 @@ export default function MoneyPage() {
                 const committed = a.lines
                   .filter((l) => l.kind !== 'arrears_catchup' && !l.swept)
                   .reduce((s, l) => s + l.requested, 0)
-                const diff = a.paycheck.net - committed
+                // Against AVAILABLE, not against the cheque — on the 1st the cheque
+                // alone does not cover the bills, and the 15th's surplus is what closes
+                // the gap. Comparing to the cheque would report a deficit that is not one.
+                const diff = a.paycheck.net + a.openingBuffer - committed
                 const waterfall = a.lines.filter((l) => l.swept && l.allocated > 0)
                 const toWaterfall = waterfall.reduce((s2, l) => s2 + l.allocated, 0)
                 // Which balance the money is actually landing on this payday.
@@ -314,8 +462,11 @@ export default function MoneyPage() {
                       {a.paycheck.deductionsTotal > 0 ? usd(a.paycheck.deductionsTotal) : '—'}
                     </td>
                     <td>{usd(a.paycheck.net)}</td>
-                    <td className="muted">
-                      {a.openingBuffer > 0 ? usd(a.openingBuffer) : '—'}
+                    <td className={a.openingBuffer > 0 ? 'good' : 'muted'}>
+                      {a.openingBuffer > 0 ? `+ ${usd(a.openingBuffer)}` : '—'}
+                    </td>
+                    <td>
+                      <strong>{usd(a.paycheck.net + a.openingBuffer)}</strong>
                     </td>
                     <td>{usd(committed)}</td>
                     <td className={diff >= 0 ? 'good' : 'bad'}>{usd(diff)}</td>

@@ -9,7 +9,13 @@ import {
   type Obligation,
 } from '@/core/money/allocation'
 import { ENTITLEMENTS, TAX, TIMELINE } from '@/core/money/rates'
-import { CAR_LOAN_BALANCE, MORTGAGE_ARREARS_BALANCE, OBLIGATIONS } from '@/core/money/obligations'
+import {
+  CAR_LOAN_BALANCE,
+  LATE_PAYMENTS_BALANCE,
+  MORTGAGE_ARREARS_BALANCE,
+  OBLIGATIONS,
+  ONE_OFFS,
+} from '@/core/money/obligations'
 
 describe('pay dates', () => {
   it('lands on the 1st and the 15th', () => {
@@ -223,7 +229,11 @@ describe('allocation', () => {
 })
 
 describe('the real plan', () => {
-  const allocations = allocateAll(projectPaychecks('2026-08-15', '2027-08-01'), OBLIGATIONS)
+  const allocations = allocateAll(
+    projectPaychecks('2026-08-15', '2027-08-01'),
+    OBLIGATIONS,
+    ONE_OFFS,
+  )
   const summary = summarize(allocations)
   const cleared = balanceClearedOn(allocations, OBLIGATIONS)
 
@@ -234,20 +244,21 @@ describe('the real plan', () => {
     }
   })
 
-  it('bills the car monthly, not per payday', () => {
-    // $330 a MONTH. It only ever appears on the 1st.
+  it('bills the car monthly, on the payday before it is actually due', () => {
+    // $330 a MONTH, due on the 25th — so it is funded from the 15th cheque. Ten days
+    // of margin, rather than paying it three weeks early out of the crowded 1st.
     for (const a of allocations) {
       const line = a.lines.find((l) => l.key === 'car_payoff')
-      if (line) expect(a.paycheck.scheduledDate.slice(8, 10)).toBe('01')
+      if (line) expect(a.paycheck.scheduledDate.slice(8, 10)).toBe('15')
     }
   })
 
   it('pays the car off to its balance and then stops billing', () => {
     expect(cleared.car_payoff?.paid).toBe(CAR_LOAN_BALANCE)
     // Six monthly payments rather than the eleven paydays a twice-monthly bill took.
-    expect(cleared.car_payoff?.clearedOn).toBe('2027-02-01')
+    expect(cleared.car_payoff?.clearedOn).toBe('2027-01-15')
 
-    const after = allocations.filter((a) => a.paycheck.payDate > '2027-02-01')
+    const after = allocations.filter((a) => a.paycheck.payDate > '2027-01-15')
     expect(after.every((a) => !a.lines.some((l) => l.key === 'car_payoff'))).toBe(true)
   })
 
@@ -314,7 +325,7 @@ describe('the real plan', () => {
     expect(cleared.mortgage_arrears?.clearedOn).toBe('2027-02-15')
 
     // The open cards only start once the house is current.
-    expect(cleared.debt_paydown_open?.clearedOn).toBe('2027-05-14')
+    expect(cleared.debt_paydown_open?.clearedOn).toBe('2027-04-15')
     expect(cleared.debt_paydown_open?.clearedOn! > cleared.mortgage_arrears?.clearedOn!).toBe(true)
 
     // And the reserve only starts once those are gone. It does not finish before you

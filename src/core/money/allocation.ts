@@ -108,8 +108,10 @@ export interface Allocation {
   lines: AllocationLine[]
   totalRequested: number
   totalAllocated: number
-  /** Cash carried in from the previous payday. */
+  /** Cash carried in from the previous payday, INCLUDING any one-off that landed. */
   openingBuffer: number
+  /** One-off money that arrived since the last payday. Part of `openingBuffer`. */
+  oneOffs?: OneOff[]
   /**
    * Money left after everything that could be paid, was — and therefore carried
    * forward to the next payday. Not "spare": it is what funds the 1st, which is
@@ -266,24 +268,51 @@ export function allocate(
   }
 }
 
+/**
+ * Money that arrives outside the semi-monthly cycle: drill back pay, a tax refund, a
+ * bonus. Real income the paycheck projection cannot see, because it is not an
+ * entitlement running at a monthly rate.
+ *
+ * Applied to the buffer of the first payday on or after its date, which is what
+ * actually happens — it lands in the account and is spent from there, in the same
+ * priority order as everything else.
+ */
+export interface OneOff {
+  key: string
+  label: string
+  date: LocalDate
+  amount: number
+  note?: string
+}
+
 /** One forward walk, carrying the buffer between paydays. */
 function walk(
   paychecks: Paycheck[],
   obligations: Obligation[],
   ceilingAt: (index: number) => number,
   onAllocated: (a: Allocation) => void = () => {},
+  oneOffs: OneOff[] = [],
 ): Allocation[] {
   const paidSoFar: Record<string, number> = {}
   const seen = new Set<string>()
   let buffer = 0
   const out: Allocation[] = []
+  const pending = [...oneOffs].sort((a, b) => compareLocalDates(a.date, b.date))
   paychecks.forEach((p, i) => {
+    // Anything that landed since the last payday is in the account now.
+    const arrived: OneOff[] = []
+    while (pending.length > 0 && compareLocalDates(pending[0]!.date, p.payDate) <= 0) {
+      arrived.push(pending.shift()!)
+    }
+    buffer = round2(buffer + arrived.reduce((s, o) => s + o.amount, 0))
+
     const a = allocate(p, obligations, {
       paidSoFar,
       seen,
       openingBuffer: buffer,
       drainCeiling: ceilingAt(i),
     })
+    if (arrived.length > 0) a.oneOffs = arrived
     for (const line of a.lines) {
       paidSoFar[line.key] = round2((paidSoFar[line.key] ?? 0) + line.allocated)
     }
@@ -312,8 +341,12 @@ function walk(
  * Same shape as the planner's own two-pass: backward for what is required, forward for
  * what is available, and the gap stated rather than smoothed away.
  */
-export function allocateAll(paychecks: Paycheck[], obligations: Obligation[]): Allocation[] {
-  const committed = walk(paychecks, obligations, () => 0)
+export function allocateAll(
+  paychecks: Paycheck[],
+  obligations: Obligation[],
+  oneOffs: OneOff[] = [],
+): Allocation[] {
+  const committed = walk(paychecks, obligations, () => 0, () => {}, oneOffs)
 
   const suffixMin: number[] = new Array(committed.length)
   let running = Infinity
@@ -335,6 +368,7 @@ export function allocateAll(paychecks: Paycheck[], obligations: Obligation[]): A
             .reduce((s, l) => s + l.allocated, 0),
       )
     },
+    oneOffs,
   )
 }
 

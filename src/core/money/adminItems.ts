@@ -15,6 +15,7 @@
 
 import type { Item, LocalDate } from '../types'
 import { paydayActions, type Allocation } from './allocation'
+import { SCRA_INTEREST_CAP, SCRA_TARGETS, SCRA_EXCLUDED } from './debts'
 
 /** The node these hang off. Money is a life-level domain in the seed tree. */
 export const ADMIN_NODE_SLUG = 'money'
@@ -91,6 +92,53 @@ export function adminItemsFor(
   }
 
   return { items, clearPaydays }
+}
+
+/**
+ * The SCRA filing, as one dated, pinned task.
+ *
+ * Deliberately a single item rather than one per creditor: it is one sitting with one
+ * copy of the orders and six envelopes, and six separate to-dos is a list you learn to
+ * ignore. The deadline is soft in the sense that the relief is retroactive to the first
+ * day of active duty — but every month it slips is a month of interest above 6% you are
+ * paying and could have had forgiven, so the item carries a real date.
+ */
+export function scraItem(
+  dueBy: LocalDate,
+  nodeId: string = ADMIN_NODE_SLUG,
+): Item {
+  const notes = [
+    `Cap interest at ${Math.round(SCRA_INTEREST_CAP * 100)}% on every pre-service debt, ` +
+      'retroactive to 2026-07-31. The excess is FORGIVEN, not deferred.',
+    '',
+    'Send to each, in writing, with a copy of the mobilisation orders:',
+    ...SCRA_TARGETS.map((t) => `  · ${t.creditor} — ${t.reason}`),
+    '',
+    'Do NOT contact:',
+    ...SCRA_EXCLUDED.map((t) => `  · ${t.creditor} — ${t.reason}`),
+    '',
+    'Mortgage and auto already have SCRA active — verify the 6% cap actually appears on ' +
+      'a statement rather than assuming the request was processed.',
+    '',
+    'Best done before you ship: it needs the orders to hand and a way to send post.',
+  ].join('\n')
+
+  return {
+    id: 'admin-scra-filing',
+    nodeId,
+    milestoneId: null,
+    title: `File SCRA interest-cap requests — ${SCRA_TARGETS.length} creditors`,
+    effortMinutes: 90,
+    effortConfidence: 'medium',
+    dueAt: new Date(`${dueBy}T23:59:00Z`),
+    earliestStartAt: new Date('2026-08-05T00:00:00Z'),
+    dateFlexibility: 'elastic',
+    status: 'todo',
+    /** Every month it slips costs real money that cannot be recovered later. */
+    autopilotCritical: true,
+    priorityHint: 85,
+    notes,
+  }
 }
 
 function round2(n: number): number {

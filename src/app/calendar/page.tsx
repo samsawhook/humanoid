@@ -2,7 +2,7 @@ import { NODES, MILESTONES } from '@/core/goals/seed'
 import { TIMELINE } from '@/core/money/rates'
 import { projectPaychecks } from '@/core/money/paychecks'
 import { allocateAll } from '@/core/money/allocation'
-import { OBLIGATIONS } from '@/core/money/obligations'
+import { OBLIGATIONS, ONE_OFFS } from '@/core/money/obligations'
 import { localDaysBetween, startOfIsoWeek, addLocalDays } from '@/core/time/localDay'
 import { adminItemsFor } from '@/core/money/adminItems'
 import { Figure, TableView, Timeline, seriesColor } from '@/components/viz'
@@ -19,7 +19,7 @@ const TODAY = '2026-08-05'
  * changes — are spans and points, not days.
  */
 export default function CalendarPage() {
-  const allocations = allocateAll(projectPaychecks(TODAY, '2027-08-01'), OBLIGATIONS)
+  const allocations = allocateAll(projectPaychecks(TODAY, '2027-08-01'), OBLIGATIONS, ONE_OFFS)
   const admin = adminItemsFor(allocations)
 
   const eras = [

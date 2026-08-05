@@ -56,6 +56,75 @@ export interface Debt {
  */
 export const TEXAS_LIMITATIONS_YEARS = 4
 
+/**
+ * SCRA — the Servicemembers Civil Relief Act interest cap.
+ *
+ * Caps interest at 6% on obligations incurred BEFORE active duty began, for the whole
+ * period of that duty. Three things about it are worth knowing precisely, because they
+ * are what make this worth doing rather than a formality:
+ *
+ *  1. **It is retroactive to the first day of active duty**, not to the day you ask.
+ *     Interest above 6% charged since 2026-07-31 must be forgiven — not deferred, not
+ *     recalculated later. Applying in November still recovers August through October.
+ *  2. **Forgiven, not deferred.** The excess above 6% is written off permanently. This
+ *     is the rare case where the creditor does not get the money back afterwards.
+ *  3. **It is not automatic.** You must invoke it, in writing, with a copy of the
+ *     orders. Creditors are not required to notice you deployed.
+ *
+ * It only reaches pre-service obligations, so anything opened after 2026-07-31 is out
+ * of scope. Chase is excluded here for a different reason: it is under a negotiated
+ * agreement, and re-opening the terms risks the arrangement for a cap on a balance
+ * whose payment is already fixed at $110. Leave that one alone.
+ *
+ * NOT LEGAL ADVICE.
+ */
+export const SCRA_INTEREST_CAP = 0.06
+
+export interface ScraTarget {
+  creditor: string
+  /** Matching `Debt.key`, where this is one of the tracked balances. */
+  debtKey?: string
+  reason: string
+}
+
+export const SCRA_TARGETS: ScraTarget[] = [
+  {
+    creditor: 'Wells Fargo',
+    reason:
+      'NOT in the tracked balances — tell me whether this is a card, the auto loan or ' +
+      'the mortgage servicer so it can be modelled. Either way it is on the list.',
+  },
+  { creditor: 'Citi', debtKey: 'citi', reason: 'Closed account, $1,777 balance still accruing.' },
+  {
+    creditor: 'Capital One',
+    debtKey: 'capital_one',
+    reason: 'Closed account, $3,489 — the largest balance the cap can reach.',
+  },
+  { creditor: 'Platinum Card', debtKey: 'platinum', reason: 'Open account, $1,198.89.' },
+  { creditor: 'Brightway', debtKey: 'brightway', reason: 'Open account, $568.' },
+  { creditor: 'Credit One', debtKey: 'credit_one', reason: 'Open account, $454.' },
+]
+
+/**
+ * Deliberately excluded. Kept as data rather than an omission so the reasoning survives
+ * being forgotten.
+ */
+export const SCRA_EXCLUDED: ScraTarget[] = [
+  {
+    creditor: 'Chase',
+    debtKey: 'chase',
+    reason:
+      'Under a $110/mo agreement. Re-opening the terms to chase a rate cap risks the ' +
+      'arrangement on a $7,290 balance whose payment is already fixed. Not worth it.',
+  },
+  {
+    creditor: 'Goldman / PSECU',
+    reason:
+      'Both sued and dismissed. Do not initiate contact of any kind — see the ' +
+      'limitations note above. Invoking SCRA means writing to them.',
+  },
+]
+
 export const DEBTS: Debt[] = [
   // ── Open revolving. Only these move utilisation, and there is not much of it. ──
   {

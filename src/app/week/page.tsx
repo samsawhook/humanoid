@@ -1,7 +1,7 @@
 import { loadPlan } from '@/db/load'
 import { adminItemsFor } from '@/core/money/adminItems'
 import { allocateAll } from '@/core/money/allocation'
-import { OBLIGATIONS } from '@/core/money/obligations'
+import { OBLIGATIONS, ONE_OFFS } from '@/core/money/obligations'
 import { projectPaychecks } from '@/core/money/paychecks'
 import { orderQueue } from '@/core/schedule/order'
 import {
@@ -37,7 +37,7 @@ export default async function WeekPage() {
   // Payday transfers are real, dated, pinned work — they belong in the queue, not
   // only on a finance page nobody opens at 06:00.
   const admin = adminItemsFor(
-    allocateAll(projectPaychecks(TODAY, addLocalDays(TODAY, 60)), OBLIGATIONS),
+    allocateAll(projectPaychecks(TODAY, addLocalDays(TODAY, 60)), OBLIGATIONS, ONE_OFFS),
     plan.resolveId('money'),
   )
   const queue = orderQueue([...plan.items, ...admin.items], plan.nodes, TODAY)

@@ -17,7 +17,7 @@ import {
 import { EXPENSE_CATEGORIES, SUPPORT_HOME, householdTotals, TRICARE_SELECT_RESERVE } from '@/core/money/household'
 import { projectPaychecks } from '@/core/money/paychecks'
 import { allocateAll, balanceClearedOn } from '@/core/money/allocation'
-import { OBLIGATIONS, MORTGAGE_ARREARS_BALANCE } from '@/core/money/obligations'
+import { OBLIGATIONS, MORTGAGE_ARREARS_BALANCE, ONE_OFFS } from '@/core/money/obligations'
 import { TIMELINE } from '@/core/money/rates'
 import {
   DEBTS,
@@ -47,7 +47,7 @@ export default function JdPage() {
   const opening = balanceSheet('2026-08-05', OPENING_BALANCE_SHEET)
 
   // What the deployment actually does to the sheet, taken from the cash-flow model.
-  const allocations = allocateAll(projectPaychecks('2026-08-15', '2027-08-01'), OBLIGATIONS)
+  const allocations = allocateAll(projectPaychecks('2026-08-15', '2027-08-01'), OBLIGATIONS, ONE_OFFS)
   const cleared = balanceClearedOn(allocations, OBLIGATIONS)
   const paid = (key: string) =>
     allocations.reduce((s, a) => s + (a.lines.find((l) => l.key === key)?.allocated ?? 0), 0)

@@ -24,7 +24,8 @@
  * order", and the answer is yours.
  */
 
-import type { Obligation } from './allocation'
+import type { Obligation, OneOff } from './allocation'
+import { backPay, EXPECTED_BACK_PAY } from './drillPay'
 import { TIMELINE } from './rates'
 import { householdTotals } from './household'
 import { DEBTS, agreementDebts, openDebts, totalBalance } from './debts'
@@ -63,10 +64,44 @@ export const AGREEMENT_MONTHLY = agreementDebts().reduce(
   0,
 )
 
+/**
+ * Accumulated toll charges and late fees. Your estimate, ~$1,100.
+ * Cleared early on purpose — see the note on the obligation.
+ */
+export const LATE_PAYMENTS_BALANCE = 1100
+
+/** What the drill back pay is actually worth after tax. Computed, never typed in. */
+export const EXPECTED_BACK_PAY_NET = backPay(EXPECTED_BACK_PAY).net
+
 /** Four months behind at roughly $1,300 a month. */
 export const MORTGAGE_ARREARS_BALANCE = 5200
 /** What is actually left on the auto loan — it pays off and the line disappears. */
 export const CAR_LOAN_BALANCE = 1800
+
+/**
+ * Money arriving outside the semi-monthly cycle.
+ *
+ * The paycheck projection can only see entitlements running at a monthly rate, so
+ * anything lumpy — back pay, a refund, a bonus — has to be stated here or it simply
+ * does not exist to the plan.
+ */
+export const ONE_OFFS: OneOff[] = [
+  {
+    key: 'drill_back_pay',
+    label: '7 MUTAs + 3 duty days — back pay',
+    /**
+     * "Sometime this month." Dated to the END of August on purpose: if it lands
+     * earlier the plan is conservative, and if it slips the plan is still right. An
+     * optimistic date here would fund the toll cleanup with money that had not arrived.
+     */
+    date: '2026-08-31',
+    amount: EXPECTED_BACK_PAY_NET,
+    note:
+      'Net of federal tax and FICA, on the conservative reading of the three 1380 days. ' +
+      'See drillPay.ts — the other reading is worth about $344 more. Not CZTE: drills ' +
+      'performed at home station before shipping are ordinary taxable wages.',
+  },
+]
 
 export const OBLIGATIONS: Obligation[] = [
   {
@@ -80,14 +115,23 @@ export const OBLIGATIONS: Obligation[] = [
     kind: 'secured_recurring',
     execution: 'automatic',
     howTo: 'Escrowed with the servicer. Confirm it drafted — do not send it twice.',
-    note: 'Paid first, always. Missing this is what creates new arrears.',
+    note:
+      'DUE ON THE 1st, and funded from the 1st cheque — same-day, which is the tightest ' +
+      'timing in the whole file. The forward reserve exists largely to protect this: it ' +
+      'holds money back on the 15th so the 1st can clear. Paid first, always, because ' +
+      'missing this is what creates new arrears. SCRA is active — verify the 6% cap.',
   },
   {
     key: 'car_payoff',
     label: 'Auto loan — payoff',
-    /** $330 a MONTH, not per payday. It bills once, on the 1st. */
+    /**
+     * $330 a MONTH, not per payday, and DUE ON THE 25th — so it is funded from the
+     * 15th cheque, which leaves ten days of margin instead of paying it three weeks
+     * early from the 1st. That also takes $330 off the 1st, which is the crowded
+     * payday: the mortgage falls there too.
+     */
     amountPerPaycheck: 330,
-    payDays: 'first',
+    payDays: 'fifteenth',
     activeFrom: null,
     activeTo: null,
     priority: 20,
@@ -96,8 +140,9 @@ export const OBLIGATIONS: Obligation[] = [
     execution: 'automatic',
     howTo: 'Autopay. On the final payment, confirm it closes the loan rather than leaving $2 behind.',
     note:
-      '$330/mo on the 1st. $1,800 left, capped at the balance, so it clears and then ' +
-      'stops — roughly six payments.',
+      '$330/mo, due the 25th, paid from the 15th cheque. $1,800 left, capped at the ' +
+      'balance, so it clears and then stops — roughly six payments. SCRA is active on ' +
+      'this loan; the 6% cap should already be applied — verify it on the statement.',
   },
   {
     key: 'childcare',
@@ -198,6 +243,40 @@ export const OBLIGATIONS: Obligation[] = [
     kind: 'secured_recurring',
     execution: 'automatic',
     note: '$461/mo, billed on the 15th.',
+  },
+  {
+    key: 'late_payments',
+    label: 'Late payments cleanup — tolls and fees',
+    /**
+     * Roughly $1,100 of accumulated toll charges and late fees. Small, and exactly the
+     * kind of balance that is easy to leave until later — which is why it is ranked as
+     * a bill rather than put in the waterfall behind $5,200 of arrears.
+     *
+     * Timing is deliberate and it is the one thing here I would not defer: Texas toll
+     * charges escalate administratively rather than by interest. Unpaid tolls become
+     * violations, violations block registration renewal, and a blocked registration is
+     * a problem you cannot solve from overseas. The absolute cost is trivial; the cost
+     * of it becoming someone else's problem while you are deployed is not.
+     *
+     * The drill back pay lands this month and covers it outright, so in practice this
+     * is funded by money the waterfall never sees.
+     */
+    amountPerPaycheck: LATE_PAYMENTS_BALANCE,
+    payDays: 'first',
+    activeFrom: '2026-09-01',
+    activeTo: '2026-10-31',
+    priority: 38,
+    kind: 'unsecured_debt',
+    balanceCap: LATE_PAYMENTS_BALANCE,
+    execution: 'manual',
+    howTo:
+      'Pay the toll authority first and confirm no registration hold exists, then the ' +
+      'remaining late fees. Do this before you ship — it needs a US phone and a card.',
+    note:
+      '$1,100 in one payment on 2026-09-01, immediately after the drill back pay lands. ' +
+      'That is deliberate: the back pay covers it outright, so this never competes with ' +
+      'the arrears. Ranked above the waterfall because the escalation path is ' +
+      'administrative rather than financial, and it escalates while you are away.',
   },
   {
     key: 'debt_agreements',

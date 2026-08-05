@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { projectPaychecks } from '@/core/money/paychecks'
 import { allocateAll, summarize } from '@/core/money/allocation'
-import { OBLIGATIONS } from '@/core/money/obligations'
+import { OBLIGATIONS, ONE_OFFS } from '@/core/money/obligations'
 import { TIMELINE } from '@/core/money/rates'
 import { localDaysBetween } from '@/core/time/localDay'
 
@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic'
  */
 export default function HomePage() {
   const today = new Date().toISOString().slice(0, 10)
-  const allocations = allocateAll(projectPaychecks(today, '2027-08-01'), OBLIGATIONS)
+  const allocations = allocateAll(projectPaychecks(today, '2027-08-01'), OBLIGATIONS, ONE_OFFS)
   const summary = summarize(allocations)
   const next = allocations[0]
 
