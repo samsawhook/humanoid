@@ -101,11 +101,15 @@ export const ONE_OFFS: OneOff[] = [
     key: 'drill_back_pay',
     label: '7 MUTAs + 3 duty days — back pay',
     /**
-     * "Sometime this month." Dated to the END of August on purpose: if it lands
-     * earlier the plan is conservative, and if it slips the plan is still right. An
-     * optimistic date here would fund the toll cleanup with money that had not arrived.
+     * Dated to the 14 August pay run, because back pay normally settles on a scheduled
+     * payday and because this is what funds the full arrears payment that same day.
+     *
+     * This is the one optimistic date in the file, and it is load-bearing: the 14
+     * August cheque frees about $510 on its own, so without the back pay the full
+     * $1,300 payment below is roughly $790 short and the model will say so. If it has
+     * not landed by the 14th, send what you have and send the rest on receipt.
      */
-    date: '2026-08-31',
+    date: '2026-08-14',
     amount: EXPECTED_BACK_PAY_NET,
     note:
       'Net of federal tax and FICA, on the conservative reading of the three 1380 days. ' +
@@ -372,6 +376,43 @@ export const OBLIGATIONS: Obligation[] = [
       'meant to — the agreement keeps the account quiet and out of collections. Ranked ' +
       'above the waterfall because defaulting on an arrangement costs more than the ' +
       'payment does.',
+  },
+  {
+    key: 'arrears_first_payment',
+    label: 'Mortgage — one full arrears payment, now',
+    /**
+     * A one-off bill rather than part of the waterfall, because it is not "whatever is
+     * left" — it is a specific act with a specific purpose: put one whole payment on
+     * the file before 1 September, while it is still curable.
+     *
+     * Shares the arrears balance via `capGroup`, so this and the sweep draw down the
+     * same $5,200. Without that it would be a fifth payment on a four-payment debt.
+     */
+    amountPerPaycheck: MORTGAGE_PAYMENT,
+    payDays: 'fifteenth',
+    activeFrom: null,
+    /** Only ever fires once: the 15 August cheque, which lands on the 14th. */
+    activeTo: '2026-08-31',
+    priority: 39,
+    /**
+     * A BILL, not a gauge line — deliberately not `arrears_catchup`, even though it is
+     * an arrears payment. The gauge kind means two things in this model: the forward
+     * reserve may throttle it, and its unmet ask is excluded from the shortfall
+     * headline because asking for more than it can get is how it measures slack.
+     * Neither is true here. This is a fixed amount that has to happen, and if it cannot
+     * be paid that is a real miss the page should shout about.
+     */
+    kind: 'secured_recurring',
+    balanceCap: MORTGAGE_ARREARS_BALANCE,
+    capGroup: 'mortgage_arrears',
+    execution: 'manual',
+    howTo:
+      'Send the full ' +
+      '$1,300 marked "for arrears — apply to the oldest outstanding payment". Not as a ' +
+      'principal prepayment, or it will be applied forward instead of backward.',
+    note:
+      'Funded by the drill back pay landing the same day. One whole payment buys back a ' +
+      'month of the delinquency count outright, which no amount of dribbling does.',
   },
   /**
    * ────────────────────────────────────────────────────────────────────────────

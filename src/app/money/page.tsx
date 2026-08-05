@@ -18,6 +18,7 @@ import {
   OPEN_CARD_MINIMUMS,
   CLOSED_CARD_MINIMUMS,
   MORTGAGE_PAYMENT,
+  EXPECTED_BACK_PAY_NET,
 } from '@/core/money/obligations'
 import { ENTITLEMENTS, TAX, TIMELINE } from '@/core/money/rates'
 import { backPay, EXPECTED_BACK_PAY } from '@/core/money/drillPay'
@@ -87,7 +88,10 @@ export default function MoneyPage() {
     let running = 0
     let firstPayment: { date: string; amount: number } | null = null
     for (const a of allocations) {
-      const paid = a.lines.find((l) => l.key === 'mortgage_arrears')?.allocated ?? 0
+      // Every line drawing on the arrears balance, not just the sweep.
+      const paid = a.lines
+        .filter((l) => (l.capGroup ?? l.key) === 'mortgage_arrears')
+        .reduce((t, l) => t + l.allocated, 0)
       if (paid <= 0) continue
       if (!firstPayment) firstPayment = { date: a.paycheck.payDate, amount: paid }
       running += paid
@@ -229,12 +233,21 @@ export default function MoneyPage() {
         first in the waterfall and take everything free from the very first cheque.
         <p style={{ marginTop: 8 }}>
           <strong>
-            First payment: {arrearsProgress.firstPayment?.date} for{' '}
-            {usd(arrearsProgress.firstPayment?.amount ?? 0)}
+            One FULL payment of {usd0(MORTGAGE_PAYMENT)} on{' '}
+            {arrearsProgress.firstPayment?.date}
           </strong>{' '}
-          — before 1 September, as you wanted. It is a part payment, and that is fine: a
-          payment landing early is evidence of performance while the file is still
-          curable, which is worth more than a larger one landing later.
+          — plus {usd(( arrearsProgress.firstPayment?.amount ?? 0) - MORTGAGE_PAYMENT)}{' '}
+          partial on top the same day. A full payment on each 1st stays a separate bill
+          at the top of the stack, and everything free after that goes at the arrears as
+          partials. The one-off shares the arrears balance, so it buys back a missed
+          month rather than being a fifth payment on a four-payment debt.
+        </p>
+        <p style={{ marginTop: 8 }} className="bad">
+          <strong>This rests on the drill back pay landing by the 14th.</strong> That
+          cheque frees about {usd0(510)} on its own, so without the{' '}
+          {usd0(EXPECTED_BACK_PAY_NET)} the full payment is roughly {usd0(790)} short —
+          which the model reports as an unpaid bill rather than absorbing quietly. If it
+          has not arrived by the 14th, send what you have and send the rest on receipt.
         </p>
         <table style={{ marginTop: 8 }}>
           <tbody>

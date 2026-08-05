@@ -60,8 +60,8 @@ describe('one-off inflows', () => {
 
   it('lands the back pay on the first payday on or after its date', () => {
     const landed = withOneOffs.find((a) => a.oneOffs?.some((o) => o.key === 'drill_back_pay'))!
-    // Dated 2026-08-31, so it is in the account for the 1 September cheque.
-    expect(landed.paycheck.scheduledDate).toBe('2026-09-01')
+    // Dated to the 14 August pay run, which is what funds the full arrears payment.
+    expect(landed.paycheck.payDate).toBe('2026-08-14')
     expect(landed.openingBuffer).toBeGreaterThanOrEqual(EXPECTED_BACK_PAY_NET)
   })
 
@@ -76,24 +76,19 @@ describe('one-off inflows', () => {
     expect(totalNet + oneOffIn).toBeCloseTo(allocated + closing, 2)
   })
 
-  it('puts the back pay straight at the arrears, which is what it reaches first', () => {
-    // It lands 2026-08-31, so it is in the account for the 1 September cheque, and the
-    // arrears are first in the waterfall — the back pay roughly triples what that
-    // payday can send at the house.
-    const sept = withOneOffs.find((a) => a.paycheck.scheduledDate === '2026-09-01')!
-    const septWithout = without.find((a) => a.paycheck.scheduledDate === '2026-09-01')!
-    const arrears = (a: typeof sept) =>
-      a.lines.find((l) => l.key === 'mortgage_arrears')?.allocated ?? 0
-    expect(arrears(sept)).toBeGreaterThan(arrears(septWithout) + 1000)
-  })
+  /**
+   * The load-bearing assumption in the file. The 14 August cheque frees about $510 on
+   * its own — nowhere near a full payment — so without the back pay landing that day
+   * the $1,300 goes short and the model says so rather than pretending otherwise.
+   */
+  it('is what makes the full 14 August payment affordable at all', () => {
+    const first = withOneOffs.find((a) => a.paycheck.payDate === '2026-08-14')!
+    expect(first.lines.find((l) => l.key === 'arrears_first_payment')!.shortfall).toBe(0)
 
-  it('does not delay the first arrears payment, which lands before the back pay does', () => {
-    // The 14 August cheque pays what it can without waiting for anything.
-    const first = withOneOffs.find(
-      (a) => (a.lines.find((l) => l.key === 'mortgage_arrears')?.allocated ?? 0) > 0,
-    )!
-    expect(first.paycheck.payDate).toBe('2026-08-14')
-    expect(first.oneOffs).toBeUndefined()
+    const firstWithout = without.find((a) => a.paycheck.payDate === '2026-08-14')!
+    const shortWithout = firstWithout.lines.find((l) => l.key === 'arrears_first_payment')!
+    expect(shortWithout.shortfall).toBeGreaterThan(700)
+    expect(summarize(without).bindingShortfall).toBeGreaterThan(0)
   })
 
   it('clears the tolls eventually, behind the mortgage rather than ahead of it', () => {

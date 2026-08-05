@@ -378,24 +378,48 @@ describe('the real plan', () => {
   })
 
   /**
-   * You asked for a payment before 1 September, and part payments are fine. The 14
-   * August cheque frees about $510 after every bill — so that is what goes, and it goes
-   * immediately. A payment landing while the file is still curable is worth more than a
-   * larger one landing later.
+   * One full payment on 14 August, a full payment as a bill on each 1st, and the rest
+   * as partial arrears. The full one shares the arrears balance via `capGroup` — it is
+   * a whole payment against a four-payment debt, not a fifth payment on top of it.
    */
-  it('makes an arrears payment on the very first cheque, before 1 September', () => {
-    const first = allocations.find(
-      (a) => (a.lines.find((l) => l.key === 'mortgage_arrears')?.allocated ?? 0) > 0,
-    )!
-    expect(first.paycheck.payDate).toBe('2026-08-14')
-    expect(first.paycheck.payDate < '2026-09-01').toBe(true)
-    expect(first.lines.find((l) => l.key === 'mortgage_arrears')!.allocated).toBeGreaterThan(0)
+  it('sends one FULL payment on the first cheque', () => {
+    const first = allocations.find((a) => a.paycheck.payDate === '2026-08-14')!
+    const full = first.lines.find((l) => l.key === 'arrears_first_payment')!
+    expect(full.allocated).toBe(MORTGAGE_PAYMENT)
+    expect(full.capGroup).toBe('mortgage_arrears')
+    // And it fires exactly once.
+    expect(
+      allocations.filter((a) => a.lines.some((l) => l.key === 'arrears_first_payment')),
+    ).toHaveLength(1)
+  })
+
+  it('pays a full mortgage payment as a bill on every 1st', () => {
+    for (const a of allocations.filter((x) => x.paycheck.scheduledDate.endsWith('-01'))) {
+      const line = a.lines.find((l) => l.key === 'mortgage_current')!
+      expect(line.allocated).toBe(MORTGAGE_PAYMENT)
+      expect(line.shortfall).toBe(0)
+    }
+  })
+
+  it('counts the one-off payment against the arrears balance, not on top of it', () => {
+    const paid = allocations.reduce(
+      (t, a) =>
+        t +
+        a.lines
+          .filter((l) => (l.capGroup ?? l.key) === 'mortgage_arrears')
+          .reduce((u, l) => u + l.allocated, 0),
+      0,
+    )
+    expect(paid).toBeCloseTo(MORTGAGE_ARREARS_BALANCE, 2)
+    expect(cleared.mortgage_arrears?.paid).toBeCloseTo(MORTGAGE_ARREARS_BALANCE, 2)
   })
 
   it('keeps the arrears ahead of everything else in the waterfall until they are cured', () => {
     let running = 0
     for (const a of allocations) {
-      running += a.lines.find((l) => l.key === 'mortgage_arrears')?.allocated ?? 0
+      running += a.lines
+        .filter((l) => (l.capGroup ?? l.key) === 'mortgage_arrears')
+        .reduce((t, l) => t + l.allocated, 0)
       if (running >= MORTGAGE_ARREARS_BALANCE - 0.005) break
       // Still behind on the house, so nothing below it has taken anything.
       for (const key of ['late_payments', 'debt_paydown_open', 'debt_paydown_closed']) {
