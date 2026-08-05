@@ -205,11 +205,20 @@ describe('the real plan', () => {
     }
   })
 
+  it('bills the car monthly, not per payday', () => {
+    // $330 a MONTH. It only ever appears on the 1st.
+    for (const a of allocations) {
+      const line = a.lines.find((l) => l.key === 'car_payoff')
+      if (line) expect(a.paycheck.scheduledDate.slice(8, 10)).toBe('01')
+    }
+  })
+
   it('pays the car off to its balance and then stops billing', () => {
     expect(cleared.car_payoff?.paid).toBe(CAR_LOAN_BALANCE)
-    expect(cleared.car_payoff?.clearedOn).toBe('2026-10-30')
+    // Six monthly payments rather than the eleven paydays a twice-monthly bill took.
+    expect(cleared.car_payoff?.clearedOn).toBe('2027-02-01')
 
-    const after = allocations.filter((a) => a.paycheck.payDate > '2026-10-30')
+    const after = allocations.filter((a) => a.paycheck.payDate > '2027-02-01')
     expect(after.every((a) => !a.lines.some((l) => l.key === 'car_payoff'))).toBe(true)
   })
 
@@ -217,10 +226,11 @@ describe('the real plan', () => {
     expect(cleared.mortgage_arrears?.cap).toBe(MORTGAGE_ARREARS_BALANCE)
     expect(cleared.mortgage_arrears?.paid).toBe(MORTGAGE_ARREARS_BALANCE)
     // A measurement, not a target — this date falls out of the plan rather than setting
-    // it, and it moves whenever anything upstream does. It went to 01-15 when the
-    // deployed household profile landed, then back to 02-15 when home improvement was
-    // corrected upward. Each move is the gauge doing its job.
-    expect(cleared.mortgage_arrears?.clearedOn).toBe('2027-02-15')
+    // it, and it moves whenever anything upstream does: 01-15 with the deployed
+    // household profile, back to 02-15 when home improvement was corrected upward,
+    // forward again to 01-15 once the car turned out to bill monthly rather than
+    // twice a month. Each move is the gauge doing its job.
+    expect(cleared.mortgage_arrears?.clearedOn).toBe('2027-01-15')
   })
 
   /**

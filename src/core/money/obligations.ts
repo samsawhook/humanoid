@@ -49,8 +49,9 @@ export const OBLIGATIONS: Obligation[] = [
   {
     key: 'car_payoff',
     label: 'Auto loan — payoff',
+    /** $330 a MONTH, not per payday. It bills once, on the 1st. */
     amountPerPaycheck: 330,
-    payDays: 'both',
+    payDays: 'first',
     activeFrom: null,
     activeTo: null,
     priority: 20,
@@ -58,7 +59,9 @@ export const OBLIGATIONS: Obligation[] = [
     balanceCap: CAR_LOAN_BALANCE,
     execution: 'automatic',
     howTo: 'Autopay. On the final payment, confirm it closes the loan rather than leaving $2 behind.',
-    note: '$1,800 left. Capped at the balance, so it clears and then stops.',
+    note:
+      '$330/mo on the 1st. $1,800 left, capped at the balance, so it clears and then ' +
+      'stops — roughly six payments.',
   },
   {
     key: 'childcare',
