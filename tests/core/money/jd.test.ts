@@ -176,9 +176,9 @@ describe('three-year projection', () => {
     expect(projectJd(school, scenario, base).warnings.join(' ')).toMatch(/YOUR side of the ledger/i)
   })
 
-  it('counts drill pay and the book stipend as the only other income', () => {
+  it('counts drill pay and the prorated book stipend as the only other income', () => {
     const run = projectJd(school, scenario, { ...base, monthlyDrillPay: 500 })
-    expect(run.years[0]!.otherIncome).toBe(500 * 12 + 1000)
+    expect(run.years[0]!.otherIncome).toBeCloseTo(500 * 12 + 1000 * POST_911_TIER, 2)
   })
 
   it('counts sale proceeds once, in year one, and nothing after', () => {
