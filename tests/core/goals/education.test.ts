@@ -4,6 +4,10 @@ import {
   administrationsUsableBy,
   applicationCycleBands,
   buildStudyPlan,
+  assessSitting,
+  hoursBetween,
+  STUDY_CAPACITY,
+  LSAT_HOURS_FLOOR,
 } from '@/core/goals/education'
 
 const TODAY = '2026-08-05'
@@ -83,5 +87,54 @@ describe('application cycle', () => {
     const late = applicationCycleBands(2027).find((b) => b.label === 'Late but workable')!
     expect(late.from).toBe('2027-12-01')
     expect(late.to).toBe('2028-01-31')
+  })
+})
+
+describe('capacity segments and the blitz', () => {
+  it('models capacity as segmented, not flat — the whole point of the blitz', () => {
+    const premob = STUDY_CAPACITY.find((s) => s.key === 'premob')!
+    const rsoi = STUDY_CAPACITY.find((s) => s.key === 'rsoi')!
+    expect(premob.hoursPerWeek).toBeGreaterThan(rsoi.hoursPerWeek)
+  })
+
+  it('marks every capacity figure as a guess, because they all are', () => {
+    expect(STUDY_CAPACITY.every((s) => s.confidence !== 'confirmed')).toBe(true)
+  })
+
+  it('sums hours across segment boundaries rather than using one flat rate', () => {
+    // Pre-mob alone, 30 days at 25h/wk.
+    expect(hoursBetween('2026-08-05', '2026-09-03')).toBe(107)
+    // Crossing into RSOI must be less than the same span at the pre-mob rate.
+    const crossing = hoursBetween('2026-08-05', '2026-10-07')
+    expect(crossing).toBeGreaterThan(107)
+    expect(crossing).toBeLessThan(Math.round((64 / 7) * 25))
+  })
+
+  it('calls October thin and November a real attempt', () => {
+    const oct = assessSitting(LSAT_DATES.find((a) => a.key === 'oct_2026')!, TODAY)
+    const nov = assessSitting(LSAT_DATES.find((a) => a.key === 'nov_2026')!, TODAY)
+
+    expect(oct.hoursAvailable).toBeLessThan(LSAT_HOURS_FLOOR)
+    expect(oct.verdict).toBe('thin — treat as diagnostic')
+    expect(nov.hoursAvailable).toBeGreaterThanOrEqual(LSAT_HOURS_FLOOR)
+    expect(nov.verdict).toBe('real attempt')
+  })
+
+  it('drops November under the floor too if pre-mob is really 10h/wk', () => {
+    const pessimistic = STUDY_CAPACITY.map((s) =>
+      s.key === 'premob' ? { ...s, hoursPerWeek: 10 } : s,
+    )
+    const nov = assessSitting(
+      LSAT_DATES.find((a) => a.key === 'nov_2026')!,
+      TODAY,
+      pessimistic,
+    )
+    expect(nov.hoursAvailable).toBeLessThan(LSAT_HOURS_FLOOR)
+  })
+
+  it('always warns that the hours are only as good as the capacity guesses', () => {
+    for (const a of LSAT_DATES) {
+      expect(assessSitting(a, TODAY).warnings.join(' ')).toMatch(/capacity figure here is a guess/i)
+    }
   })
 })

@@ -315,3 +315,141 @@ export function administrationsUsableBy(target: LocalDate): LsatAdministration[]
     return localDaysBetween(release, target) >= 0
   })
 }
+
+// ── Capacity segments and the blitz plan ────────────────────────────────────
+
+/**
+ * Study capacity is not flat across a deployment, and pretending it is produces a
+ * plan that fails in month two.
+ *
+ * Pre-mob is stateside: reliable internet, a desk, and — critically — the ability to
+ * file the LSAC military testing exception before you need it. It is also the LAST
+ * high-capacity block before a long stretch of low and unpredictable ones. That makes
+ * it a closing capacity window in its own right, which is exactly the kind of thing
+ * this system exists to notice.
+ */
+export interface CapacitySegment {
+  key: string
+  label: string
+  start: LocalDate
+  end: LocalDate
+  hoursPerWeek: number
+  confidence: Sourcing
+  note?: string
+}
+
+export const STUDY_CAPACITY: CapacitySegment[] = [
+  {
+    key: 'premob',
+    label: 'Pre-mob (stateside)',
+    start: '2026-08-05',
+    end: '2026-09-03',
+    hoursPerWeek: 25,
+    confidence: 'unknown',
+    note:
+      'A GUESS. Pre-mob is often packed with SRP and admin, so this could easily be 10. ' +
+      'It is the single most load-bearing assumption in the LSAT plan — correct it first.',
+  },
+  {
+    key: 'rsoi',
+    label: 'Movement and RSOI',
+    start: '2026-09-04',
+    end: '2026-10-15',
+    hoursPerWeek: 6,
+    confidence: 'unknown',
+    note: 'Arrival, handover, battle rhythm not yet set. Assume little usable time.',
+  },
+  {
+    key: 'steady',
+    label: 'Steady state in theatre',
+    start: '2026-10-16',
+    end: '2027-06-30',
+    hoursPerWeek: 14,
+    confidence: 'unknown',
+    note: 'Deployed downtime is often MORE usable than pre-mob. Measure it, do not trust it.',
+  },
+  {
+    key: 'redeploy',
+    label: 'Redeployment',
+    start: '2027-07-01',
+    end: '2027-08-31',
+    hoursPerWeek: 4,
+    confidence: 'unknown',
+    note: 'Out-processing and reintegration. Plan nothing here.',
+  },
+]
+
+/** Hours available between two dates, walking the capacity segments. */
+export function hoursBetween(
+  from: LocalDate,
+  to: LocalDate,
+  segments: CapacitySegment[] = STUDY_CAPACITY,
+): number {
+  let hours = 0
+  for (const seg of segments) {
+    const start = compareMax(from, seg.start)
+    const end = compareMin(to, seg.end)
+    const days = localDaysBetween(start, end) + 1
+    if (days > 0) hours += (days / 7) * seg.hoursPerWeek
+  }
+  return Math.round(hours)
+}
+
+function compareMax(a: LocalDate, b: LocalDate): LocalDate {
+  return a > b ? a : b
+}
+function compareMin(a: LocalDate, b: LocalDate): LocalDate {
+  return a < b ? a : b
+}
+
+/** Typical LSAT prep runs 150–300 hours. Below 150 a first sitting is a diagnostic. */
+export const LSAT_HOURS_FLOOR = 150
+export const LSAT_HOURS_COMFORTABLE = 250
+
+export interface BlitzAssessment {
+  administration: LsatAdministration
+  hoursAvailable: number
+  /** Share of those hours earned during pre-mob — the high-quality block. */
+  premobHours: number
+  verdict: 'real attempt' | 'thin — treat as diagnostic' | 'not viable'
+  warnings: string[]
+}
+
+/**
+ * Can a given sitting be reached with the capacity that actually exists between now
+ * and then. Reports the hours, where they come from, and what it means — it does not
+ * pick for you.
+ */
+export function assessSitting(
+  administration: LsatAdministration,
+  from: LocalDate,
+  segments: CapacitySegment[] = STUDY_CAPACITY,
+): BlitzAssessment {
+  const hoursAvailable = hoursBetween(from, administration.testDate, segments)
+  const premob = segments.find((s) => s.key === 'premob')
+  const premobHours = premob
+    ? hoursBetween(from, compareMin(administration.testDate, premob.end), [premob])
+    : 0
+
+  const warnings: string[] = []
+  if (administration.registrationDeadline) {
+    const d = localDaysBetween(from, administration.registrationDeadline)
+    if (d < 0) warnings.push('Registration already closed.')
+    else if (d <= 30) warnings.push(`Registration closes in ${d} days (${administration.registrationDeadline}).`)
+  } else {
+    warnings.push('Registration deadline unconfirmed — check LSAC.')
+  }
+  if (administration.source !== 'confirmed') warnings.push('Test date derived, not confirmed.')
+  if (segments.some((s) => s.confidence !== 'confirmed')) {
+    warnings.push('Every capacity figure here is a guess. The hours below are only as good as those.')
+  }
+
+  const verdict: BlitzAssessment['verdict'] =
+    hoursAvailable >= LSAT_HOURS_FLOOR
+      ? 'real attempt'
+      : hoursAvailable >= LSAT_HOURS_FLOOR * 0.6
+        ? 'thin — treat as diagnostic'
+        : 'not viable'
+
+  return { administration, hoursAvailable, premobHours, verdict, warnings }
+}

@@ -1,5 +1,9 @@
 import {
   LSAT_DATES,
+  LSAT_HOURS_FLOOR,
+  STUDY_CAPACITY,
+  assessSitting,
+  hoursBetween,
   MACC_TERMS,
   FALL_2026_CENSUS,
   applicationCycleBands,
@@ -51,6 +55,91 @@ export default function PlanPage() {
             of it against a 36-month law degree.
           </li>
         </ul>
+      </div>
+
+      <h2>The blitz — what pre-mob capacity actually buys</h2>
+      <div className="panel">
+        <p style={{ marginTop: 0 }}>
+          Pre-mob is the last high-capacity block before a long stretch of low and
+          unpredictable ones, which makes it a closing capacity window in its own right.
+          Blitzing now is the right instinct. What it buys, at the assumed rates:
+        </p>
+        <div className="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Sitting</th>
+                <th>Hours by then</th>
+                <th>of which pre-mob</th>
+                <th>Verdict</th>
+              </tr>
+            </thead>
+            <tbody>
+              {LSAT_DATES.map((a) => {
+                const r = assessSitting(a, TODAY)
+                return (
+                  <tr key={a.key}>
+                    <td>{a.label}</td>
+                    <td>{r.hoursAvailable}h</td>
+                    <td className="muted">{r.premobHours}h</td>
+                    <td
+                      className={
+                        r.verdict === 'real attempt'
+                          ? 'good'
+                          : r.verdict === 'not viable'
+                            ? 'bad'
+                            : 'warn'
+                      }
+                    >
+                      {r.verdict}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p style={{ marginBottom: 0 }}>
+          Typical prep is {LSAT_HOURS_FLOOR}–250 hours. The blitz yields{' '}
+          <strong>{hoursBetween(TODAY, '2026-09-03')}h</strong> before you ship — real, but
+          it lands October at {assessSitting(LSAT_DATES[0]!, TODAY).hoursAvailable}h, under the
+          floor. <strong>November is the first sitting that clears it.</strong>
+        </p>
+      </div>
+
+      <h2>Assumed study capacity</h2>
+      <div className="panel">
+        <div className="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Phase</th>
+                <th>From</th>
+                <th>To</th>
+                <th>h/wk</th>
+                <th>Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              {STUDY_CAPACITY.map((c) => (
+                <tr key={c.key}>
+                  <td>{c.label}</td>
+                  <td>{c.start}</td>
+                  <td>{c.end}</td>
+                  <td className="warn">{c.hoursPerWeek}</td>
+                  <td className="muted" style={{ whiteSpace: 'normal' }}>
+                    {c.note}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="muted" style={{ marginBottom: 0, fontSize: 12.5 }}>
+          Every one of these is a guess and they drive the verdicts above. The 25h/wk pre-mob
+          figure is the most load-bearing — if pre-mob is really 10h/wk, November drops under
+          the floor too and February becomes the first real sitting.
+        </p>
       </div>
 
       <h2>The decision that has a deadline in 22 days</h2>
@@ -161,11 +250,20 @@ export default function PlanPage() {
           alongside a deployment. A bad month costs one block, not a semester.
         </p>
         <p>
-          <strong>It produces no cash.</strong> One more class out of pocket, then Hazlewood
-          covers tuition. Post-9/11 would pay no housing allowance while you are on active
-          duty, so there is nothing to collect. That makes the MAcc a pure cost in money and
-          capacity for the whole deployment — worth doing, but not a source of funds, and the
-          money view should never be built expecting one.
+          <strong>It produces no cash.</strong> One more class out of pocket, then it is free.
+          Post-9/11 pays no housing allowance while you are on active duty, so there is
+          nothing to collect. That makes the MAcc a pure cost in money and capacity for the
+          whole deployment — worth doing, but never a source of funds, and the money view
+          must not be built expecting one.
+        </p>
+        <p>
+          <strong>Deferring until cash exists points at March 2027.</strong> On the current
+          allocation there is no free money on any payday until{' '}
+          <strong>15 February 2027</strong>, when the mortgage arrears finish and the 15th-of-
+          month paydays start leaving about <strong>$956</strong> clear. The first MAcc start
+          after that is the Spring 2027 second 7-week block — whose date I could not confirm.
+          Skipping both Fall 2026 blocks is the cost of that choice, and it is a real one:
+          it pushes the degree back roughly a semester.
         </p>
         <div className="scroll">
           <table>
