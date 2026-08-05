@@ -82,6 +82,16 @@ export interface Obligation {
    * the line disappears instead of billing forever.
    */
   balanceCap?: number
+  /**
+   * Share one balance pool with other obligations carrying the same group.
+   *
+   * A credit card is attacked from two directions at once: a minimum payment you must
+   * make, and whatever the paydown sweep adds on top. Both reduce the SAME balance, so
+   * without this they would each run to the full cap and the plan would pay the card
+   * twice. With it, the minimum is the floor, the sweep is the acceleration, and the
+   * pair stops together when the real balance is gone.
+   */
+  capGroup?: string
   note?: string
 }
 
@@ -92,6 +102,8 @@ export interface AllocationLine {
   swept?: boolean
   /** True when this is a goal you set rather than a bill you owe. See `Obligation.target`. */
   target?: boolean
+  /** Balance pool this line draws down, when it shares one. See `Obligation.capGroup`. */
+  capGroup?: string
   execution: 'automatic' | 'manual'
   howTo?: string
   /** After proration. This is what the payday is actually asked for. */
@@ -213,6 +225,14 @@ export function allocate(
 
   let available = round2(paycheck.net + openingBuffer)
   const lines: AllocationLine[] = []
+  /**
+   * Running balance drawn down WITHIN this payday, on top of what prior paydays paid.
+   *
+   * `paidSoFar` only advances between paydays, so a minimum and a sweep sharing one
+   * balance would both read the same stale figure and together overshoot the cap. This
+   * makes the second one see what the first just took.
+   */
+  const paidHere: Record<string, number> = {}
 
   for (const o of due) {
     const discretionary = isDiscretionary(o)
@@ -225,21 +245,27 @@ export function allocate(
         : requestedAmount(o, paycheck)
     seen.add(o.key)
 
+    const capKey = o.capGroup ?? o.key
+    let capRemaining = Infinity
     if (o.balanceCap !== undefined) {
-      const remaining = round2(o.balanceCap - (paidSoFar[o.key] ?? 0))
-      if (remaining <= 0) continue // balance cleared; the line is gone, not zeroed
-      requested = Math.min(requested, remaining)
+      const alreadyPaid = round2((paidSoFar[capKey] ?? 0) + (paidHere[capKey] ?? 0))
+      capRemaining = round2(o.balanceCap - alreadyPaid)
+      if (capRemaining <= 0) continue // balance cleared; the line is gone, not zeroed
+      requested = Math.min(requested, capRemaining)
     }
+
 
     if (requested <= 0) continue
 
     const allocated = round2(Math.max(0, Math.min(ceiling, requested)))
     available = round2(available - allocated)
+    paidHere[capKey] = round2((paidHere[capKey] ?? 0) + allocated)
     if (discretionary) drainLeft = round2(drainLeft - allocated)
 
     lines.push({
       key: o.key,
       label: o.label,
+      ...(o.capGroup ? { capGroup: o.capGroup } : {}),
       ...(o.sweep ? { swept: true } : {}),
       ...(o.target ? { target: true } : {}),
       execution: o.execution ?? 'manual',
@@ -314,7 +340,8 @@ function walk(
     })
     if (arrived.length > 0) a.oneOffs = arrived
     for (const line of a.lines) {
-      paidSoFar[line.key] = round2((paidSoFar[line.key] ?? 0) + line.allocated)
+      const capKey = line.capGroup ?? line.key
+      paidSoFar[capKey] = round2((paidSoFar[capKey] ?? 0) + line.allocated)
     }
     buffer = a.remainder
     onAllocated(a)
@@ -381,17 +408,25 @@ export function balanceClearedOn(
   obligations: Obligation[],
 ): Record<string, { cap: number; paid: number; clearedOn: LocalDate | null }> {
   const out: Record<string, { cap: number; paid: number; clearedOn: LocalDate | null }> = {}
+  const seenGroups = new Set<string>()
   for (const o of obligations) {
     if (o.balanceCap === undefined) continue
+    const capKey = o.capGroup ?? o.key
+    // A shared pool is one balance, so report it once rather than per contributor.
+    if (seenGroups.has(capKey)) continue
+    seenGroups.add(capKey)
+
     let paid = 0
     let clearedOn: LocalDate | null = null
     for (const a of allocations) {
-      const line = a.lines.find((l) => l.key === o.key)
-      if (!line) continue
-      paid = round2(paid + line.allocated)
+      const contributed = a.lines
+        .filter((l) => (l.capGroup ?? l.key) === capKey)
+        .reduce((s, l) => s + l.allocated, 0)
+      if (contributed === 0) continue
+      paid = round2(paid + contributed)
       if (clearedOn === null && paid >= o.balanceCap - 0.005) clearedOn = a.paycheck.payDate
     }
-    out[o.key] = { cap: o.balanceCap, paid, clearedOn }
+    out[capKey] = { cap: o.balanceCap, paid, clearedOn }
   }
   return out
 }

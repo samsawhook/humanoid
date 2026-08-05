@@ -28,7 +28,7 @@ import type { Obligation, OneOff } from './allocation'
 import { backPay, EXPECTED_BACK_PAY } from './drillPay'
 import { TIMELINE } from './rates'
 import { householdTotals } from './household'
-import { DEBTS, agreementDebts, openDebts, totalBalance } from './debts'
+import { DEBTS, agreementDebts, openDebts, totalBalance, totalMinimums } from './debts'
 
 /**
  * Household running costs, split by profile and derived from the Monarch categories
@@ -58,6 +58,15 @@ export const CLOSED_DEBT_BALANCE = totalBalance(
   DEBTS.filter((d) => d.posture === 'closed' && d.agreementMonthly === undefined),
 )
 
+/** Closed accounts still bill a minimum: the credit line is gone, the balance is not. */
+const CLOSED_DEBTS = DEBTS.filter(
+  (d) => d.posture === 'closed' && d.agreementMonthly === undefined,
+)
+
+/** Estimated monthly minimums. See minimumPayment() in debts.ts for the basis. */
+export const OPEN_CARD_MINIMUMS = totalMinimums(openDebts())
+export const CLOSED_CARD_MINIMUMS = totalMinimums(CLOSED_DEBTS)
+
 /** Total monthly cost of every negotiated payment plan. Composed, never retyped. */
 export const AGREEMENT_MONTHLY = agreementDebts().reduce(
   (s, d) => s + (d.agreementMonthly ?? 0),
@@ -74,7 +83,9 @@ export const LATE_PAYMENTS_BALANCE = 1100
 export const EXPECTED_BACK_PAY_NET = backPay(EXPECTED_BACK_PAY).net
 
 /** Four months behind at roughly $1,300 a month. */
-export const MORTGAGE_ARREARS_BALANCE = 5200
+export const MORTGAGE_PAYMENT = 1300
+
+export const MORTGAGE_ARREARS_BALANCE = 4 * MORTGAGE_PAYMENT
 /** What is actually left on the auto loan — it pays off and the line disappears. */
 export const CAR_LOAN_BALANCE = 1800
 
@@ -245,6 +256,55 @@ export const OBLIGATIONS: Obligation[] = [
     note: '$461/mo, billed on the 15th.',
   },
   {
+    key: 'card_minimums_open',
+    label: 'Card minimums — open accounts',
+    /**
+     * A bill, not a strategy. Paying the minimum clears nothing on its own — on a
+     * subprime card it barely covers the interest — but missing one is a delinquency,
+     * and a delinquency on a live account undoes exactly the thing the paydown is
+     * trying to buy. So it ranks with the mortgage, not with the waterfall.
+     *
+     * Shares `capGroup` with the paydown sweep, so the minimum and the acceleration
+     * draw down ONE balance and stop together. Without that the plan would pay these
+     * cards twice.
+     */
+    amountPerPaycheck: OPEN_CARD_MINIMUMS,
+    payDays: 'fifteenth',
+    activeFrom: null,
+    activeTo: null,
+    priority: 37,
+    kind: 'unsecured_debt',
+    balanceCap: OPEN_DEBT_BALANCE,
+    capGroup: 'open_cards',
+    execution: 'manual',
+    howTo: 'Wells Fargo Platinum, Brightway, Credit One. Autopay the minimum on each so it cannot be missed.',
+    note:
+      'ESTIMATED at the greater of $35 or 2% of balance — the floor binds on all three. ' +
+      'Replace with statement figures when you have them.',
+  },
+  {
+    key: 'card_minimums_closed',
+    label: 'Card minimums — closed accounts',
+    /**
+     * The one people forget. Citi and Capital One are closed to further use, but the
+     * balances are live and still bill a minimum every month. Closing an account ends
+     * the credit line, not the obligation.
+     */
+    amountPerPaycheck: CLOSED_CARD_MINIMUMS,
+    payDays: 'fifteenth',
+    activeFrom: null,
+    activeTo: null,
+    priority: 37,
+    kind: 'unsecured_debt',
+    balanceCap: CLOSED_DEBT_BALANCE,
+    capGroup: 'closed_cards',
+    execution: 'manual',
+    howTo: 'Citi and Capital One. Autopay the minimum on each.',
+    note:
+      'ESTIMATED. Capital One is the only one where the percentage beats the floor. ' +
+      'Chase is not here — its agreement IS its minimum, and it has its own line.',
+  },
+  {
     key: 'late_payments',
     label: 'Late payments cleanup — tolls and fees',
     /**
@@ -261,11 +321,21 @@ export const OBLIGATIONS: Obligation[] = [
      * The drill back pay lands this month and covers it outright, so in practice this
      * is funded by money the waterfall never sees.
      */
-    amountPerPaycheck: LATE_PAYMENTS_BALANCE,
-    payDays: 'first',
-    activeFrom: '2026-09-01',
-    activeTo: '2026-10-31',
-    priority: 38,
+    /**
+     * In the WATERFALL, immediately behind the arrears — not a fixed bill above them.
+     *
+     * It sat above the arrears at first, and that was wrong in a way worth recording:
+     * the forward reserve dutifully held money back every fortnight to protect this
+     * $1,100, which meant the arrears could never accumulate the $1,300 they needed and
+     * the delinquency clock kept running. Tolls escalate over months; a 120-day
+     * delinquency escalates on a date. When both want the same dollar, the deadline wins.
+     */
+    amountPerPaycheck: 0,
+    sweep: true,
+    payDays: 'both',
+    activeFrom: null,
+    activeTo: null,
+    priority: 45,
     kind: 'unsecured_debt',
     balanceCap: LATE_PAYMENTS_BALANCE,
     execution: 'manual',
@@ -273,10 +343,9 @@ export const OBLIGATIONS: Obligation[] = [
       'Pay the toll authority first and confirm no registration hold exists, then the ' +
       'remaining late fees. Do this before you ship — it needs a US phone and a card.',
     note:
-      '$1,100 in one payment on 2026-09-01, immediately after the drill back pay lands. ' +
-      'That is deliberate: the back pay covers it outright, so this never competes with ' +
-      'the arrears. Ranked above the waterfall because the escalation path is ' +
-      'administrative rather than financial, and it escalates while you are away.',
+      '$1,100, taken in one go as soon as the mortgage is out of danger. Second in the ' +
+      'waterfall rather than first, because the escalation path here is administrative ' +
+      'and measured in months, where the mortgage is measured in days.',
   },
   {
     key: 'debt_agreements',
@@ -343,11 +412,16 @@ export const OBLIGATIONS: Obligation[] = [
     kind: 'arrears_catchup',
     balanceCap: MORTGAGE_ARREARS_BALANCE,
     execution: 'manual',
-    howTo: 'Extra principal payment to the servicer, marked for arrears — not as a prepayment.',
+    howTo:
+      'Send it marked "for arrears — apply to oldest outstanding payment", never as a ' +
+      'principal prepayment. MAKE ONE BEFORE 1 SEPTEMBER, whatever the size.',
     note:
-      'Takes everything free until the house is current. Paying the CURRENT mortgage ' +
-      'on time is a separate line at the top of the file; missing that is what creates ' +
-      'new arrears in the first place.',
+      'THE 120-DAY LINE. Around four payments behind is where a servicer may make its ' +
+      'first foreclosure filing, which is why this is first in the waterfall and takes ' +
+      'everything free from the very first cheque — a payment landing before 1 September ' +
+      'is worth more than a larger one landing later, because it is evidence of ' +
+      'performance while the file is still curable. Paying the CURRENT mortgage on time ' +
+      'is a separate line at the top of the file; missing that adds a month back.',
   },
   {
     key: 'debt_paydown_open',
@@ -360,6 +434,8 @@ export const OBLIGATIONS: Obligation[] = [
     priority: 50,
     kind: 'unsecured_debt',
     balanceCap: OPEN_DEBT_BALANCE,
+    /** Same balance as the minimums above — the sweep accelerates, it does not duplicate. */
+    capGroup: 'open_cards',
     execution: 'manual',
     howTo:
       'Platinum, then Brightway, then Credit One. These three are the only accounts ' +
@@ -399,6 +475,7 @@ export const OBLIGATIONS: Obligation[] = [
     priority: 70,
     kind: 'unsecured_debt',
     balanceCap: CLOSED_DEBT_BALANCE,
+    capGroup: 'closed_cards',
     execution: 'manual',
     howTo: 'Citi, Capital One, Chase. NEVER Goldman or PSECU — see debts.ts.',
     note:

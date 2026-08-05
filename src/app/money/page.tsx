@@ -15,6 +15,9 @@ import {
   AGREEMENT_MONTHLY,
   ONE_OFFS,
   LATE_PAYMENTS_BALANCE,
+  OPEN_CARD_MINIMUMS,
+  CLOSED_CARD_MINIMUMS,
+  MORTGAGE_PAYMENT,
 } from '@/core/money/obligations'
 import { ENTITLEMENTS, TAX, TIMELINE } from '@/core/money/rates'
 import { backPay, EXPECTED_BACK_PAY } from '@/core/money/drillPay'
@@ -51,8 +54,11 @@ const COLOR: Record<string, string> = {
   support_home_deployed: seriesColor(4),
   nth_investments: seriesColor(5),
   debt_agreements: seriesColor(9),
+  card_minimums_open: seriesColor(6),
   debt_paydown_open: seriesColor(6),
+  card_minimums_closed: seriesColor(7),
   debt_paydown_closed: seriesColor(7),
+  late_payments: seriesColor(10),
   emergency_fund: seriesColor(8),
   mortgage_arrears: 'var(--accent)',
   future_fund: 'var(--series-rest)',
@@ -71,6 +77,26 @@ export default function MoneyPage() {
     0,
   )
   const closingBuffer = allocations[allocations.length - 1]?.remainder ?? 0
+  /**
+   * Not the fifteen individual transfers — the four dates the delinquency count drops.
+   * The balance is a means; the count of missed payments is what the servicer acts on.
+   */
+  const arrearsProgress = (() => {
+    const months = MORTGAGE_ARREARS_BALANCE / MORTGAGE_PAYMENT
+    const cured: { month: number; date: string }[] = []
+    let running = 0
+    let firstPayment: { date: string; amount: number } | null = null
+    for (const a of allocations) {
+      const paid = a.lines.find((l) => l.key === 'mortgage_arrears')?.allocated ?? 0
+      if (paid <= 0) continue
+      if (!firstPayment) firstPayment = { date: a.paycheck.payDate, amount: paid }
+      running += paid
+      while (cured.length < months && running >= (cured.length + 1) * MORTGAGE_PAYMENT - 0.005) {
+        cured.push({ month: cured.length + 1, date: a.paycheck.payDate })
+      }
+    }
+    return { months, cured, firstPayment }
+  })()
 
   const columns = allocations.slice(0, 12).map((a) => ({
     label: a.paycheck.payDate.slice(5),
@@ -149,8 +175,8 @@ export default function MoneyPage() {
         />
         <Card
           k="Open cards cleared"
-          v={cleared.debt_paydown_open?.clearedOn ?? 'not within horizon'}
-          tone={cleared.debt_paydown_open?.clearedOn ? 'good' : 'bad'}
+          v={cleared.open_cards?.clearedOn ?? 'not within horizon'}
+          tone={cleared.open_cards?.clearedOn ? 'good' : 'bad'}
           sub={`${usd0(OPEN_DEBT_BALANCE)} across 3 live accounts`}
         />
         <Card
@@ -181,17 +207,56 @@ export default function MoneyPage() {
         <strong>{cleared.mortgage_arrears?.clearedOn ?? 'not within the horizon'}</strong>.
         The open cards — {usd0(OPEN_DEBT_BALANCE)}, the only balances with a live credit
         line and so the only ones that move a score — clear{' '}
-        <strong>{cleared.debt_paydown_open?.clearedOn ?? 'not within the horizon'}</strong>.
+        <strong>{cleared.open_cards?.clearedOn ?? 'not within the horizon'}</strong>.
         The emergency fund then reaches {usd0(cleared.emergency_fund?.paid ?? 0)} of its{' '}
         {usd0(cleared.emergency_fund?.cap ?? 0)} target by the time you come home. The{' '}
         {usd0(CLOSED_DEBT_BALANCE)} on the remaining closed accounts is queued behind all
         of that and is not reached — worth clearing eventually, but there is no credit line to free up, so
-        it does not outrank a cash reserve. Chase is not in that figure — it is under a{' '}
+        it does not outrank a cash reserve — though their <em>minimums</em> are bills and
+        are paid from day one, because a closed account still bills one. Chase is not in
+        that figure — it is under a{' '}
         {usd0(AGREEMENT_MONTHLY)}/mo agreement, which makes it a bill rather than a
         balance you choose a rate for, and defaulting on an arrangement costs more than
         the payment does. Goldman and PSECU are in no line here at all:
         both were sued on and dismissed, and paying them is a legal decision rather than a
         scheduling one.
+      </div>
+
+      <div className="note">
+        <strong>The arrears clock, not the arrears balance.</strong> Around four payments
+        behind is where a servicer may make its first foreclosure filing, so the number
+        that matters is the count of missed payments, not the dollars. The arrears sit
+        first in the waterfall and take everything free from the very first cheque.
+        <p style={{ marginTop: 8 }}>
+          <strong>
+            First payment: {arrearsProgress.firstPayment?.date} for{' '}
+            {usd(arrearsProgress.firstPayment?.amount ?? 0)}
+          </strong>{' '}
+          — before 1 September, as you wanted. It is a part payment, and that is fine: a
+          payment landing early is evidence of performance while the file is still
+          curable, which is worth more than a larger one landing later.
+        </p>
+        <table style={{ marginTop: 8 }}>
+          <tbody>
+            {arrearsProgress.cured.map((c) => (
+              <tr key={c.month}>
+                <td>Missed payment {c.month} of {arrearsProgress.months} made good</td>
+                <td>{c.date}</td>
+                <td className={c.month === arrearsProgress.months ? 'good' : 'muted'}>
+                  {c.month === arrearsProgress.months
+                    ? 'current — clock stopped'
+                    : `${arrearsProgress.months - c.month} still behind`}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p style={{ marginTop: 8 }} className="muted">
+          SCRA gives real foreclosure protection on a pre-service mortgage, but it is a
+          defence rather than a cure — the fees and the credit reporting happen anyway.
+          And paying the CURRENT mortgage on time is a separate line at the top of the
+          stack: missing one adds a month back and undoes this.
+        </p>
       </div>
 
       <h2>Two things to do now</h2>

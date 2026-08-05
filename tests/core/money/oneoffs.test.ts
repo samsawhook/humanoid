@@ -76,19 +76,31 @@ describe('one-off inflows', () => {
     expect(totalNet + oneOffIn).toBeCloseTo(allocated + closing, 2)
   })
 
-  it('funds the toll cleanup out of the back pay rather than out of the arrears', () => {
-    // The whole point of the timing. Without the back pay the cleanup has to come from
-    // somewhere, and the only somewhere is the waterfall.
-    expect(summarize(withOneOffs).bindingShortfall).toBe(0)
-    expect(summarize(without).bindingShortfall).toBeGreaterThan(0)
+  it('puts the back pay straight at the arrears, which is what it reaches first', () => {
+    // It lands 2026-08-31, so it is in the account for the 1 September cheque, and the
+    // arrears are first in the waterfall — the back pay roughly triples what that
+    // payday can send at the house.
+    const sept = withOneOffs.find((a) => a.paycheck.scheduledDate === '2026-09-01')!
+    const septWithout = without.find((a) => a.paycheck.scheduledDate === '2026-09-01')!
+    const arrears = (a: typeof sept) =>
+      a.lines.find((l) => l.key === 'mortgage_arrears')?.allocated ?? 0
+    expect(arrears(sept)).toBeGreaterThan(arrears(septWithout) + 1000)
+  })
 
-    const cleanup = withOneOffs.find((a) =>
-      a.lines.some((l) => l.key === 'late_payments' && l.allocated > 0),
+  it('does not delay the first arrears payment, which lands before the back pay does', () => {
+    // The 14 August cheque pays what it can without waiting for anything.
+    const first = withOneOffs.find(
+      (a) => (a.lines.find((l) => l.key === 'mortgage_arrears')?.allocated ?? 0) > 0,
     )!
-    expect(cleanup.paycheck.scheduledDate).toBe('2026-09-01')
-    expect(cleanup.lines.find((l) => l.key === 'late_payments')!.allocated).toBe(
-      LATE_PAYMENTS_BALANCE,
-    )
+    expect(first.paycheck.payDate).toBe('2026-08-14')
+    expect(first.oneOffs).toBeUndefined()
+  })
+
+  it('clears the tolls eventually, behind the mortgage rather than ahead of it', () => {
+    const cleanup = withOneOffs
+      .flatMap((a) => a.lines.filter((l) => l.key === 'late_payments'))
+      .reduce((t, l) => t + l.allocated, 0)
+    expect(cleanup).toBeCloseTo(LATE_PAYMENTS_BALANCE, 2)
   })
 })
 
@@ -96,9 +108,15 @@ describe('SCRA', () => {
   it('caps at six percent and never touches Chase or the dismissed accounts', () => {
     expect(SCRA_INTEREST_CAP).toBe(0.06)
     const targets = SCRA_TARGETS.map((t) => t.creditor)
-    expect(targets).toContain('Wells Fargo')
+    expect(targets).toContain('Wells Fargo Platinum')
     expect(targets).toContain('Citi')
     expect(targets).not.toContain('Chase')
+
+    // Wells Fargo IS the Platinum card. One account must not produce two letters —
+    // it was briefly listed twice, once by creditor name and once by card name.
+    const keyed = SCRA_TARGETS.filter((t) => t.debtKey).map((t) => t.debtKey)
+    expect(new Set(keyed).size).toBe(keyed.length)
+    expect(SCRA_TARGETS.filter((t) => !t.debtKey)).toHaveLength(0)
 
     const excluded = SCRA_EXCLUDED.map((t) => t.creditor)
     expect(excluded).toContain('Chase')

@@ -52,7 +52,11 @@ export default function JdPage() {
   const paid = (key: string) =>
     allocations.reduce((s, a) => s + (a.lines.find((l) => l.key === key)?.allocated ?? 0), 0)
 
-  const debtPaid = paid('debt_paydown_open') + paid('debt_paydown_closed')
+  const debtPaid =
+    paid('debt_paydown_open') +
+    paid('debt_paydown_closed') +
+    paid('card_minimums_open') +
+    paid('card_minimums_closed')
   /**
    * The Chase agreement is a bill rather than a paydown, so it is not in `debtPaid` and
    * not in the paydown simulation — but it is still money reducing a real balance, so

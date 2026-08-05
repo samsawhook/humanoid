@@ -89,10 +89,11 @@ export interface ScraTarget {
 
 export const SCRA_TARGETS: ScraTarget[] = [
   {
-    creditor: 'Wells Fargo',
+    creditor: 'Wells Fargo Platinum',
+    debtKey: 'platinum',
     reason:
-      'NOT in the tracked balances — tell me whether this is a card, the auto loan or ' +
-      'the mortgage servicer so it can be modelled. Either way it is on the list.',
+      'Open account, $1,198.89, and the largest live credit line. Confirmed 2026-08-05 ' +
+      'to be the same account as "Wells Fargo" — one card, so one letter.',
   },
   { creditor: 'Citi', debtKey: 'citi', reason: 'Closed account, $1,777 balance still accruing.' },
   {
@@ -100,7 +101,6 @@ export const SCRA_TARGETS: ScraTarget[] = [
     debtKey: 'capital_one',
     reason: 'Closed account, $3,489 — the largest balance the cap can reach.',
   },
-  { creditor: 'Platinum Card', debtKey: 'platinum', reason: 'Open account, $1,198.89.' },
   { creditor: 'Brightway', debtKey: 'brightway', reason: 'Open account, $568.' },
   { creditor: 'Credit One', debtKey: 'credit_one', reason: 'Open account, $454.' },
 ]
@@ -129,11 +129,14 @@ export const DEBTS: Debt[] = [
   // ── Open revolving. Only these move utilisation, and there is not much of it. ──
   {
     key: 'platinum',
-    label: 'Platinum Card',
+    label: 'Wells Fargo Platinum',
     balance: 1198.89,
     posture: 'active',
     priority: 10,
-    note: 'Largest open balance. Open status confirmed 2026-08-05.',
+    note:
+      'Largest open balance, and the largest live credit line — so the single biggest ' +
+      'utilisation lever you have. Open status confirmed 2026-08-05. This is the ' +
+      '"Wells Fargo" account: one card, not two.',
   },
   {
     key: 'brightway',
@@ -207,6 +210,40 @@ export const DEBTS: Debt[] = [
       'may also have a right of setoff against accounts held there, so do not park cash at PSECU.',
   },
 ]
+
+/**
+ * Minimum payments — ESTIMATED.
+ *
+ * Card issuers set these as "the greater of a flat floor or a percentage of the
+ * balance", and the exact terms vary by issuer. The floor is what binds on every one of
+ * your balances except Capital One, so the floor is the number that matters here.
+ *
+ * Two things worth knowing about the resulting figure:
+ *
+ *  1. **A closed account still bills a minimum.** Citi and Capital One are shut to
+ *     further use, but the balance is live and a missed minimum is still a delinquency.
+ *     Closing an account stops the credit line, not the obligation.
+ *  2. **Paying only minimums never clears anything.** On a subprime card the minimum is
+ *     close to the interest, which is why these are modelled as bills that keep the
+ *     accounts current while the paydown sweep does the actual clearing. The minimum is
+ *     the floor; the sweep is the acceleration. They share one balance — see `capGroup`.
+ *
+ * Replace with the real numbers off a statement when you have them. These are estimates
+ * and they round up rather than down.
+ */
+export const MINIMUM_PAYMENT_FLOOR = 35
+export const MINIMUM_PAYMENT_RATE = 0.02
+
+/** Estimated monthly minimum on one balance. */
+export function minimumPayment(debt: Debt): number {
+  if (debt.agreementMonthly !== undefined) return debt.agreementMonthly
+  return Math.max(MINIMUM_PAYMENT_FLOOR, Math.ceil(debt.balance * MINIMUM_PAYMENT_RATE))
+}
+
+/** Total monthly minimums across a set of balances. */
+export function totalMinimums(debts: Debt[]): number {
+  return Math.round(debts.reduce((s, d) => s + minimumPayment(d), 0) * 100) / 100
+}
 
 /**
  * Everything the paydown is allowed to touch: open accounts, then closed ones.

@@ -13,6 +13,7 @@ import {
   CAR_LOAN_BALANCE,
   LATE_PAYMENTS_BALANCE,
   MORTGAGE_ARREARS_BALANCE,
+  MORTGAGE_PAYMENT,
   OBLIGATIONS,
   ONE_OFFS,
 } from '@/core/money/obligations'
@@ -278,6 +279,38 @@ describe('the real plan', () => {
     expect(summary.firstBindingShortPayday).toBe(null)
   })
 
+  /**
+   * Regression. A card is attacked from two directions — the minimum you must pay and
+   * whatever the sweep adds — and both reduce the same balance. `paidSoFar` only
+   * advances between paydays, so within one payday both lines read the same stale
+   * figure and together overshot the cap by $62.63. A balance cannot be overpaid.
+   */
+  it('never pays more than a shared balance actually holds', () => {
+    for (const key of ['open_cards', 'closed_cards']) {
+      const pool = cleared[key]
+      if (!pool) continue
+      expect(pool.paid).toBeLessThanOrEqual(pool.cap + 0.005)
+    }
+    expect(cleared.open_cards?.paid).toBeCloseTo(cleared.open_cards!.cap, 2)
+  })
+
+  it('pays a card minimum as a bill and the sweep as acceleration, onto one balance', () => {
+    // Both lines exist, both are unsecured debt, and only one of them is discretionary.
+    const withBoth = allocations.find(
+      (a) =>
+        a.lines.some((l) => l.key === 'card_minimums_open' && l.allocated > 0) &&
+        a.lines.some((l) => l.key === 'debt_paydown_open' && l.allocated > 0),
+    )
+    expect(withBoth).toBeDefined()
+    const min = withBoth!.lines.find((l) => l.key === 'card_minimums_open')!
+    const sweep = withBoth!.lines.find((l) => l.key === 'debt_paydown_open')!
+    expect(min.capGroup).toBe('open_cards')
+    expect(sweep.capGroup).toBe('open_cards')
+    // The minimum is a bill: it cannot be squeezed by the forward reserve.
+    expect(min.swept).toBeUndefined()
+    expect(sweep.swept).toBe(true)
+  })
+
   it('reports no phantom shortfall below the bills', () => {
     expect(summary.targetShortfall).toBe(0)
     for (const a of allocations) {
@@ -322,32 +355,68 @@ describe('the real plan', () => {
    */
   it('runs the waterfall one balance at a time, in the order chosen', () => {
     expect(cleared.mortgage_arrears?.paid).toBe(MORTGAGE_ARREARS_BALANCE)
-    expect(cleared.mortgage_arrears?.clearedOn).toBe('2027-02-15')
+    // Later than it was: $211/mo of estimated card minimums now comes off the top as a
+    // bill, and the gauge is what absorbs anything added above it.
+    expect(cleared.mortgage_arrears?.clearedOn).toBe('2027-03-15')
 
-    // The open cards only start once the house is current.
-    expect(cleared.debt_paydown_open?.clearedOn).toBe('2027-04-15')
-    expect(cleared.debt_paydown_open?.clearedOn! > cleared.mortgage_arrears?.clearedOn!).toBe(true)
+    // Balances are reported by POOL now, since a minimum and a sweep share one.
+    expect(cleared.open_cards?.clearedOn).toBe('2027-05-14')
+    expect(cleared.open_cards!.clearedOn! > cleared.mortgage_arrears!.clearedOn!).toBe(true)
 
     // And the reserve only starts once those are gone. It does not finish before you
     // come home, which is information about the horizon rather than about the target.
     expect(cleared.emergency_fund?.clearedOn).toBe(null)
     expect(cleared.emergency_fund?.paid).toBeGreaterThan(0)
 
-    // The closed balances are last and never get reached inside the deployment.
-    expect(cleared.debt_paydown_closed?.paid).toBe(0)
+    // The closed balances are never reached BY THE SWEEP inside the deployment — but
+    // they are not untouched, because their minimums are bills and run from day one.
+    expect(cleared.closed_cards?.clearedOn).toBe(null)
+    expect(cleared.closed_cards?.paid).toBeGreaterThan(0)
+    for (const a of allocations) {
+      expect(a.lines.find((l) => l.key === 'debt_paydown_closed')?.allocated ?? 0).toBe(0)
+    }
+  })
+
+  /**
+   * You asked for a payment before 1 September, and part payments are fine. The 14
+   * August cheque frees about $510 after every bill — so that is what goes, and it goes
+   * immediately. A payment landing while the file is still curable is worth more than a
+   * larger one landing later.
+   */
+  it('makes an arrears payment on the very first cheque, before 1 September', () => {
+    const first = allocations.find(
+      (a) => (a.lines.find((l) => l.key === 'mortgage_arrears')?.allocated ?? 0) > 0,
+    )!
+    expect(first.paycheck.payDate).toBe('2026-08-14')
+    expect(first.paycheck.payDate < '2026-09-01').toBe(true)
+    expect(first.lines.find((l) => l.key === 'mortgage_arrears')!.allocated).toBeGreaterThan(0)
+  })
+
+  it('keeps the arrears ahead of everything else in the waterfall until they are cured', () => {
+    let running = 0
+    for (const a of allocations) {
+      running += a.lines.find((l) => l.key === 'mortgage_arrears')?.allocated ?? 0
+      if (running >= MORTGAGE_ARREARS_BALANCE - 0.005) break
+      // Still behind on the house, so nothing below it has taken anything.
+      for (const key of ['late_payments', 'debt_paydown_open', 'debt_paydown_closed']) {
+        expect(a.lines.find((l) => l.key === key)?.allocated ?? 0).toBe(0)
+      }
+    }
   })
 
   it('never lets a waterfall line start before the one above it has cleared', () => {
-    const ORDER = [
-      'mortgage_arrears',
-      'debt_paydown_open',
-      'emergency_fund',
-      'debt_paydown_closed',
+    // Line key -> the balance pool it draws down. They differ wherever a minimum
+    // payment and a sweep share one balance.
+    const ORDER: { line: string; pool: string }[] = [
+      { line: 'mortgage_arrears', pool: 'mortgage_arrears' },
+      { line: 'debt_paydown_open', pool: 'open_cards' },
+      { line: 'emergency_fund', pool: 'emergency_fund' },
+      { line: 'debt_paydown_closed', pool: 'closed_cards' },
     ]
     for (let i = 1; i < ORDER.length; i++) {
-      const above = cleared[ORDER[i - 1]!]
+      const above = cleared[ORDER[i - 1]!.pool]
       for (const a of allocations) {
-        const line = a.lines.find((l) => l.key === ORDER[i])
+        const line = a.lines.find((l) => l.key === ORDER[i]!.line)
         if (!line || line.allocated === 0) continue
         // Something reached line i on this payday, so line i-1 must be settled.
         expect(above!.paid).toBeGreaterThanOrEqual(above!.cap - 0.005)
