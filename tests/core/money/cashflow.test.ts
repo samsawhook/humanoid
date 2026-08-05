@@ -257,6 +257,16 @@ describe('the real plan', () => {
    * savings targets it replaced were figures I invented, and their permanent "unmet ask"
    * made a solvent plan read like a crisis while telling nobody anything.
    */
+  it('covers every bill on every payday', () => {
+    // True only since the household profile was corrected to start at PRE-MOB rather
+    // than at the deployment date. The single short payday was 2026-09-01, where the
+    // at-home profile ($1,417/payday) was still being charged for a month already spent
+    // away. Being gone is cheaper, and the plan was billing for a life not being lived.
+    expect(summary.bindingShortfall).toBe(0)
+    expect(summary.bindingShortPaydays).toEqual([])
+    expect(summary.firstBindingShortPayday).toBe(null)
+  })
+
   it('reports no phantom shortfall below the bills', () => {
     expect(summary.targetShortfall).toBe(0)
     for (const a of allocations) {
@@ -301,7 +311,7 @@ describe('the real plan', () => {
    */
   it('runs the waterfall one balance at a time, in the order chosen', () => {
     expect(cleared.mortgage_arrears?.paid).toBe(MORTGAGE_ARREARS_BALANCE)
-    expect(cleared.mortgage_arrears?.clearedOn).toBe('2027-03-15')
+    expect(cleared.mortgage_arrears?.clearedOn).toBe('2027-02-15')
 
     // The open cards only start once the house is current.
     expect(cleared.debt_paydown_open?.clearedOn).toBe('2027-05-14')

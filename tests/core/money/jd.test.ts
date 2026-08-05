@@ -17,6 +17,9 @@ import {
   balanceSheet,
   housingScenarios,
   projectJd,
+  summerPlan,
+  SUMMER_TAX_RATE,
+  BAR_COSTS,
   projectedBalanceSheet,
 } from '@/core/money/lawschool'
 
@@ -199,6 +202,70 @@ describe('three-year projection', () => {
   it('prorates the book stipend by the tier too', () => {
     const run = projectJd(school, scenario, { ...base, monthlyDrillPay: 0 })
     expect(run.years[0]!.otherIncome).toBeCloseTo(1000 * POST_911_TIER, 2)
+  })
+
+  it('pays the summer after 1L and 2L, and nothing after 3L', () => {
+    const run = projectJd(school, scenario, { ...base, summerTrack: 'regional_firm' })
+    const plan = summerPlan('regional_firm')
+
+    expect(run.years[0]!.summerGross).toBe(plan.afterFirstYear)
+    expect(run.years[1]!.summerGross).toBe(plan.afterSecondYear)
+    // The 3L summer is bar study. Modelling it as income would be the most flattering
+    // error available here.
+    expect(run.years[2]!.summerGross).toBe(0)
+    expect(run.years[2]!.summerIncome).toBe(0)
+  })
+
+  it('taxes summer wages, since MHA and Hazlewood are not taxed and this is', () => {
+    const run = projectJd(school, scenario, { ...base, summerTrack: 'big_law' })
+    const gross = summerPlan('big_law').afterSecondYear
+    expect(run.years[1]!.summerIncome).toBeCloseTo(gross * (1 - SUMMER_TAX_RATE), 2)
+    expect(run.years[1]!.summerIncome).toBeLessThan(run.years[1]!.summerGross)
+  })
+
+  it('charges the bar exam in 3L, the one year with no summer income to meet it', () => {
+    const run = projectJd(school, scenario, base)
+    expect(run.years[0]!.barCosts).toBe(0)
+    expect(run.years[1]!.barCosts).toBe(0)
+    expect(run.years[2]!.barCosts).toBe(BAR_COSTS)
+    expect(run.years[2]!.costs.some((c) => c.key === 'bar')).toBe(true)
+  })
+
+  it('makes the 2L summer the largest single swing in the whole projection', () => {
+    const pi = projectJd(school, scenario, { ...base, summerTrack: 'public_interest' })
+    const big = projectJd(school, scenario, { ...base, summerTrack: 'big_law' })
+    const swing = big.endingCash - pi.endingCash
+    expect(swing).toBeGreaterThan(0)
+    // Larger than three years of drill pay, which is the next biggest lever you control.
+    expect(swing).toBeGreaterThan(475 * 12 * 3)
+  })
+
+  it('defaults to the middle track, not the best case', () => {
+    const dflt = projectJd(school, scenario, base)
+    const regional = projectJd(school, scenario, { ...base, summerTrack: 'regional_firm' })
+    const big = projectJd(school, scenario, { ...base, summerTrack: 'big_law' })
+    expect(dflt.endingCash).toBe(regional.endingCash)
+    expect(dflt.endingCash).toBeLessThan(big.endingCash)
+  })
+
+  /**
+   * The itemised ledger is the point: every dollar in and out is a named line, so a
+   * total can never quietly contain something the reader cannot see.
+   */
+  it('itemises both sides of each year so nothing hides in a residual', () => {
+    for (const y of projectJd(school, scenario, base).years) {
+      expect(y.totalIncome).toBeCloseTo(
+        y.income.reduce((t, l) => t + l.amount, 0),
+        2,
+      )
+      expect(y.totalCosts).toBeCloseTo(
+        y.costs.reduce((t, l) => t + l.amount, 0),
+        2,
+      )
+      expect(y.net).toBeCloseTo(y.totalIncome - y.totalCosts, 2)
+      // Amounts are unsigned; the side of the ledger carries the sign.
+      for (const l of [...y.income, ...y.costs]) expect(l.amount).toBeGreaterThanOrEqual(0)
+    }
   })
 
   it('values Hazlewood at the share Chapter 33 does not cover', () => {

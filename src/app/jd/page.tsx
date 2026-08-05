@@ -8,6 +8,11 @@ import {
   housingScenarios,
   projectJd,
   projectedBalanceSheet,
+  SUMMER_PLANS,
+  SUMMER_TAX_RATE,
+  BAR_COSTS,
+  summerPlan,
+  type SummerTrack,
 } from '@/core/money/lawschool'
 import { EXPENSE_CATEGORIES, SUPPORT_HOME, householdTotals, TRICARE_SELECT_RESERVE } from '@/core/money/household'
 import { projectPaychecks } from '@/core/money/paychecks'
@@ -21,12 +26,18 @@ import {
   simulatePaydown,
   totalBalance,
 } from '@/core/money/debts'
-import { Figure, Legend, StackedBars, TableView, seriesColor } from '@/components/viz'
+import { Figure, GroupedBars, Legend, StackedBars, TableView, seriesColor } from '@/components/viz'
 
 export const dynamic = 'force-dynamic'
 
 /** Reserve drill pay while in school. My estimate — a one-line edit. */
 const DRILL_PAY = 475
+
+/**
+ * Which summer outcome the headline numbers assume. The middle of the distribution,
+ * deliberately — planning against the best case is not planning.
+ */
+const SUMMER_TRACK: SummerTrack = 'regional_firm'
 
 const usd0 = (n: number) =>
   n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
@@ -79,6 +90,7 @@ export default function JdPage() {
         startingCash: projected.liquid,
         monthlyHousehold: schoolHousehold,
         monthlyDrillPay: DRILL_PAY,
+        summerTrack: SUMMER_TRACK,
       }),
     ),
   }))
@@ -475,47 +487,203 @@ export default function JdPage() {
         </TableView>
       </Figure>
 
-      <h2>Year by year — best and worst combination</h2>
-      {[bestOf(matrix), worstOf(matrix)].map((run, idx) => (
-        <div className="panel" key={idx}>
-          <strong>
-            {idx === 0 ? 'Best: ' : 'Worst: '}
-            {run.school.name} · {run.scenario.label}
-          </strong>
-          <div className="scroll">
-            <table>
-              <thead>
-                <tr>
-                  <th>Year</th>
-                  <th>MHA</th>
-                  <th>House</th>
-                  <th>Other</th>
-                  <th>Rent</th>
-                  <th>Household</th>
-                  <th>Tricare</th>
-                  <th>Net</th>
-                  <th>Cumulative</th>
-                </tr>
-              </thead>
-              <tbody>
-                {run.years.map((y) => (
-                  <tr key={y.year}>
-                    <td>{y.label}</td>
-                    <td>{usd0(y.mhaIncome)}</td>
-                    <td className={y.housingScenarioIncome >= 0 ? 'good' : 'bad'}>
-                      {usd0(y.housingScenarioIncome)}
+      <h2>The summer after 2L is the biggest number you can move</h2>
+      <p className="sub">
+        MHA pays for months in session — nine of twelve — so the summers are unpaid by
+        default and the earnings replace income you stop receiving rather than adding to
+        it. The three summers are three different events: 1L is small everywhere, 2L is
+        the summer associate position and the whole game, and{' '}
+        <strong>3L has no summer income at all</strong> — that stretch is bar study, and
+        it carries the {usd0(BAR_COSTS)} exam fee and prep course instead of a salary.
+        Summer wages are ordinary taxable income, modelled at{' '}
+        {Math.round(SUMMER_TAX_RATE * 100)}%, where MHA and Hazlewood are tax-free.
+      </p>
+
+      <Figure
+        title={`Ending cash after three years by summer track — ${bestOf(matrix).school.name}, ${bestOf(matrix).scenario.label}`}
+        caption={
+          <>
+            Same school and housing choice throughout; only the summer outcome changes.
+            The spread between the bars is larger than three years of drill pay, which is
+            the next biggest lever you actually control. Every figure here is{' '}
+            <strong>low confidence</strong> — the 2L outcome turns on school and class
+            rank, neither of which exists yet. The plan runs on the middle track.
+          </>
+        }
+      >
+        <GroupedBars
+          height={260}
+          format={(n) => usd0(n)}
+          columns={SUMMER_PLANS.map((plan) => {
+            const run = projectJd(bestOf(matrix).school, bestOf(matrix).scenario, {
+              startingCash: projected.liquid,
+              monthlyHousehold: schoolHousehold,
+              monthlyDrillPay: DRILL_PAY,
+              summerTrack: plan.track,
+            })
+            return {
+              label: plan.label.split(' /')[0] ?? plan.label,
+              sublabel: plan.track === SUMMER_TRACK ? 'planning case' : '',
+              bars: [
+                {
+                  key: 'summer',
+                  label: 'Summer earnings, after tax, over three years',
+                  value: run.years.reduce((t, y) => t + y.summerIncome, 0),
+                  color: seriesColor(2),
+                },
+                {
+                  key: 'ending',
+                  label: 'Ending cash after three years',
+                  value: Math.max(0, run.endingCash),
+                  color: seriesColor(1),
+                },
+              ],
+            }
+          })}
+        />
+        <Legend
+          items={[
+            { label: 'Summer earnings after tax, 3 yrs', color: seriesColor(2) },
+            { label: 'Ending cash after 3 yrs', color: seriesColor(1) },
+          ]}
+        />
+        <TableView>
+          <table>
+            <thead>
+              <tr>
+                <th>Track</th>
+                <th>After 1L</th>
+                <th>After 2L</th>
+                <th>After 3L</th>
+                <th>Gross</th>
+                <th>Tax</th>
+                <th>Net to you</th>
+              </tr>
+            </thead>
+            <tbody>
+              {SUMMER_PLANS.map((plan) => {
+                const gross = plan.afterFirstYear + plan.afterSecondYear
+                return (
+                  <tr key={plan.track}>
+                    <td style={{ whiteSpace: 'normal' }}>
+                      {plan.label}
+                      {plan.track === SUMMER_TRACK && (
+                        <span className="muted"> — planning case</span>
+                      )}
                     </td>
-                    <td className="good">{usd0(y.otherIncome)}</td>
-                    <td>{usd0(-y.rent)}</td>
-                    <td>{usd0(-y.householdCosts)}</td>
-                    <td>{usd0(-y.tricare)}</td>
-                    <td className={y.net >= 0 ? 'good' : 'bad'}>{usd0(y.net)}</td>
-                    <td className={y.cumulative >= 0 ? 'good' : 'bad'}>{usd0(y.cumulative)}</td>
+                    <td>{usd0(plan.afterFirstYear)}</td>
+                    <td>{usd0(plan.afterSecondYear)}</td>
+                    <td className="muted">— bar study</td>
+                    <td>{usd0(gross)}</td>
+                    <td className="bad">{usd0(-gross * SUMMER_TAX_RATE)}</td>
+                    <td className="good">{usd0(gross * (1 - SUMMER_TAX_RATE))}</td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                )
+              })}
+            </tbody>
+          </table>
+        </TableView>
+      </Figure>
+
+      <h2>Year by year — what comes in, what goes out</h2>
+      {(() => {
+        const run = bestOf(matrix)
+        const totalIn = run.years.reduce((t, y) => t + y.totalIncome, 0)
+        const totalOut = run.years.reduce((t, y) => t + y.totalCosts, 0)
+        const biggest = run.years[0]!.costs.reduce((a, b) => (b.amount > a.amount ? b : a))
+        const mha3 = run.years.reduce((t, y) => t + y.mhaIncome, 0)
+        return (
+          <div className="note">
+            <strong>
+              Across three years: {usd0(totalIn)} in against {usd0(totalOut)} out.
+            </strong>{' '}
+            The line that decides this is not tuition and not MHA — it is{' '}
+            <strong>{biggest.label.toLowerCase()} at {usd0(biggest.amount)} a year</strong>,
+            roughly {(biggest.amount / (mha3 / 3)).toFixed(1)}× the MHA. Hazlewood and
+            Chapter 33 between them take tuition to zero, which is worth{' '}
+            {usd0(run.hazlewoodValue)} and is the reason this is even arguable — but they
+            do nothing about the cost of keeping a family fed for three years while not
+            earning. That is the number to attack, and the only two levers on it are the
+            2L summer above and where you choose to live.
           </div>
+        )
+      })()}
+
+      {[bestOf(matrix), worstOf(matrix)].map((run, idx) => (
+        <div key={idx}>
+          <Figure
+            title={`${idx === 0 ? 'Best' : 'Worst'}: ${run.school.name} · ${run.scenario.label}`}
+            caption={
+              <>
+                Two bars a year on one axis, so where they cross means what it looks like
+                it means. Every line below is named — there is no residual{' '}
+                <em>other</em> bucket, so a total cannot quietly contain something you
+                cannot see. Watch 3L: the summer income stops, and the bar exam arrives in
+                the same year.
+              </>
+            }
+          >
+            <GroupedBars
+              height={260}
+              format={(n) => usd0(n)}
+              columns={run.years.map((y) => ({
+                label: y.label,
+                sublabel: `${y.net >= 0 ? '+' : ''}${usd0(y.net)}`,
+                bars: [
+                  { key: 'in', label: 'Money in', value: y.totalIncome, color: seriesColor(2) },
+                  { key: 'out', label: 'Money out', value: y.totalCosts, color: seriesColor(1) },
+                ],
+              }))}
+            />
+            <Legend
+              items={[
+                { label: 'Money in', color: seriesColor(2) },
+                { label: 'Money out', color: seriesColor(1) },
+              ]}
+            />
+            <TableView>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Year</th>
+                    <th>Line</th>
+                    <th>In</th>
+                    <th>Out</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {run.years.flatMap((y) => [
+                    ...y.income.map((l) => (
+                      <tr key={`${y.year}-in-${l.key}`}>
+                        <td className="muted">{y.label}</td>
+                        <td style={{ whiteSpace: 'normal' }}>{l.label}</td>
+                        <td className="good">{usd0(l.amount)}</td>
+                        <td />
+                      </tr>
+                    )),
+                    ...y.costs.map((l) => (
+                      <tr key={`${y.year}-out-${l.key}`}>
+                        <td className="muted">{y.label}</td>
+                        <td style={{ whiteSpace: 'normal' }}>{l.label}</td>
+                        <td />
+                        <td className="bad">{usd0(l.amount)}</td>
+                      </tr>
+                    )),
+                    <tr key={`${y.year}-net`}>
+                      <td />
+                      <td>
+                        <strong>{y.label} net · cumulative {usd0(y.cumulative)}</strong>
+                      </td>
+                      <td colSpan={2} className={y.net >= 0 ? 'good' : 'bad'}>
+                        <strong>{usd0(y.net)}</strong>
+                      </td>
+                    </tr>,
+                  ])}
+                </tbody>
+              </table>
+            </TableView>
+          </Figure>
+
           <ul className="tight" style={{ marginTop: 8 }}>
             {run.warnings.map((w) => (
               <li key={w} className="muted" style={{ fontSize: 12.5 }}>
@@ -525,6 +693,7 @@ export default function JdPage() {
           </ul>
         </div>
       ))}
+
     </>
   )
 }

@@ -130,23 +130,29 @@ export const OBLIGATIONS: Obligation[] = [
     amountPerPaycheck: HOME.categoryTotal / 2,
     payDays: 'both',
     activeFrom: null,
-    activeTo: TIMELINE.deploymentStart,
+    activeTo: TIMELINE.premobStart,
     priority: 30,
     kind: 'living',
     execution: 'automatic',
-    note: 'Derived from Monarch categories, excluding support sent home. See household.ts.',
+    note:
+      'Derived from Monarch categories, excluding support sent home. See household.ts. ' +
+      'Ends at PRE-MOB, not at the deployment date: you left home on 2026-07-31, so the ' +
+      'at-home spending profile stops there. This line is effectively already over.',
   },
   {
     key: 'living_deployed',
     label: 'Household running costs (deployed)',
     amountPerPaycheck: DEPLOYED.categoryTotal / 2,
     payDays: 'both',
-    activeFrom: TIMELINE.deploymentStart,
+    activeFrom: TIMELINE.premobStart,
     activeTo: null,
     priority: 30,
     kind: 'living',
     execution: 'automatic',
-    note: 'Personal consumption collapses on deployment; the household’s does not.',
+    note:
+      'Personal consumption collapses once you leave; the household’s does not. Runs ' +
+      'from PRE-MOB (2026-07-31) rather than the deployment date — you are already away, ' +
+      'so the deployed profile is the live one now, not a future state.',
   },
   {
     key: 'support_home',
@@ -159,7 +165,7 @@ export const OBLIGATIONS: Obligation[] = [
     amountPerPaycheck: HOME.support / 2,
     payDays: 'both',
     activeFrom: null,
-    activeTo: TIMELINE.deploymentStart,
+    activeTo: TIMELINE.premobStart,
     priority: 28,
     kind: 'living',
     execution: 'manual',
@@ -171,13 +177,15 @@ export const OBLIGATIONS: Obligation[] = [
     label: 'Support sent home (deployed)',
     amountPerPaycheck: DEPLOYED.support / 2,
     payDays: 'both',
-    activeFrom: TIMELINE.deploymentStart,
+    activeFrom: TIMELINE.premobStart,
     activeTo: null,
     priority: 28,
     kind: 'living',
     execution: 'manual',
     howTo: 'Transfer to the joint account. Set a standing order before you ship — this is the one that hurts if it slips.',
-    note: 'Modelled 40% higher: while away this becomes the funding channel, not a top-up.',
+    note:
+      'Modelled 40% higher: while away this becomes the funding channel, not a top-up. ' +
+      'Runs from pre-mob, since you are already gone.',
   },
   {
     key: 'nth_investments',

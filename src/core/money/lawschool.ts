@@ -64,6 +64,109 @@ export type Confidence = 'high' | 'medium' | 'low'
  */
 export const POST_911_TIER = 0.8
 
+// ── Summer earnings ─────────────────────────────────────────────────────────
+
+/**
+ * The three summers are three completely different financial events, and lumping them
+ * into one "summer job" number hides the only one that matters.
+ *
+ *  **1L summer** is small everywhere. Firms hire almost no 1Ls; the realistic options
+ *  are a funded public-interest fellowship, a judicial internship, or research work for
+ *  a professor. Plan on it covering its own costs and little else.
+ *
+ *  **2L summer** is the whole game. A summer associate offer converts to a post-
+ *  graduation job at high rates, and at a market-paying Houston or Dallas firm it pays
+ *  more in twelve weeks than the MHA pays in a year. It is also the single largest
+ *  swing factor in whether three years of school leaves you up or down.
+ *
+ *  **3L summer does not exist as earnings.** It is bar study — roughly ten weeks of
+ *  full-time preparation, with the exam fee and a commercial prep course to pay for.
+ *  Modelling it as income would be the most flattering error in the file, so it is
+ *  modelled as the cost it is.
+ *
+ * Two things about the summers matter beyond the headline number:
+ *
+ *  1. MHA does not pay over the summer. The model already runs MHA at 9 months of 12,
+ *     so summer earnings are not pure upside — the first slice replaces income you
+ *     stop receiving.
+ *  2. Summer earnings are ordinary taxable wages. MHA and Hazlewood are not. So a
+ *     dollar of summer pay is worth materially less than a dollar of MHA, and the
+ *     comparison is only honest after tax.
+ */
+export type SummerTrack = 'public_interest' | 'regional_firm' | 'big_law'
+
+export interface SummerPlan {
+  track: SummerTrack
+  label: string
+  /** Gross pay for the summer after 1L. */
+  afterFirstYear: number
+  /** Gross pay for the summer after 2L — the summer associate position. */
+  afterSecondYear: number
+  confidence: Confidence
+  note: string
+}
+
+/**
+ * Effective tax on summer wages. A summer associate salary is earned in twelve weeks
+ * but withheld as though it were an annual rate, so the withholding is punishing even
+ * where the eventual liability is not. Modelled as a flat effective rate — blunt, and
+ * flagged as such.
+ */
+export const SUMMER_TAX_RATE = 0.22
+
+/** Bar exam fee plus a commercial prep course, paid in the 3L year. */
+export const BAR_COSTS = 4000
+
+export const SUMMER_PLANS: SummerPlan[] = [
+  {
+    track: 'public_interest',
+    label: 'Public interest / government',
+    afterFirstYear: 6000,
+    afterSecondYear: 10000,
+    confidence: 'low',
+    note:
+      'Funded fellowship or a government honors programme. Many such positions are ' +
+      'unpaid and covered by a school grant, so treat these as the school subsidising ' +
+      'the summer rather than an employer paying market.',
+  },
+  {
+    track: 'regional_firm',
+    label: 'Regional / mid-size firm',
+    afterFirstYear: 8000,
+    afterSecondYear: 30000,
+    confidence: 'low',
+    note:
+      'Roughly twelve weeks at $2,500 for the 2L summer. The realistic centre of the ' +
+      'distribution for most Texas graduates, and the assumption to plan against ' +
+      'unless you have a reason to believe otherwise.',
+  },
+  {
+    track: 'big_law',
+    label: 'Market-rate firm (Houston / Dallas)',
+    afterFirstYear: 15000,
+    afterSecondYear: 52000,
+    confidence: 'low',
+    note:
+      'Twelve weeks at the market weekly rate, which tracks the first-year associate ' +
+      'salary divided by 52. Houston pays market at the large firms. This outcome is ' +
+      'competitive and correlates hard with school and class rank — it is the upside ' +
+      'case, not the planning case.',
+  },
+]
+
+export function summerPlan(track: SummerTrack): SummerPlan {
+  const found = SUMMER_PLANS.find((p) => p.track === track)
+  if (!found) throw new Error(`unknown summer track: ${track}`)
+  return found
+}
+
+/** Gross summer pay earned during a given school year. Year 3 is bar study, so zero. */
+export function summerGrossFor(plan: SummerPlan, year: number): number {
+  if (year === 1) return plan.afterFirstYear
+  if (year === 2) return plan.afterSecondYear
+  return 0
+}
+
 export interface LawSchool {
   key: string
   name: string
@@ -316,20 +419,46 @@ export function housingScenarios(house = HOUSE): HousingOutcome[] {
 
 // ── Three-year projection ───────────────────────────────────────────────────
 
+/**
+ * One named line on one side of one year's ledger.
+ *
+ * `amount` is always positive — which side of the ledger it is on is carried by which
+ * array it lives in, not by its sign. That way a rendering can never accidentally show
+ * a cost as income by dropping a minus.
+ */
+export interface LedgerLine {
+  key: string
+  label: string
+  amount: number
+  note?: string
+}
+
 export interface YearProjection {
   year: number
   label: string
-  mhaIncome: number
-  housingScenarioIncome: number
-  /** Drill pay, spouse income and the book stipend. */
-  otherIncome: number
+  /** Every dollar in, itemised. Nothing is bundled into a residual "other". */
+  income: LedgerLine[]
+  /** Every dollar out, itemised. */
+  costs: LedgerLine[]
   totalIncome: number
-  rent: number
-  householdCosts: number
-  tricare: number
   totalCosts: number
   net: number
   cumulative: number
+
+  // ── Convenience accessors over the same numbers, for charts and assertions. ──
+  mhaIncome: number
+  housingScenarioIncome: number
+  /** Summer earnings, AFTER tax. Zero in 3L: that summer is bar study. */
+  summerIncome: number
+  /** Summer earnings before tax, so the withholding bite stays visible. */
+  summerGross: number
+  /** Drill pay and the book stipend. */
+  otherIncome: number
+  rent: number
+  householdCosts: number
+  tricare: number
+  /** Bar exam fee and prep course. 3L year only. */
+  barCosts: number
 }
 
 export interface JdProjection {
@@ -361,6 +490,16 @@ export interface JdInputs {
   annualBookStipend?: number
   /** Chapter 33 entitlement tier. Defaults to POST_911_TIER. */
   benefitTier?: number
+  /**
+   * Which summer outcome to plan against. Defaults to `regional_firm` — the centre of
+   * the distribution rather than the best case, because a plan built on the best case
+   * is not a plan.
+   */
+  summerTrack?: SummerTrack
+  /** Effective tax on summer wages. Defaults to SUMMER_TAX_RATE. */
+  summerTaxRate?: number
+  /** Bar exam fee plus prep course, charged in 3L. Defaults to BAR_COSTS. */
+  barCosts?: number
 }
 
 export function projectJd(
@@ -374,12 +513,21 @@ export function projectJd(
   const drillPay = inputs.monthlyDrillPay ?? 475
   const tier = inputs.benefitTier ?? POST_911_TIER
   const bookStipend = round2((inputs.annualBookStipend ?? 1000) * tier)
+  const summer = summerPlan(inputs.summerTrack ?? 'regional_firm')
+  const summerTaxRate = inputs.summerTaxRate ?? SUMMER_TAX_RATE
+  const barCosts = inputs.barCosts ?? BAR_COSTS
 
   const warnings: string[] = [
     'Every MHA and rent figure here is my estimate, flagged low confidence. Confirm before deciding.',
     'MHA is paid only for months in session — modelled at 9 of 12, not 12.',
     'Post-9/11 entitlement is 36 months against a 36-month degree; any month spent on the MAcc is a month not available here.',
     `Reserve drill pay modelled at ${usd(drillPay)}/mo — my estimate, confirm it.`,
+    `Summer earnings modelled on the ${summer.label.toLowerCase()} track: ` +
+      `${usd(summer.afterFirstYear)} after 1L and ${usd(summer.afterSecondYear)} after 2L, ` +
+      `taxed at ${Math.round(summerTaxRate * 100)}%. The 2L summer is the single largest ` +
+      'swing factor here and the least predictable — it turns on school and class rank.',
+    'No summer income in 3L: that summer is bar study, and it carries the exam fee and ' +
+      'prep course rather than a salary.',
     `Post-9/11 at ${Math.round(tier * 100)}%: MHA and the book stipend are prorated. At 90% or ` +
       'less Hazlewood stacks with Chapter 33 rather than waiting for it to exhaust, so ' +
       'tuition should still land at zero — confirm that with the certifying official.',
@@ -412,25 +560,90 @@ export function projectJd(
     const tricareMonths = Math.max(0, Math.min(12, year * 12 - tricareStart + 1))
     const tricare = round2(TRICARE_SELECT_RESERVE.monthlyPremium * tricareMonths)
 
-    const otherIncome = round2(drillPay * 12 + bookStipend)
-    const totalIncome = round2(mhaIncome + housingScenarioIncome + otherIncome)
-    const totalCosts = round2(rent + householdCosts + tricare)
+    const drillIncome = round2(drillPay * 12)
+    const otherIncome = round2(drillIncome + bookStipend)
+
+    // The summer AFTER this academic year. 3L's summer is bar study, not a job.
+    const summerGross = summerGrossFor(summer, year)
+    const summerTax = round2(summerGross * summerTaxRate)
+    const summerIncome = round2(summerGross - summerTax)
+    const barCostsThisYear = year === 3 ? barCosts : 0
+
+    const income: LedgerLine[] = [
+      {
+        key: 'mha',
+        label: `Post-9/11 MHA (${Math.round(tier * 100)}%, ${mhaMonths} months)`,
+        amount: mhaIncome,
+        note: 'Tax-free, and paid only for months in session — nothing over the summer.',
+      },
+      { key: 'drill', label: 'Reserve drill pay', amount: drillIncome },
+      { key: 'books', label: 'Book stipend', amount: bookStipend },
+    ]
+    if (summerIncome > 0) {
+      income.push({
+        key: 'summer',
+        label: `Summer after ${year}L, after tax — ${summer.label}`,
+        amount: summerIncome,
+        note:
+          `${usd(summerGross)} gross less ${usd(summerTax)} tax. Partly replaces the MHA ` +
+          'you stop receiving over the summer rather than adding to it.',
+      })
+    }
+    if (housingScenarioIncome > 0) {
+      income.push({
+        key: 'housing',
+        label: scenario.scenario === 'sell' ? 'Sale proceeds' : `House — ${scenario.label}`,
+        amount: housingScenarioIncome,
+      })
+    }
+
+    const costs: LedgerLine[] = [
+      { key: 'rent', label: `Rent near ${school.city}`, amount: rent },
+      { key: 'household', label: 'Family living costs', amount: householdCosts },
+    ]
+    if (tricare > 0) {
+      costs.push({ key: 'tricare', label: 'Tricare Select Reserve', amount: tricare })
+    }
+    if (housingScenarioIncome < 0) {
+      costs.push({
+        key: 'housing',
+        label: `House — ${scenario.label}`,
+        amount: Math.abs(housingScenarioIncome),
+        note: 'The Corpus house costs more to keep than it brings in under this scenario.',
+      })
+    }
+    if (barCostsThisYear > 0) {
+      costs.push({
+        key: 'bar',
+        label: 'Bar exam fee and prep course',
+        amount: barCostsThisYear,
+        note: 'Falls in 3L, in the same stretch where there is no summer income to meet it.',
+      })
+    }
+
+    const totalIncome = round2(income.reduce((t, l) => t + l.amount, 0))
+    const totalCosts = round2(costs.reduce((t, l) => t + l.amount, 0))
     const net = round2(totalIncome - totalCosts)
     cumulative = round2(cumulative + net)
 
     years.push({
       year,
       label: `${year}L`,
-      mhaIncome,
-      housingScenarioIncome,
-      otherIncome,
+      income,
+      costs,
       totalIncome,
-      rent,
-      householdCosts,
-      tricare,
       totalCosts,
       net,
       cumulative,
+      mhaIncome,
+      housingScenarioIncome,
+      summerIncome,
+      summerGross,
+      otherIncome,
+      rent,
+      householdCosts,
+      tricare,
+      barCosts: barCostsThisYear,
     })
   }
 
