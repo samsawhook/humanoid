@@ -25,6 +25,7 @@
  */
 
 import type { Obligation, OneOff } from './allocation'
+import type { WindfallClaim } from './windfall'
 import { backPay, EXPECTED_BACK_PAY } from './drillPay'
 import { TIMELINE } from './rates'
 import { householdTotals } from './household'
@@ -101,20 +102,65 @@ export const ONE_OFFS: OneOff[] = [
     key: 'drill_back_pay',
     label: '7 MUTAs + 3 duty days — back pay',
     /**
-     * Dated to the 14 August pay run, because back pay normally settles on a scheduled
-     * payday and because this is what funds the full arrears payment that same day.
-     *
-     * This is the one optimistic date in the file, and it is load-bearing: the 14
-     * August cheque frees about $510 on its own, so without the back pay the full
-     * $1,300 payment below is roughly $790 short and the model will say so. If it has
-     * not landed by the 14th, send what you have and send the rest on receipt.
+     * A GUESS, and marked as one everywhere it is shown. "Sometime this month" is all
+     * anyone knows, so 21 August is a mid-range placeholder rather than a date to plan
+     * against. Nothing with a deadline is funded out of it: the 14 August cheque pays
+     * what it can pay on its own, and the windfall gets its own ordered plan for
+     * whenever it actually lands. See windfall.ts.
      */
-    date: '2026-08-14',
+    date: '2026-08-21',
     amount: EXPECTED_BACK_PAY_NET,
     note:
       'Net of federal tax and FICA, on the conservative reading of the three 1380 days. ' +
       'See drillPay.ts — the other reading is worth about $344 more. Not CZTE: drills ' +
       'performed at home station before shipping are ordinary taxable wages.',
+  },
+]
+
+/**
+ * What the drill back pay buys, in order, whenever it turns up.
+ *
+ * Ordered by consequence-of-delay rather than by size — see windfall.ts. The car is
+ * deliberately NOT here despite being the obvious candidate: it is due on the 25th and
+ * already fully funded by the 14 August cheque, so putting it on this list would be
+ * paying it twice and would push something genuinely exposed further down.
+ */
+export const BACK_PAY_CLAIMS: WindfallClaim[] = [
+  {
+    key: 'august_mortgage_topup',
+    label: 'Top the August arrears payment up to a full month',
+    /**
+     * The 14 August cheque frees roughly $510 on its own. A servicer applies partials
+     * from suspense once they total a monthly payment, so finishing the month is worth
+     * more than the same money spread anywhere else.
+     */
+    cap: 790,
+    because:
+      'The only claim with a hard date. Around four payments behind is where a servicer ' +
+      'may make its first foreclosure filing, and completing August buys a month back.',
+    howTo:
+      'Send it marked "for arrears — apply to the oldest outstanding payment", not as a ' +
+      'principal prepayment. Confirm it left suspense.',
+  },
+  {
+    key: 'tolls',
+    label: 'Tolls and late fees',
+    cap: LATE_PAYMENTS_BALANCE,
+    because:
+      'Escalates administratively rather than by interest: violations block a ' +
+      'registration renewal, and that is not solvable from overseas. It also needs a US ' +
+      'phone and card, so it is far easier before you ship than after.',
+    howTo: 'Toll authority first — confirm no registration hold exists — then the rest.',
+  },
+  {
+    key: 'next_arrears',
+    label: 'Straight at the next arrears payment',
+    /** Uncapped in practice; the remaining arrears are the ceiling. */
+    cap: MORTGAGE_ARREARS_BALANCE,
+    because:
+      'Nothing else has a deadline, so anything above the first two claims goes where ' +
+      'it shortens the delinquency clock.',
+    howTo: 'Same servicer instruction as above.',
   },
 ]
 
@@ -377,43 +423,6 @@ export const OBLIGATIONS: Obligation[] = [
       'above the waterfall because defaulting on an arrangement costs more than the ' +
       'payment does.',
   },
-  {
-    key: 'arrears_first_payment',
-    label: 'Mortgage — one full arrears payment, now',
-    /**
-     * A one-off bill rather than part of the waterfall, because it is not "whatever is
-     * left" — it is a specific act with a specific purpose: put one whole payment on
-     * the file before 1 September, while it is still curable.
-     *
-     * Shares the arrears balance via `capGroup`, so this and the sweep draw down the
-     * same $5,200. Without that it would be a fifth payment on a four-payment debt.
-     */
-    amountPerPaycheck: MORTGAGE_PAYMENT,
-    payDays: 'fifteenth',
-    activeFrom: null,
-    /** Only ever fires once: the 15 August cheque, which lands on the 14th. */
-    activeTo: '2026-08-31',
-    priority: 39,
-    /**
-     * A BILL, not a gauge line — deliberately not `arrears_catchup`, even though it is
-     * an arrears payment. The gauge kind means two things in this model: the forward
-     * reserve may throttle it, and its unmet ask is excluded from the shortfall
-     * headline because asking for more than it can get is how it measures slack.
-     * Neither is true here. This is a fixed amount that has to happen, and if it cannot
-     * be paid that is a real miss the page should shout about.
-     */
-    kind: 'secured_recurring',
-    balanceCap: MORTGAGE_ARREARS_BALANCE,
-    capGroup: 'mortgage_arrears',
-    execution: 'manual',
-    howTo:
-      'Send the full ' +
-      '$1,300 marked "for arrears — apply to the oldest outstanding payment". Not as a ' +
-      'principal prepayment, or it will be applied forward instead of backward.',
-    note:
-      'Funded by the drill back pay landing the same day. One whole payment buys back a ' +
-      'month of the delinquency count outright, which no amount of dribbling does.',
-  },
   /**
    * ────────────────────────────────────────────────────────────────────────────
    *  THE WATERFALL. Everything below this point takes ALL available free dollars,
@@ -447,13 +456,7 @@ export const OBLIGATIONS: Obligation[] = [
     amountPerPaycheck: 0,
     sweep: true,
     payDays: 'both',
-    /**
-     * Skips the 14 August cheque. That payday sends ONE clean full payment via
-     * `arrears_first_payment`; a second, partial transfer to the same servicer on the
-     * same day is just a confusing pair of entries on the statement. Whatever is left
-     * that day falls through the waterfall instead.
-     */
-    activeFrom: '2026-08-16',
+    activeFrom: null,
     activeTo: null,
     priority: 40,
     kind: 'arrears_catchup',

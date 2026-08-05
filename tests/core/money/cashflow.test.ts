@@ -378,24 +378,18 @@ describe('the real plan', () => {
   })
 
   /**
-   * One full payment on 14 August, a full payment as a bill on each 1st, and the rest
-   * as partial arrears. The full one shares the arrears balance via `capGroup` — it is
-   * a whole payment against a four-payment debt, not a fifth payment on top of it.
+   * The 14 August cheque pays what it can pay ON ITS OWN — no deadline-bearing payment
+   * is sized against the drill back pay, whose amount and arrival date are both
+   * guesses. Completing August's payment is the back pay's job, and it has its own
+   * ordered plan for whenever it lands. See windfall.ts.
    */
-  it('sends one FULL payment on the first cheque', () => {
+  it('sends everything free at the arrears on the very first cheque', () => {
     const first = allocations.find((a) => a.paycheck.payDate === '2026-08-14')!
-    const full = first.lines.find((l) => l.key === 'arrears_first_payment')!
-    expect(full.allocated).toBe(MORTGAGE_PAYMENT)
-    expect(full.capGroup).toBe('mortgage_arrears')
-    // And it fires exactly once.
-    expect(
-      allocations.filter((a) => a.lines.some((l) => l.key === 'arrears_first_payment')),
-    ).toHaveLength(1)
-
-    // ONE transfer that day, not a full payment plus a partial chaser. Two entries to
-    // the same servicer on the same date is just a confusing statement.
     const toArrears = first.lines.filter((l) => (l.capGroup ?? l.key) === 'mortgage_arrears')
+    // ONE transfer, not a payment plus a chaser.
     expect(toArrears).toHaveLength(1)
+    expect(toArrears[0]!.allocated).toBeGreaterThan(0)
+    expect(first.remainder).toBe(0)
   })
 
   it('pays a full mortgage payment as a bill on every 1st', () => {
@@ -426,11 +420,7 @@ describe('the real plan', () => {
         .filter((l) => (l.capGroup ?? l.key) === 'mortgage_arrears')
         .reduce((t, l) => t + l.allocated, 0)
       if (running >= MORTGAGE_ARREARS_BALANCE - 0.005) break
-      // 14 August is the one exception, and it is deliberate: the arrears sweep is
-      // switched off that day so the servicer gets ONE clean full payment rather than a
-      // payment and a chaser. What is left falls through the waterfall instead.
-      if (a.paycheck.payDate === '2026-08-14') continue
-      // Every other payday: still behind on the house, so nothing below it took anything.
+      // Still behind on the house, so nothing below it took anything.
       for (const key of ['late_payments', 'debt_paydown_open', 'debt_paydown_closed']) {
         expect(a.lines.find((l) => l.key === key)?.allocated ?? 0).toBe(0)
       }

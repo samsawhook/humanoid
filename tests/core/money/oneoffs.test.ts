@@ -60,8 +60,8 @@ describe('one-off inflows', () => {
 
   it('lands the back pay on the first payday on or after its date', () => {
     const landed = withOneOffs.find((a) => a.oneOffs?.some((o) => o.key === 'drill_back_pay'))!
-    // Dated to the 14 August pay run, which is what funds the full arrears payment.
-    expect(landed.paycheck.payDate).toBe('2026-08-14')
+    // Dated 2026-08-21 — a placeholder, not a plan. It lands on the next cheque.
+    expect(landed.paycheck.scheduledDate).toBe('2026-09-01')
     expect(landed.openingBuffer).toBeGreaterThanOrEqual(EXPECTED_BACK_PAY_NET)
   })
 
@@ -77,18 +77,29 @@ describe('one-off inflows', () => {
   })
 
   /**
-   * The load-bearing assumption in the file. The 14 August cheque frees about $510 on
-   * its own — nowhere near a full payment — so without the back pay landing that day
-   * the $1,300 goes short and the model says so rather than pretending otherwise.
+   * Nothing with a deadline is sized against the back pay, because its amount and its
+   * arrival date are both guesses. The proof is that removing it entirely changes no
+   * bill's funding — it only slows the arrears down.
    */
-  it('is what makes the full 14 August payment affordable at all', () => {
-    const first = withOneOffs.find((a) => a.paycheck.payDate === '2026-08-14')!
-    expect(first.lines.find((l) => l.key === 'arrears_first_payment')!.shortfall).toBe(0)
+  it('carries no deadline: removing it leaves every bill still paid', () => {
+    expect(summarize(withOneOffs).bindingShortfall).toBe(0)
+    expect(summarize(without).bindingShortfall).toBe(0)
 
-    const firstWithout = without.find((a) => a.paycheck.payDate === '2026-08-14')!
-    const shortWithout = firstWithout.lines.find((l) => l.key === 'arrears_first_payment')!
-    expect(shortWithout.shortfall).toBeGreaterThan(700)
-    expect(summarize(without).bindingShortfall).toBeGreaterThan(0)
+    const arrearsBy = (set: typeof withOneOffs, on: string) =>
+      set
+        .filter((a) => a.paycheck.payDate <= on)
+        .reduce(
+          (t, a) =>
+            t +
+            a.lines
+              .filter((l) => (l.capGroup ?? l.key) === 'mortgage_arrears')
+              .reduce((u, l) => u + l.allocated, 0),
+          0,
+        )
+    // All it does is get the house current sooner.
+    expect(arrearsBy(withOneOffs, '2026-09-01')).toBeGreaterThan(
+      arrearsBy(without, '2026-09-01'),
+    )
   })
 
   it('clears the tolls eventually, behind the mortgage rather than ahead of it', () => {

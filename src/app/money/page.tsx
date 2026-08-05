@@ -19,9 +19,11 @@ import {
   CLOSED_CARD_MINIMUMS,
   MORTGAGE_PAYMENT,
   EXPECTED_BACK_PAY_NET,
+  BACK_PAY_CLAIMS,
 } from '@/core/money/obligations'
 import { ENTITLEMENTS, TAX, TIMELINE } from '@/core/money/rates'
 import { backPay, EXPECTED_BACK_PAY } from '@/core/money/drillPay'
+import { windfallPlan, windfallSensitivity } from '@/core/money/windfall'
 import { SCRA_INTEREST_CAP, SCRA_TARGETS, SCRA_EXCLUDED } from '@/core/money/debts'
 import {
   Figure,
@@ -73,6 +75,8 @@ export default function MoneyPage() {
   const steadySlack = steadyMonthlySlack(allocations)
   const bp = backPay(EXPECTED_BACK_PAY)
   const bpAlt = backPay({ ...EXPECTED_BACK_PAY, basis: 'idt_two_mutas' })
+  const backPayPlan = windfallPlan(bp.net, BACK_PAY_CLAIMS)
+  const backPayRange = windfallSensitivity([800, bp.net, bpAlt.net], BACK_PAY_CLAIMS)
   const oneOffIn = allocations.reduce(
     (t, a) => t + (a.oneOffs ?? []).reduce((u, o) => u + o.amount, 0),
     0,
@@ -301,14 +305,9 @@ export default function MoneyPage() {
             </tr>
           </tbody>
         </table>
-        <p style={{ marginTop: 8 }}>
-          <strong>Where it goes: the {usd0(LATE_PAYMENTS_BALANCE)} of tolls and late
-          fees, in full, the day it lands.</strong> That leaves{' '}
-          {usd0(bp.net - LATE_PAYMENTS_BALANCE)} which falls straight through to the
-          arrears. Toll charges escalate administratively rather than by interest —
-          violations block a registration renewal, and a blocked registration is not a
-          problem you can solve from overseas. It is the cheapest thing on this page to
-          fix and the most expensive to ignore.
+        <p style={{ marginTop: 8 }} className="muted">
+          Where it goes is on its own card below — the date and the amount are both
+          guesses, so it gets a plan rather than a slot in the schedule.
         </p>
         <p className="muted" style={{ fontSize: 12.5 }}>
           The three 1380 days are read conservatively, as active-duty days at 1/30th of
@@ -347,6 +346,102 @@ export default function MoneyPage() {
           Mortgage and auto already have SCRA active — verify the cap actually appears on
           a statement rather than assuming the request was processed. Not legal advice.
         </p>
+      </div>
+
+      <h2>8/21* — whenever the back pay actually hits</h2>
+      <div className="note">
+        <strong>
+          The asterisk is the point: {ONE_OFFS[0]?.date} is a placeholder, not a date.
+        </strong>{' '}
+        &ldquo;Sometime this month&rdquo; is all anyone knows, and the amount is a range
+        too. So nothing with a deadline is funded out of this — the 14 August cheque pays
+        what it can pay on its own, and this money gets an ordered list instead of a slot
+        in the schedule. Order is by <em>consequence of delay</em>, not by size: something
+        that escalates on a date beats something that escalates over months, which beats
+        something that merely accrues interest.
+        <table style={{ marginTop: 8 }}>
+          <thead>
+            <tr>
+              <th>Pay in this order</th>
+              <th>At {usd0(bp.net)}</th>
+              <th>Why here</th>
+            </tr>
+          </thead>
+          <tbody>
+            {BACK_PAY_CLAIMS.map((c) => {
+              const line = backPayPlan.lines.find((l) => l.key === c.key)
+              return (
+                <tr key={c.key}>
+                  <td style={{ whiteSpace: 'normal' }}>
+                    {c.label}
+                    {line?.howTo && (
+                      <div className="muted" style={{ fontSize: 12 }}>
+                        {line.howTo}
+                      </div>
+                    )}
+                  </td>
+                  <td className={line ? 'good' : 'muted'}>
+                    {line ? usd(line.amount) : '—'}
+                    {line?.partial && (
+                      <div className="muted" style={{ fontSize: 12 }}>
+                        {usd(line.remaining)} still owed
+                      </div>
+                    )}
+                  </td>
+                  <td className="muted" style={{ whiteSpace: 'normal', fontSize: 12.5 }}>
+                    {c.because}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+
+        <p style={{ marginTop: 12 }}>
+          <strong>You guessed car and tolls. Tolls yes, car no</strong> — the car is due
+          on the 25th and the 14 August cheque already funds it in full, so putting it on
+          this list would pay it twice and push something genuinely exposed further down.
+          What is actually exposed is August&rsquo;s mortgage payment: that cheque frees
+          about {usd0(510)} on its own, which is not a full month, and completing the
+          month is what moves the delinquency count.
+        </p>
+
+        <p style={{ marginTop: 12 }}>
+          <strong>The order does not change with the amount</strong> — only how far down
+          the list you get. Which is why the order is the decision and the forecast is not:
+        </p>
+        <table style={{ marginTop: 8 }}>
+          <thead>
+            <tr>
+              <th>If this arrives</th>
+              {BACK_PAY_CLAIMS.map((c) => (
+                <th key={c.key} style={{ whiteSpace: 'normal' }}>
+                  {c.label.split(' —')[0]}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {backPayRange.map(({ amount, plan }) => (
+              <tr key={amount}>
+                <td>
+                  {usd0(amount)}
+                  <span className="muted">
+                    {amount === bp.net ? ' — expected' : amount === bpAlt.net ? ' — if IDT' : ' — if low'}
+                  </span>
+                </td>
+                {BACK_PAY_CLAIMS.map((c) => {
+                  const line = plan.lines.find((l) => l.key === c.key)
+                  return (
+                    <td key={c.key} className={line ? 'good' : 'muted'}>
+                      {line ? usd0(line.amount) : 'nothing'}
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       <h2>Sources of funds</h2>
