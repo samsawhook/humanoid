@@ -2,7 +2,16 @@ import { projectPaychecks } from '@/core/money/paychecks'
 import { allocateAll, balanceClearedOn, paydayActions, summarize } from '@/core/money/allocation'
 import { OBLIGATIONS, CAR_LOAN_BALANCE, MORTGAGE_ARREARS_BALANCE } from '@/core/money/obligations'
 import { ENTITLEMENTS, TAX, TIMELINE } from '@/core/money/rates'
-import { Figure, Legend, StackedBars, TableView, Timeline, Sparkline, seriesColor } from '@/components/viz'
+import {
+  Figure,
+  GroupedBars,
+  Legend,
+  StackedBars,
+  TableView,
+  Timeline,
+  Sparkline,
+  seriesColor,
+} from '@/components/viz'
 
 export const dynamic = 'force-dynamic'
 
@@ -98,6 +107,84 @@ export default function MoneyPage() {
         excluded from the shortfall figure above — otherwise the headline would read like a
         crisis while every actual bill was covered.
       </div>
+
+      <h2>In against out, per pay period</h2>
+      <Figure
+        title="Net income vs committed expenses"
+        caption={
+          <>
+            Both bars are dollars on one axis, so where they cross means what it looks
+            like it means. <strong>Expenses exclude the arrears catch-up</strong> — that
+            line absorbs whatever is left by design, so including it would make every
+            period look exactly break-even and tell you nothing. The gap between the bars
+            IS what goes at the arrears.
+          </>
+        }
+      >
+        <GroupedBars
+          height={280}
+          format={(n) => usd0(n)}
+          columns={allocations.slice(0, 12).map((a) => {
+            const committed = a.lines
+              .filter((l) => l.kind !== 'arrears_catchup')
+              .reduce((s, l) => s + l.requested, 0)
+            return {
+              label: a.paycheck.payDate.slice(5),
+              sublabel: a.paycheck.czte ? 'CZTE' : '',
+              bars: [
+                { key: 'in', label: 'Net in', value: a.paycheck.net, color: seriesColor(2) },
+                { key: 'out', label: 'Committed out', value: committed, color: seriesColor(1) },
+              ],
+            }
+          })}
+        />
+        <Legend
+          items={[
+            { label: 'Net income', color: seriesColor(2) },
+            { label: 'Committed expenses', color: seriesColor(1) },
+          ]}
+        />
+        <TableView>
+          <table>
+            <thead>
+              <tr>
+                <th>Payday</th>
+                <th>Gross</th>
+                <th>Tax</th>
+                <th>Net in</th>
+                <th>Committed out</th>
+                <th>Difference</th>
+                <th>To arrears</th>
+                <th>Left</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allocations.map((a) => {
+                const committed = a.lines
+                  .filter((l) => l.kind !== 'arrears_catchup')
+                  .reduce((s, l) => s + l.requested, 0)
+                const diff = a.paycheck.net - committed
+                const toArrears =
+                  a.lines.find((l) => l.kind === 'arrears_catchup')?.allocated ?? 0
+                return (
+                  <tr key={`io-${a.paycheck.scheduledDate}`}>
+                    <td>{a.paycheck.payDate}</td>
+                    <td className="muted">{usd(a.paycheck.gross)}</td>
+                    <td className="muted">
+                      {usd(a.paycheck.federalTax + a.paycheck.fica)}
+                    </td>
+                    <td>{usd(a.paycheck.net)}</td>
+                    <td>{usd(committed)}</td>
+                    <td className={diff >= 0 ? 'good' : 'bad'}>{usd(diff)}</td>
+                    <td className="muted">{usd(toArrears)}</td>
+                    <td className={a.remainder > 0 ? 'good' : 'muted'}>{usd(a.remainder)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </TableView>
+      </Figure>
 
       <h2>What each paycheck is made of</h2>
       <Figure

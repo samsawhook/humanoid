@@ -400,3 +400,96 @@ export function Sparkline({
     </div>
   )
 }
+
+export interface GroupedBar {
+  key: string
+  label: string
+  value: number
+  color: string
+}
+
+export interface GroupedColumn {
+  label: string
+  sublabel?: string
+  bars: GroupedBar[]
+}
+
+/**
+ * Paired bars, side by side within each group.
+ *
+ * For comparing two measures that share a scale — money in against money out. The
+ * alternative people reach for is a dual axis, which is the single most misleading
+ * chart form there is: two arbitrary scales make any two series appear to cross
+ * wherever the author put the axis. Both series here are dollars on one axis, so a
+ * crossing means what it looks like it means.
+ */
+export function GroupedBars({
+  columns,
+  height = 260,
+  format = (n: number) => String(Math.round(n)),
+}: {
+  columns: GroupedColumn[]
+  height?: number
+  format?: (n: number) => string
+}) {
+  const padB = 44
+  const padT = 16
+  const barW = 20
+  const innerGap = 3
+  const groupGap = 16
+  const plotH = height - padB - padT
+  const perGroup = Math.max(1, columns[0]?.bars.length ?? 1)
+  const groupW = perGroup * barW + (perGroup - 1) * innerGap
+  const width = 8 + columns.length * (groupW + groupGap)
+
+  const max = Math.max(...columns.flatMap((c) => c.bars.map((b) => b.value)), 1)
+  const y = (v: number) => padT + plotH - (v / max) * plotH
+
+  return (
+    <div className="scroll">
+      <svg
+        width={width}
+        height={height}
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label="Income against expenses per pay period"
+      >
+        <line className="axis" x1={0} y1={padT + plotH} x2={width} y2={padT + plotH} />
+        {columns.map((col, ci) => {
+          const gx = 8 + ci * (groupW + groupGap)
+          return (
+            <g key={col.label}>
+              {col.bars.map((bar, bi) => {
+                const bx = gx + bi * (barW + innerGap)
+                const top = y(bar.value)
+                const h = Math.max(0, padT + plotH - top)
+                return (
+                  <g className="mark" key={bar.key}>
+                    <title>{`${col.label} — ${bar.label}: ${format(bar.value)}`}</title>
+                    <rect x={bx} y={top} width={barW} height={h} fill={bar.color} rx={4} />
+                    <text
+                      x={bx + barW / 2}
+                      y={top - 4}
+                      textAnchor="middle"
+                      style={{ fontSize: 9.5 }}
+                    >
+                      {format(bar.value)}
+                    </text>
+                  </g>
+                )
+              })}
+              <text x={gx + groupW / 2} y={padT + plotH + 15} textAnchor="middle" className="lbl">
+                {col.label}
+              </text>
+              {col.sublabel && (
+                <text x={gx + groupW / 2} y={padT + plotH + 29} textAnchor="middle">
+                  {col.sublabel}
+                </text>
+              )}
+            </g>
+          )
+        })}
+      </svg>
+    </div>
+  )
+}
