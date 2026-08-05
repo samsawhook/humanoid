@@ -10,6 +10,7 @@ import { CAR_LOAN_BALANCE } from '@/core/money/obligations'
 import {
   HOUSE,
   LAW_SCHOOLS,
+  POST_911_TIER,
   OPENING_BALANCE_SHEET,
   openingBalanceSheetLines,
   sellNetAt,
@@ -189,14 +190,40 @@ describe('three-year projection', () => {
     expect(run.years[2]!.housingScenarioIncome).toBe(0)
   })
 
-  it('pays MHA for months in session, not twelve', () => {
+  it('pays MHA for months in session, not twelve, and prorates it to the tier', () => {
     const run = projectJd(school, scenario, base)
-    expect(run.years[0]!.mhaIncome).toBe(school.monthlyMha * 9)
+    expect(run.hazlewoodValue).toBeGreaterThan(0)
+    expect(run.years[0]!.mhaIncome).toBeCloseTo(school.monthlyMha * POST_911_TIER * 9, 2)
   })
 
-  it('reports what Hazlewood is worth over three years', () => {
+  it('prorates the book stipend by the tier too', () => {
+    const run = projectJd(school, scenario, { ...base, monthlyDrillPay: 0 })
+    expect(run.years[0]!.otherIncome).toBeCloseTo(1000 * POST_911_TIER, 2)
+  })
+
+  it('values Hazlewood at the share Chapter 33 does not cover', () => {
     const run = projectJd(school, scenario, base)
-    expect(run.hazlewoodValue).toBe(school.annualTuitionSticker * 3)
+    expect(run.hazlewoodValue).toBeCloseTo(
+      school.annualTuitionSticker * (1 - POST_911_TIER) * 3,
+      2,
+    )
+  })
+
+  it('says the two benefits stack at this tier, since that was the open question', () => {
+    expect(projectJd(school, scenario, base).warnings.join(' ')).toMatch(/stacks with Chapter 33/i)
+  })
+
+  /**
+   * The tier is the single biggest lever on this page: 20% off MHA is roughly
+   * $300-460/mo, and it flips every school from MHA-covers-rent to it does not.
+   */
+  it('at 100% every school would clear its rent; at 80% none do', () => {
+    for (const s of LAW_SCHOOLS) {
+      const at80 = s.monthlyMha * POST_911_TIER - s.monthlyFamilyRent
+      expect(at80).toBeLessThan(0)
+    }
+    const clearingAtFull = LAW_SCHOOLS.filter((s) => s.monthlyMha - s.monthlyFamilyRent > 0)
+    expect(clearingAtFull.length).toBeGreaterThan(3)
   })
 
   it('carries Tricare through every year', () => {

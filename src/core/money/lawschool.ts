@@ -43,6 +43,27 @@ export interface BalanceLine {
 
 export type Confidence = 'high' | 'medium' | 'low'
 
+/**
+ * Post-9/11 benefit tier: 80%.
+ *
+ * Everything Chapter 33 pays is prorated by this — MHA, the book stipend, and the
+ * tuition percentage. Two consequences, pulling opposite ways:
+ *
+ *  BAD: MHA is 80% of the E-5-with-dependents rate, which is the number the whole
+ *  school comparison turns on. It knocks roughly $300-460/mo off every option and
+ *  flips several from MHA-covers-rent to it does not.
+ *
+ *  GOOD, and it settles the question I flagged as the biggest unknown: at 100% you
+ *  must exhaust Chapter 33 before Hazlewood applies, because the federal benefit
+ *  already covers all tuition and leaves nothing for the exemption. At 90% or less
+ *  they STACK in the same semester — Chapter 33 pays its percentage and Hazlewood
+ *  covers the remaining balance. So at 80% you are not forced to choose, and tuition
+ *  still lands at zero.
+ *
+ * Confirm the stacking with the TAMU-CC certifying official before relying on it.
+ */
+export const POST_911_TIER = 0.8
+
 export interface LawSchool {
   key: string
   name: string
@@ -336,8 +357,10 @@ export interface JdInputs {
    * MY ESTIMATE — confirm it.
    */
   monthlyDrillPay?: number
-  /** Post-9/11 books and supplies stipend, paid annually. */
+  /** Post-9/11 books and supplies stipend, paid annually, before the tier is applied. */
   annualBookStipend?: number
+  /** Chapter 33 entitlement tier. Defaults to POST_911_TIER. */
+  benefitTier?: number
 }
 
 export function projectJd(
@@ -349,13 +372,17 @@ export function projectJd(
   const mhaMonths = inputs.mhaMonthsPerYear ?? 9
   const tricareStart = inputs.tricareStartsMonth ?? 1
   const drillPay = inputs.monthlyDrillPay ?? 475
-  const bookStipend = inputs.annualBookStipend ?? 1000
+  const tier = inputs.benefitTier ?? POST_911_TIER
+  const bookStipend = round2((inputs.annualBookStipend ?? 1000) * tier)
 
   const warnings: string[] = [
     'Every MHA and rent figure here is my estimate, flagged low confidence. Confirm before deciding.',
     'MHA is paid only for months in session — modelled at 9 of 12, not 12.',
     'Post-9/11 entitlement is 36 months against a 36-month degree; any month spent on the MAcc is a month not available here.',
     `Reserve drill pay modelled at ${usd(drillPay)}/mo — my estimate, confirm it.`,
+    `Post-9/11 at ${Math.round(tier * 100)}%: MHA and the book stipend are prorated. At 90% or ` +
+      'less Hazlewood stacks with Chapter 33 rather than waiting for it to exhaust, so ' +
+      'tuition should still land at zero — confirm that with the certifying official.',
   ]
   warnings.push(
     'This models YOUR side of the ledger only. Household income other than yours is out ' +
@@ -370,7 +397,7 @@ export function projectJd(
   let cumulative = startingCash
 
   for (let year = 1; year <= 3; year++) {
-    const mhaIncome = round2(school.monthlyMha * mhaMonths)
+    const mhaIncome = round2(school.monthlyMha * tier * mhaMonths)
     // Absolute basis. Selling contributes its proceeds once and nothing thereafter;
     // the Corpus mortgage is not among the school-year costs, so crediting its relief
     // here would have been counting a payment that was never charged.
@@ -413,7 +440,8 @@ export function projectJd(
     startingCash,
     years,
     endingCash: cumulative,
-    hazlewoodValue: round2(school.annualTuitionSticker * 3),
+    // What Hazlewood covers: the share Chapter 33 does not, at this tier.
+    hazlewoodValue: round2(school.annualTuitionSticker * (1 - tier) * 3),
     warnings,
   }
 }

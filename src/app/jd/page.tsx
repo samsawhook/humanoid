@@ -1,6 +1,7 @@
 import {
   LAW_SCHOOLS,
   HOUSE,
+  POST_911_TIER,
   sellNetAt,
   OPENING_BALANCE_SHEET,
   balanceSheet,
@@ -386,11 +387,19 @@ export default function JdPage() {
 
       <h2>Three years of law school</h2>
       <p className="sub">
-        Hazlewood covers tuition and fees at all five — every one is a Texas public
-        institution — so tuition is not the driver. <strong>MHA minus rent is.</strong>{' '}
-        Post-9/11 pays roughly the E-5-with-dependents BAH rate for the school&rsquo;s ZIP,
-        for months in session only (modelled at 9 of 12). Tricare Select Reserve at{' '}
-        {usd0(TRICARE_SELECT_RESERVE.monthlyPremium)}/mo runs throughout.
+        <strong>Post-9/11 at {Math.round(POST_911_TIER * 100)}%</strong>, so MHA and the
+        book stipend are prorated. That cuts roughly {usd0(290)}–{usd0(460)}/mo off every
+        option and flips most of them from MHA-covers-rent to it does not.
+        <br />
+        <br />
+        The good half: at 90% or less <strong>Hazlewood stacks with Chapter 33</strong>{' '}
+        rather than having to wait for it to exhaust — Chapter 33 pays its{' '}
+        {Math.round(POST_911_TIER * 100)}% and Hazlewood covers the remaining{' '}
+        {Math.round((1 - POST_911_TIER) * 100)}%. At 100% you would have been forced to
+        burn Chapter 33 first. So tuition still lands at zero, and the entitlement question
+        I flagged as the biggest unknown resolves in your favour. Confirm with the TAMU-CC
+        certifying official. MHA is paid for months in session only (9 of 12); Tricare
+        Select Reserve at {usd0(TRICARE_SELECT_RESERVE.monthlyPremium)}/mo runs throughout.
       </p>
 
       <Figure
@@ -420,7 +429,7 @@ export default function JdPage() {
               <tr>
                 <th>School</th>
                 <th>Housing</th>
-                <th>MHA/mo</th>
+                <th>MHA/mo @{Math.round(POST_911_TIER * 100)}%</th>
                 <th>Rent/mo</th>
                 <th>MHA − rent</th>
                 <th>3-yr ending cash</th>
@@ -433,14 +442,19 @@ export default function JdPage() {
                   <tr key={`${m.school.key}-${run.scenario.scenario}`}>
                     <td style={{ whiteSpace: 'normal' }}>{m.school.name}</td>
                     <td className="muted">{run.scenario.label}</td>
-                    <td>{usd0(m.school.monthlyMha)}</td>
+                    <td>
+                      {usd0(m.school.monthlyMha * POST_911_TIER)}
+                      <span className="muted"> of {usd0(m.school.monthlyMha)}</span>
+                    </td>
                     <td>{usd0(m.school.monthlyFamilyRent)}</td>
                     <td
                       className={
-                        m.school.monthlyMha - m.school.monthlyFamilyRent >= 0 ? 'good' : 'bad'
+                        m.school.monthlyMha * POST_911_TIER - m.school.monthlyFamilyRent >= 0
+                          ? 'good'
+                          : 'bad'
                       }
                     >
-                      {usd0(m.school.monthlyMha - m.school.monthlyFamilyRent)}
+                      {usd0(m.school.monthlyMha * POST_911_TIER - m.school.monthlyFamilyRent)}
                     </td>
                     <td className={run.endingCash >= 0 ? 'good' : 'bad'}>
                       {usd0(run.endingCash)}
