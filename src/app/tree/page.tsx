@@ -1,4 +1,4 @@
-import { loadPlan, sourceLabel } from '@/db/load'
+import { loadPlan } from '@/db/load'
 import { closureRisk } from '@/core/goals/windows'
 import { indexNodes, LEVEL_ORDER, domainOf } from '@/core/tree'
 import { localDaysBetween } from '@/core/time/localDay'
@@ -20,7 +20,6 @@ const LEVEL_SPAN: Record<NodeLevel, { from: string; to: string; label: string }>
 
 export default async function TreePage() {
   const plan = await loadPlan()
-  const badge = sourceLabel(plan)
   const byId = indexNodes(plan.nodes)
   const risks = closureRisk(plan.nodes, TODAY)
 
@@ -46,7 +45,7 @@ export default async function TreePage() {
       <p className="sub">
         Life → era → campaign → year → quarter. Resolution decays with distance — there are
         no quarter nodes at ten years out, because that would be fiction with a schema.{' '}
-        <span className={badge.tone}>{badge.text}</span>
+        <span className="muted">{plan.nodes.length} nodes, live from the database.</span>
       </p>
 
       <h2>The horizon ladder</h2>

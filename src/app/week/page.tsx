@@ -1,4 +1,4 @@
-import { loadPlan, sourceLabel } from '@/db/load'
+import { loadPlan } from '@/db/load'
 import { orderQueue } from '@/core/schedule/order'
 import {
   DEFAULT_DAY_TEMPLATE,
@@ -27,7 +27,6 @@ const hhmm = (d: Date) =>
 
 export default async function WeekPage() {
   const plan = await loadPlan()
-  const badge = sourceLabel(plan)
 
   const weekStart = startOfIsoWeek(TODAY)
   const days = Array.from({ length: 7 }, (_, i) => addLocalDays(weekStart, i))
@@ -74,7 +73,8 @@ export default async function WeekPage() {
       <p className="sub">
         Week of {weekStart}. The default day reserves blocks by <em>domain</em>, and the queue
         fills them — so the 05:30 block is always &ldquo;LSAT&rdquo;, whatever is top of the
-        LSAT queue that morning. <span className={badge.tone}>{badge.text}</span>
+        LSAT queue that morning.{' '}
+        <span className="muted">{plan.items.length} items, live from the database.</span>
       </p>
 
       <div className="cards">

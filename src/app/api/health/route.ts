@@ -100,8 +100,6 @@ export async function GET() {
   try {
     const plan = await loadPlan()
     planSummary = {
-      source: plan.source,
-      error: plan.error ?? null,
       nodes: plan.nodes.length,
       items: plan.items.length,
       commitments: plan.commitments.length,
@@ -109,11 +107,11 @@ export async function GET() {
       capacityBudgets: plan.capacityBudgets.length,
       timezonePeriods: plan.timezonePeriods.length,
     }
-    checks.plan_loads = { ok: plan.nodes.length > 0, detail: `via ${plan.source}` }
+    checks.plan_loads = { ok: plan.nodes.length > 0, detail: 'loaded from the database' }
   } catch (error) {
     checks.plan_loads = {
       ok: false,
-      detail: error instanceof Error ? `${error.message}\n${error.stack}` : String(error),
+      detail: error instanceof Error ? error.message : String(error),
     }
   }
 
