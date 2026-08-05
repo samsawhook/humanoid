@@ -138,14 +138,16 @@ export const OBLIGATIONS: Obligation[] = [
   },
   {
     key: 'debt_paydown',
-    label: 'Unsecured debt paydown (avalanche: Goldman first)',
+    label: 'Unsecured debt paydown (live accounts only)',
     amountPerPaycheck: 500,
     payDays: 'both',
     activeFrom: TIMELINE.czteStart,
     activeTo: null,
     priority: 40,
     kind: 'unsecured_debt',
-    note: '~$48k across 8 accounts. Starts when the deployment pay does.',
+    note:
+      'Targets the six LIVE accounts (~$14.8k), not Goldman or PSECU. Those were sued ' +
+      'on and dismissed; paying them is a legal decision, not a scheduling one. See debts.ts.',
   },
   {
     key: 'emergency_fund',

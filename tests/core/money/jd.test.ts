@@ -140,20 +140,13 @@ describe('three-year projection', () => {
   const scenario = housingScenarios().find((s) => s.scenario === 'sell')!
   const base = { startingCash: 6000, monthlyHousehold: 3589 }
 
-  it('shouts when spouse income is zero, because that distorts everything', () => {
-    const run = projectJd(school, scenario, base)
-    expect(run.warnings.join(' ')).toMatch(/SPOUSE INCOME IS ZERO/i)
+  it('states that it models one ledger, so a deficit is not read as a family verdict', () => {
+    expect(projectJd(school, scenario, base).warnings.join(' ')).toMatch(/YOUR side of the ledger/i)
   })
 
-  it('does not shout once spouse income is supplied', () => {
-    const run = projectJd(school, scenario, { ...base, monthlySpouseIncome: 3000 })
-    expect(run.warnings.join(' ')).not.toMatch(/SPOUSE INCOME IS ZERO/i)
-  })
-
-  it('spouse income moves the ending position by 36 times the monthly figure', () => {
-    const without = projectJd(school, scenario, base)
-    const with3k = projectJd(school, scenario, { ...base, monthlySpouseIncome: 3000 })
-    expect(with3k.endingCash - without.endingCash).toBeCloseTo(3000 * 36, 0)
+  it('counts drill pay and the book stipend as the only other income', () => {
+    const run = projectJd(school, scenario, { ...base, monthlyDrillPay: 500 })
+    expect(run.years[0]!.otherIncome).toBe(500 * 12 + 1000)
   })
 
   it('counts sale proceeds once, in year one', () => {

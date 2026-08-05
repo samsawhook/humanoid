@@ -13,15 +13,18 @@ import { projectPaychecks } from '@/core/money/paychecks'
 import { allocateAll, balanceClearedOn } from '@/core/money/allocation'
 import { OBLIGATIONS } from '@/core/money/obligations'
 import { TIMELINE } from '@/core/money/rates'
+import {
+  DEBTS,
+  activeDebts,
+  deprioritisedDebts,
+  simulatePaydown,
+  totalBalance,
+} from '@/core/money/debts'
 import { Figure, Legend, StackedBars, TableView, seriesColor } from '@/components/viz'
 
 export const dynamic = 'force-dynamic'
 
-/**
- * The two income lines I do not have. Both are one-line edits.
- * Spouse income at zero is the single biggest distortion in this page.
- */
-const SPOUSE_INCOME = 0
+/** Reserve drill pay while in school. My estimate — a one-line edit. */
 const DRILL_PAY = 475
 
 const usd0 = (n: number) =>
@@ -41,11 +44,16 @@ export default function JdPage() {
   const savings = paid('emergency_fund')
   const mortgagePrincipal = paid('mortgage_current') * 0.3 + (cleared.mortgage_arrears?.paid ?? 0)
 
+  // The paydown targets live accounts only — Goldman and PSECU are untouched.
+  const paydown = simulatePaydown(debtPaid / allocations.length, allocations.length)
+
   const projected = projectedBalanceSheet('2027-08-04', OPENING_BALANCE_SHEET, [
     { label: 'Car loan', delta: -(cleared.car_payoff?.paid ?? 0) },
     { label: 'Mortgage', delta: -mortgagePrincipal },
-    { label: 'Goldman', delta: -Math.min(22730, debtPaid) },
-    { label: 'PSECU', delta: -Math.max(0, debtPaid - 22730) },
+    ...paydown.steps.map((step) => ({
+      label: step.debt.label,
+      delta: -step.paid,
+    })),
     { label: 'Emergency Savings', delta: savings },
   ])
 
@@ -62,7 +70,6 @@ export default function JdPage() {
       projectJd(school, scenario, {
         startingCash: projected.liquid,
         monthlyHousehold: schoolHousehold,
-        monthlySpouseIncome: SPOUSE_INCOME,
         monthlyDrillPay: DRILL_PAY,
       }),
     ),
@@ -73,7 +80,9 @@ export default function JdPage() {
       <h1>JD Financial Prep</h1>
       <p className="sub">
         Where you stand now, where the deployment leaves you, and what three years of law
-        school costs under each housing and school combination.
+        school costs under each housing and school combination.{' '}
+        <strong>This is your ledger only</strong> — household income other than yours is out
+        of scope, so a deficit here is the gap you personally have to cover.
       </p>
 
       <div className="note">
@@ -212,6 +221,80 @@ export default function JdPage() {
         in these accounts, that line is an internal transfer and I am double-counting about{' '}
         {usd0(9043)} a year. Tell me which and I will fix it in one place.
       </div>
+
+      <h2>Unsecured debt</h2>
+      <div className="note">
+        <strong>Goldman and PSECU are deliberately last, and not only because you prefer
+        it that way.</strong>{' '}
+        Both sued and both were dismissed. Texas has a four-year limitations period on a
+        debt claim — and <strong>a partial payment or written acknowledgment can restart
+        that clock</strong>. So paying a token amount on either, believing it responsible,
+        can re-expose you to a suit you were otherwise safe from. That makes &ldquo;pay a
+        little on everything&rdquo; exactly the wrong strategy here. Not legal advice —
+        confirm the limitations dates with someone qualified before paying either.
+      </div>
+      <div className="cards">
+        <Card
+          k="Live accounts"
+          v={usd0(totalBalance(activeDebts()))}
+          sub={`${activeDebts().length} accounts — the paydown target`}
+        />
+        <Card
+          k="Sued & dismissed"
+          v={usd0(totalBalance(deprioritisedDebts()))}
+          tone="warn"
+          sub="untouched by the plan"
+        />
+        <Card
+          k="Live debt cleared by"
+          v={
+            paydown.allClearedAfter
+              ? (allocations[paydown.allClearedAfter - 1]?.paycheck.payDate ?? '—')
+              : 'not within the deployment'
+          }
+          tone={paydown.allClearedAfter ? 'good' : 'bad'}
+        />
+      </div>
+      <div className="panel scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Account</th>
+              <th>Balance</th>
+              <th>Posture</th>
+              <th>Paid by redeployment</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            {DEBTS.map((d) => {
+              const step = paydown.steps.find((s) => s.debt.key === d.key)
+              return (
+                <tr key={d.key}>
+                  <td>{d.label}</td>
+                  <td>{usd0(d.balance)}</td>
+                  <td className={d.posture === 'active' ? 'muted' : 'warn'}>
+                    {d.posture.replace(/_/g, ' ')}
+                  </td>
+                  <td className={step && step.paid > 0 ? 'good' : 'muted'}>
+                    {step ? usd0(step.paid) : '—'}
+                  </td>
+                  <td className="muted" style={{ whiteSpace: 'normal' }}>
+                    {d.note}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="muted" style={{ fontSize: 12.5 }}>
+        On credit repair: these are already reported. Paying a charged-off balance does not
+        remove the entry, and most scoring models do not reward it the way people expect —
+        what actually restores the score is time plus low utilisation on the live accounts.
+        Clearing Chase and Capital One does more for the score than anything you could pay
+        Goldman.
+      </p>
 
       <h2>The Corpus Christi house</h2>
       <p className="sub">

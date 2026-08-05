@@ -1,6 +1,11 @@
 /**
  * JD financial prep: balance sheet, housing scenarios, and a three-year projection.
  *
+ * SCOPE: this models YOUR finances. Household income other than yours is deliberately
+ * out of scope — the interface between the two ledgers is the support-sent-home line
+ * in household.ts, which is an outflow from this one. A negative result here is the
+ * gap you personally have to cover, not a claim about the family's overall position.
+ *
  * ─────────────────────────────────────────────────────────────────────────────
  *  WHAT IS REAL AND WHAT IS NOT.
  *  Real: your Monarch balances, your pay, your obligations.
@@ -291,15 +296,6 @@ export interface JdInputs {
   /** Month Tricare Select Reserve begins, counted from the start of year 1. */
   tricareStartsMonth?: number
   /**
-   * Spouse income. THE LARGEST MISSING NUMBER IN THIS MODEL.
-   *
-   * Left at zero it makes every scenario look catastrophic, which is almost certainly
-   * wrong: you are paying $1,500/mo for nannies, and families do not buy childcare so
-   * that nobody works. Until you give me a figure, every deficit below is overstated
-   * by twelve times whatever this actually is.
-   */
-  monthlySpouseIncome?: number
-  /**
    * Reserve drill pay. You stay in the Reserves through school, so this continues.
    * Roughly four drills a month at E-6 over ten years, plus annual training.
    * MY ESTIMATE — confirm it.
@@ -317,7 +313,6 @@ export function projectJd(
   const { startingCash, monthlyHousehold } = inputs
   const mhaMonths = inputs.mhaMonthsPerYear ?? 9
   const tricareStart = inputs.tricareStartsMonth ?? 1
-  const spouseIncome = inputs.monthlySpouseIncome ?? 0
   const drillPay = inputs.monthlyDrillPay ?? 475
   const bookStipend = inputs.annualBookStipend ?? 1000
 
@@ -327,13 +322,11 @@ export function projectJd(
     'Post-9/11 entitlement is 36 months against a 36-month degree; any month spent on the MAcc is a month not available here.',
     `Reserve drill pay modelled at ${usd(drillPay)}/mo — my estimate, confirm it.`,
   ]
-  if (spouseIncome === 0) {
-    warnings.push(
-      'SPOUSE INCOME IS ZERO IN THIS RUN. That is almost certainly wrong — you pay for ' +
-        'childcare, and families do not buy childcare so that nobody works. Every deficit ' +
-        'below is overstated by twelve times whatever the real figure is.',
-    )
-  }
+  warnings.push(
+    'This models YOUR side of the ledger only. Household income other than yours is out ' +
+      'of scope by design, so a negative result is the gap you personally have to cover — ' +
+      'not a statement about the family’s position.',
+  )
   if (scenario.scenario === 'sell') {
     warnings.push('Sale proceeds are counted once, in year 1. A sale that slips costs you the move.')
   }
@@ -356,7 +349,7 @@ export function projectJd(
     const tricareMonths = Math.max(0, Math.min(12, year * 12 - tricareStart + 1))
     const tricare = round2(TRICARE_SELECT_RESERVE.monthlyPremium * tricareMonths)
 
-    const otherIncome = round2((spouseIncome + drillPay) * 12 + bookStipend)
+    const otherIncome = round2(drillPay * 12 + bookStipend)
     const totalIncome = round2(mhaIncome + housingScenarioIncome + otherIncome)
     const totalCosts = round2(rent + householdCosts + tricare)
     const net = round2(totalIncome - totalCosts)
