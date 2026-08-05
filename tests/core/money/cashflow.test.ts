@@ -48,15 +48,21 @@ describe('entitlement timeline', () => {
   })
 
   it('adds FSA only after its start date, not before', () => {
-    // FSA starts 2026-10-04, so the cheque covering 09-16..09-30 must not include it.
-    expect(projectPaycheck('2026-10-01').lines.map((l) => l.key)).not.toContain('fsa')
-    // The cheque covering 10-01..10-15 must.
-    expect(projectPaycheck('2026-10-15').lines.map((l) => l.key)).toContain('fsa')
+    // FSA starts 2026-08-30 (30 days from pre-mob). The cheque covering 08-01..08-15
+    // is too early; the one covering 08-16..08-31 catches it.
+    expect(projectPaycheck('2026-08-15').lines.map((l) => l.key)).not.toContain('fsa')
+    expect(projectPaycheck('2026-09-01').lines.map((l) => l.key)).toContain('fsa')
   })
 
   it('adds ODP last', () => {
-    expect(projectPaycheck('2026-11-13').lines.map((l) => l.key)).not.toContain('odp')
-    expect(projectPaycheck('2026-12-01').lines.map((l) => l.key)).toContain('odp')
+    // ODP starts 2026-09-29 (60 days from pre-mob).
+    expect(projectPaycheck('2026-09-15').lines.map((l) => l.key)).not.toContain('odp')
+    expect(projectPaycheck('2026-10-01').lines.map((l) => l.key)).toContain('odp')
+  })
+
+  it('has every entitlement running by the time ODP starts', () => {
+    const keys = projectPaycheck('2026-10-01').lines.map((l) => l.key)
+    expect(keys.sort()).toEqual(['bah', 'bas', 'base_pay', 'fsa', 'idp', 'odp'])
   })
 
   it('pays half a month per cheque', () => {
@@ -175,9 +181,19 @@ describe('the real plan', () => {
     }
   })
 
-  it('names the first payday that cannot cover everything', () => {
-    expect(summary.firstShortPayday).toBe('2026-09-15')
-    expect(summary.totalShortfall).toBeGreaterThan(0)
+  /**
+   * With the confirmed rates the plan clears — every obligation on every payday,
+   * including both catch-ups. This asserts that outcome so a future rate or
+   * obligation change that breaks it fails loudly here rather than silently.
+   */
+  it('covers every obligation on every payday', () => {
+    expect(summary.totalShortfall).toBe(0)
+    expect(summary.firstShortPayday).toBeNull()
+    expect(summary.shortPaydays).toEqual([])
+  })
+
+  it('leaves a real surplus rather than landing exactly on zero', () => {
+    expect(summary.totalRemainder).toBeGreaterThan(0)
   })
 
   it('starts the debt paydown and emergency fund with the deployment pay', () => {

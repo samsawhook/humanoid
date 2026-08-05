@@ -2,10 +2,8 @@
  * Pay rates and the deployment entitlement timeline.
  *
  * ────────────────────────────────────────────────────────────────────────────
- *  EVERY DOLLAR FIGURE IN THIS FILE IS AN ESTIMATE UNTIL MARKED `high`.
- *  Two of them are load-bearing and I am NOT confident in them — `basePay` and
- *  `bah`. Correct those two from an LES or the 2026 DFAS tables and every
- *  downstream number in the app is right. Nothing else needs to change.
+ *  Base pay, BAH, FSA, IDP and ODP are all confirmed figures as of 2026-08-05.
+ *  BAS and the tax rates remain estimates — see the `confidence` field on each.
  * ────────────────────────────────────────────────────────────────────────────
  *
  * This file is deliberately data-shaped and boring. It is the thing you will come
@@ -51,16 +49,10 @@ export const TIMELINE = {
   czteStart: '2026-09-04' as LocalDate,
   /** HDP and IDP attach on arrival in theater. */
   theaterArrival: '2026-09-04' as LocalDate,
-  /**
-   * FSA — "30 days in". AMBIGUOUS: I read this as 30 days after departure, not 30
-   * days from today. If you meant from today, change to 2026-09-04.
-   */
-  fsaStart: '2026-10-04' as LocalDate,
-  /**
-   * ODP — "60 days from start". AMBIGUOUS: "start" could be pre-mob (→ 2026-09-29)
-   * or deployment (→ 2026-11-03). I used deployment. Change this line if wrong.
-   */
-  odpStart: '2026-11-03' as LocalDate,
+  /** FSA — 30 days from pre-mob start (2026-07-31). Confirmed. */
+  fsaStart: '2026-08-30' as LocalDate,
+  /** ODP — 60 days from pre-mob start (2026-07-31). Confirmed. */
+  odpStart: '2026-09-29' as LocalDate,
   /**
    * Expected return. 400-day orders, but you said last time ran 10–11 months, so this
    * is the 11-month read. `date_confidence: low` — it is a planning assumption, not a
@@ -75,24 +67,24 @@ export const ENTITLEMENTS: Entitlement[] = [
   {
     key: 'base_pay',
     label: 'Base pay — E-6, 10 yrs TIS',
-    monthlyAmount: 4900,
+    monthlyAmount: 4759.5,
     taxable: true,
     fica: true,
     activeFrom: null,
     activeTo: null,
-    confidence: 'low',
-    note: 'CONFIRM. Biggest single number in the model. Read it off an LES.',
+    confidence: 'high',
+    note: 'Confirmed 2026-08-05.',
   },
   {
     key: 'bah',
     label: 'BAH — with dependents, ZIP 78404',
-    monthlyAmount: 1750,
+    monthlyAmount: 2217,
     taxable: false,
     fica: false,
     activeFrom: null,
     activeTo: null,
-    confidence: 'low',
-    note: 'CONFIRM. Continues at the HOR rate throughout the deployment.',
+    confidence: 'high',
+    note: 'Confirmed 2026-08-05. Continues at the HOR rate throughout the deployment.',
   },
   {
     key: 'bas',
@@ -108,13 +100,13 @@ export const ENTITLEMENTS: Entitlement[] = [
   {
     key: 'fsa',
     label: 'FSA — Family Separation Allowance',
-    monthlyAmount: 250,
+    monthlyAmount: 300,
     taxable: false,
     fica: false,
     activeFrom: TIMELINE.fsaStart,
     activeTo: TIMELINE.expectedReturn,
     confidence: 'high',
-    note: 'Has been $250/mo for a long time. Start date is the uncertain part, not the amount.',
+    note: 'Confirmed 2026-08-05. Starts 30 days after pre-mob began.',
   },
   {
     key: 'idp',
@@ -137,8 +129,8 @@ export const ENTITLEMENTS: Entitlement[] = [
     fica: false,
     activeFrom: TIMELINE.odpStart,
     activeTo: TIMELINE.expectedReturn,
-    confidence: 'medium',
-    note: 'Your figure. $100 matches an HDP-L tier; confirm which entitlement this is.',
+    confidence: 'high',
+    note: 'Confirmed 2026-08-05. Starts 60 days after pre-mob began.',
   },
 ]
 
