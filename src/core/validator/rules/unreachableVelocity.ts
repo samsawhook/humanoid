@@ -63,11 +63,8 @@ export function unreachableVelocity(world: World, _proposal: Proposal): Violatio
     if (capacity.hoursPerWeek <= 0) continue // no ceiling and no history; emptyState covers it
 
     if (requiredHoursPerWeek > capacity.hoursPerWeek) {
-      const optimistic = capacity.source === 'declared'
-      out.push({
-        code: optimistic
-          ? VIOLATION_CODES.UNREACHABLE_VELOCITY
-          : VIOLATION_CODES.UNREACHABLE_VELOCITY,
+        out.push({
+        code: VIOLATION_CODES.UNREACHABLE_VELOCITY,
         severity: 'hard',
         message:
           `"${node.title}" requires ${velocity.amount} ${velocity.unitLabel} per ` +
