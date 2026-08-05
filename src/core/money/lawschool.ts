@@ -395,13 +395,32 @@ export interface BalanceLine {
   label: string
   amount: number
   kind: 'asset' | 'liability'
+  /**
+   * A figure you disputed. Carried at zero in the headline so net worth is not
+   * propped up by a number nobody believes; the disputed value is kept here so the
+   * sensitivity is still visible and can be restored the moment you have a real one.
+   */
+  disputedValue?: number
+  note?: string
 }
 
 /** From the Monarch export, 2026-08-05. Real figures. */
 export const OPENING_BALANCE_SHEET: BalanceLine[] = [
   { label: '628 Chamberlain St, Corpus Christi', amount: 185100, kind: 'asset' },
-  { label: '2013 Ford Expedition King Ranch', amount: 8898.59, kind: 'asset' },
-  { label: 'Boat', amount: 8000, kind: 'asset' },
+  {
+    label: '2013 Ford Expedition King Ranch',
+    amount: 0,
+    kind: 'asset',
+    disputedValue: 8898.59,
+    note: 'Monarch auto-valuation, which you do not accept. Carried at zero. A 2013 vehicle with a $1,600 lien against it is a net negative until that clears.',
+  },
+  {
+    label: 'Boat',
+    amount: 0,
+    kind: 'asset',
+    disputedValue: 8000,
+    note: 'Monarch auto-valuation, which you do not accept. Carried at zero until you give me a figure you would actually sell at.',
+  },
   { label: 'Share Savings', amount: 46.83, kind: 'asset' },
   { label: 'Schwab Checking', amount: 2.91, kind: 'asset' },
   { label: 'Joint Checking', amount: 2.2, kind: 'asset' },
@@ -425,6 +444,10 @@ export interface BalanceSheet {
   netWorth: number
   /** Assets you could actually spend this week. */
   liquid: number
+  /** Total of figures carried at zero because you disputed them. */
+  disputedTotal: number
+  /** What net worth would be if the disputed values were accepted. */
+  netWorthIfDisputedAccepted: number
 }
 
 export function balanceSheet(
@@ -443,7 +466,19 @@ export function balanceSheet(
       .filter((l) => l.kind === 'asset' && liquidLabels.some((n) => l.label.startsWith(n)))
       .reduce((s, l) => s + l.amount, 0),
   )
-  return { asOf, lines, assets, liabilities, netWorth: round2(assets - liabilities), liquid }
+  const disputedTotal = round2(lines.reduce((s, l) => s + (l.disputedValue ?? 0), 0))
+  const netWorth = round2(assets - liabilities)
+
+  return {
+    asOf,
+    lines,
+    assets,
+    liabilities,
+    netWorth,
+    liquid,
+    disputedTotal,
+    netWorthIfDisputedAccepted: round2(netWorth + disputedTotal),
+  }
 }
 
 /**

@@ -98,6 +98,22 @@ export default function JdPage() {
         <Card k="Liquid at redeployment" v={usd0(projected.liquid)} tone="good" />
       </div>
 
+      {opening.disputedTotal > 0 && (
+        <div className="note">
+          <strong>
+            The truck and the boat are carried at zero, not at Monarch&rsquo;s{' '}
+            {usd0(opening.disputedTotal)}.
+          </strong>{' '}
+          You said you never agreed with those auto-valuations, so propping net worth up
+          with them would make the headline number worse than useless. If they really are
+          worth {usd0(opening.disputedTotal)}, net worth today is{' '}
+          {usd0(opening.netWorthIfDisputedAccepted)} rather than {usd0(opening.netWorth)} —
+          that is the whole sensitivity. Note the truck also carries a{' '}
+          {usd0(1600)} lien, so it is a net negative until that clears. Give me figures you
+          would actually sell at and I will restore them.
+        </div>
+      )}
+
       <Figure
         title="Opening vs projected, by line"
         caption={`Projection applies the cash-flow model: car cleared ${cleared.car_payoff?.clearedOn ?? '—'}, arrears cured ${cleared.mortgage_arrears?.clearedOn ?? '—'}, ${usd0(debtPaid)} against unsecured debt and ${usd0(savings)} saved. No market appreciation or vehicle depreciation — guessing at either would add noise to a number whose job is to be roughly right.`}

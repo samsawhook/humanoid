@@ -67,10 +67,29 @@ describe('household profiles', () => {
 describe('balance sheet', () => {
   const opening = balanceSheet('2026-08-05', OPENING_BALANCE_SHEET)
 
-  it('reflects the real starting position', () => {
-    // -10,761 rather than the -8,461 Monarch showed: the house is carried at Zillow's
-    // 185,100 Zestimate rather than Monarch's 187,400, which is 2,300 of the gap.
-    expect(Math.round(opening.netWorth)).toBe(-10761)
+  it('reflects the real starting position, conservatively', () => {
+    // House at Zillow's Zestimate, and the truck and boat at zero because those
+    // Monarch auto-valuations were disputed. Both moves make the number worse and
+    // both are deliberate: a net worth propped up by figures nobody believes is
+    // worse than useless.
+    expect(Math.round(opening.netWorth)).toBe(-27660)
+    expect(opening.liquid).toBeLessThan(100)
+  })
+
+  it('keeps disputed values visible as a sensitivity rather than deleting them', () => {
+    expect(opening.disputedTotal).toBeCloseTo(16898.59, 2)
+    expect(Math.round(opening.netWorthIfDisputedAccepted)).toBe(-10761)
+    // The gap between the two IS the disputed total — nothing else moved.
+    expect(opening.netWorthIfDisputedAccepted - opening.netWorth).toBeCloseTo(
+      opening.disputedTotal,
+      2,
+    )
+  })
+
+  it('never counts a disputed value toward assets or liquidity', () => {
+    for (const line of opening.lines.filter((l) => l.disputedValue)) {
+      expect(line.amount).toBe(0)
+    }
     expect(opening.liquid).toBeLessThan(100)
   })
 
