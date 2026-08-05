@@ -42,6 +42,12 @@ export interface Obligation {
    * 9th costs seven fifteenths of a half-month, not a half-month.
    */
   prorate?: boolean
+  /**
+   * Total to pay across all paydays before this obligation stops — a balance rather
+   * than a recurring charge. The car loan has $1,800 left on it; once that is paid
+   * the line disappears instead of billing forever.
+   */
+  balanceCap?: number
   note?: string
 }
 
@@ -112,7 +118,12 @@ function requestedAmount(obligation: Obligation, paycheck: Paycheck): number {
  * Strict priority, not proportional. A partial mortgage payment and a partial car
  * payment is worse than one whole payment — cure the roof first, then the truck.
  */
-export function allocate(paycheck: Paycheck, obligations: Obligation[]): Allocation {
+export function allocate(
+  paycheck: Paycheck,
+  obligations: Obligation[],
+  /** Cumulative paid per obligation key so far. Only matters for `balanceCap`. */
+  paidSoFar: Record<string, number> = {},
+): Allocation {
   const due = obligations
     .filter((o) => appliesOn(o, paycheck))
     .sort((a, b) => a.priority - b.priority)
@@ -121,7 +132,14 @@ export function allocate(paycheck: Paycheck, obligations: Obligation[]): Allocat
   const lines: AllocationLine[] = []
 
   for (const o of due) {
-    const requested = requestedAmount(o, paycheck)
+    let requested = requestedAmount(o, paycheck)
+
+    if (o.balanceCap !== undefined) {
+      const remaining = round2(o.balanceCap - (paidSoFar[o.key] ?? 0))
+      if (remaining <= 0) continue // balance cleared; the line is gone, not zeroed
+      requested = Math.min(requested, remaining)
+    }
+
     if (requested <= 0) continue
 
     const allocated = round2(Math.max(0, Math.min(available, requested)))
@@ -151,7 +169,39 @@ export function allocate(paycheck: Paycheck, obligations: Obligation[]): Allocat
 }
 
 export function allocateAll(paychecks: Paycheck[], obligations: Obligation[]): Allocation[] {
-  return paychecks.map((p) => allocate(p, obligations))
+  // Balances are cumulative across paydays, so this has to walk them in order.
+  const paidSoFar: Record<string, number> = {}
+  return paychecks.map((p) => {
+    const a = allocate(p, obligations, paidSoFar)
+    for (const line of a.lines) {
+      paidSoFar[line.key] = round2((paidSoFar[line.key] ?? 0) + line.allocated)
+    }
+    return a
+  })
+}
+
+/**
+ * When each capped balance is fully paid — the answer to "when is the car gone" and
+ * "when are the arrears actually cured at the rate I can afford."
+ */
+export function balanceClearedOn(
+  allocations: Allocation[],
+  obligations: Obligation[],
+): Record<string, { cap: number; paid: number; clearedOn: LocalDate | null }> {
+  const out: Record<string, { cap: number; paid: number; clearedOn: LocalDate | null }> = {}
+  for (const o of obligations) {
+    if (o.balanceCap === undefined) continue
+    let paid = 0
+    let clearedOn: LocalDate | null = null
+    for (const a of allocations) {
+      const line = a.lines.find((l) => l.key === o.key)
+      if (!line) continue
+      paid = round2(paid + line.allocated)
+      if (clearedOn === null && paid >= o.balanceCap - 0.005) clearedOn = a.paycheck.payDate
+    }
+    out[o.key] = { cap: o.balanceCap, paid, clearedOn }
+  }
+  return out
 }
 
 export interface CashflowSummary {
@@ -163,11 +213,32 @@ export interface CashflowSummary {
   /** Paydays that could not cover everything owed. */
   shortPaydays: LocalDate[]
   firstShortPayday: LocalDate | null
+  /**
+   * Shortfall on everything EXCEPT the pressure gauge.
+   *
+   * The arrears line deliberately asks for more than it can get — that is how it
+   * measures available slack. Counting its unmet ask as a failure would make the
+   * headline read like a crisis when every real obligation is covered. This is the
+   * number that actually means "something did not get paid".
+   */
+  bindingShortfall: number
+  bindingShortPaydays: LocalDate[]
+  firstBindingShortPayday: LocalDate | null
 }
+
+/** The gauge kind, excluded from binding shortfall. */
+const GAUGE: ObligationKind = 'arrears_catchup'
 
 export function summarize(allocations: Allocation[]): CashflowSummary {
   const short = allocations.filter((a) => a.totalShortfall > 0)
+  const bindingOf = (a: Allocation) =>
+    round2(a.lines.filter((l) => l.kind !== GAUGE).reduce((s, l) => s + l.shortfall, 0))
+  const bindingShort = allocations.filter((a) => bindingOf(a) > 0)
+
   return {
+    bindingShortfall: round2(allocations.reduce((s, a) => s + bindingOf(a), 0)),
+    bindingShortPaydays: bindingShort.map((a) => a.paycheck.payDate),
+    firstBindingShortPayday: bindingShort[0]?.paycheck.payDate ?? null,
     paychecks: allocations.length,
     totalNet: round2(allocations.reduce((s, a) => s + a.paycheck.net, 0)),
     totalObligations: round2(allocations.reduce((s, a) => s + a.totalRequested, 0)),

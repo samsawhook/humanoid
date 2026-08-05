@@ -14,9 +14,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <nav>
           <Link href="/">Overview</Link>
           <Link href="/money">Money</Link>
-          <Link href="/tree">Tree</Link>
-          <Link href="/week">This week</Link>
-          <Link href="/backlog">Backlog</Link>
+          <Link href="/tree">Goals</Link>
+          <Link href="/calendar">Calendar</Link>
         </nav>
         <main>{children}</main>
       </body>

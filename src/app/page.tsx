@@ -89,7 +89,8 @@ export default function HomePage() {
         <ul className="tight">
           <li>Pure core (time, validator, capacity, money): <span className="good">built, 61 tests</span></li>
           <li>Schema and migration: <span className="warn">generated, not yet applied</span></li>
-          <li>Goal tree, backward/forward passes, verdict: <span className="muted">not built</span></li>
+          <li>Goal tree and closure-risk ranking: <span className="good">seeded in code</span></li>
+          <li>Backward/forward passes, verdict: <span className="muted">not built</span></li>
           <li>Telegram, digests, cron, ICS, chat: <span className="muted">not built</span></li>
         </ul>
         <p className="muted" style={{ margin: '8px 0 0' }}>

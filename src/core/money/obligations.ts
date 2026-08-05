@@ -1,66 +1,51 @@
 /**
  * Your actual obligations. Edit this file; it is meant to be edited.
  *
- * Priority order below is a claim about what matters, not an accident of ordering:
- * cure the mortgage arrears first (the house is the largest asset and the only one
- * that can be foreclosed), then the vehicle (no truck, no drill), then living, then
- * unsecured debt, then savings. Change the numbers if you disagree — that is the
- * point of having them in one legible list.
+ * The priority order is a claim about what matters, and one thing in it is
+ * deliberately unusual:
+ *
+ *   **The mortgage arrears catch-up sits LAST, not first.**
+ *
+ * Curing arrears matters, but it is the only line here whose *rate* is genuinely
+ * yours to choose — the servicer wants the money, not a particular monthly figure.
+ * So it is the pressure gauge: everything else is paid at its real cost, and
+ * whatever survives flows into the arrears. The number that falls out is "how fast
+ * can I actually cure this", which is a measurement rather than a wish. Paying the
+ * *current* mortgage on time is a separate line and stays at the top, because
+ * missing that is what creates new arrears.
  */
 
 import type { Obligation } from './allocation'
 import { TIMELINE } from './rates'
 
-/**
- * Four months of double payments clears four months of arrears and keeps you current
- * at the same time: $1,300 × 2 per month × 4 months = $10,400, against roughly $5,200
- * of arrears plus $5,200 of current. Same arithmetic on the truck.
- */
-export const MORTGAGE_CATCHUP_END = '2026-12-15'
-export const CAR_CATCHUP_END = '2026-12-15'
+/** Four months behind at roughly $1,300 a month. */
+export const MORTGAGE_ARREARS_BALANCE = 5200
+/** What is actually left on the auto loan — it pays off and the line disappears. */
+export const CAR_LOAN_BALANCE = 1800
 
 export const OBLIGATIONS: Obligation[] = [
   {
-    key: 'mortgage_catchup',
-    label: 'Mortgage — catch-up (1st and 15th)',
-    amountPerPaycheck: 1300,
-    payDays: 'both',
-    activeFrom: '2026-09-01',
-    activeTo: MORTGAGE_CATCHUP_END,
-    priority: 10,
-    kind: 'arrears_catchup',
-    note: '4 months behind. Double payments through December clear arrears and stay current.',
-  },
-  {
     key: 'mortgage_current',
-    label: 'Mortgage — current',
+    label: 'Mortgage — current month',
     amountPerPaycheck: 1300,
     payDays: 'first',
-    activeFrom: '2027-01-01',
+    activeFrom: null,
     activeTo: null,
     priority: 10,
     kind: 'secured_recurring',
-    note: 'Drops to a single payment once the arrears are cleared.',
+    note: 'Paid first, always. Missing this is what creates new arrears.',
   },
   {
-    key: 'car_catchup',
-    label: 'Car — catch-up (1st and 15th)',
+    key: 'car_payoff',
+    label: 'Auto loan — payoff',
     amountPerPaycheck: 330,
     payDays: 'both',
-    activeFrom: '2026-09-01',
-    activeTo: CAR_CATCHUP_END,
-    priority: 20,
-    kind: 'arrears_catchup',
-  },
-  {
-    key: 'car_current',
-    label: 'Car — current',
-    amountPerPaycheck: 330,
-    payDays: 'first',
-    activeFrom: '2027-01-01',
+    activeFrom: null,
     activeTo: null,
     priority: 20,
     kind: 'secured_recurring',
+    balanceCap: CAR_LOAN_BALANCE,
+    note: '$1,800 left. Capped at the balance, so it clears and then stops.',
   },
   {
     key: 'childcare',
@@ -69,27 +54,28 @@ export const OBLIGATIONS: Obligation[] = [
     payDays: 'both',
     activeFrom: '2026-08-09',
     activeTo: null,
-    prorate: true,
     /**
-     * Above general household spend and below the secured catch-ups. The house and
-     * the truck can be foreclosed and repossessed; nannies quit, and childcare failing
-     * while you are deployed cascades into everything else. Reasonable people could
-     * rank this above the car — change the number if you do.
+     * Above household spend, below the secured lines. The house forecloses and the
+     * truck gets repossessed; nannies quit, and childcare failing while you are
+     * deployed cascades into everything else.
      */
     priority: 25,
     kind: 'living',
     note:
-      '$1,500/mo from 2026-08-09, prorated for the part-period start. Confirmed new ' +
-      'spend — nothing resembling childcare appears anywhere in the Monarch history, ' +
-      'so this is additive to the household line, not inside it.',
+      '$750 on each of your paydays from 2026-08-09, so the first charge lands ' +
+      '2026-08-14. Not prorated — paid on your pay dates, not accrued daily. ' +
+      'Confirmed new spend: nothing resembling childcare appears anywhere in the ' +
+      'Monarch history, so this is additive to the household line, not inside it.',
   },
   {
     key: 'living',
     label: 'Household running costs',
     /**
      * ~$1,400 per paycheck ≈ $2,800/mo. Derived from your Monarch history, which ran
-     * ~$3,500/mo of total spend — with the mortgage and car payments backed out, since
-     * those are their own lines above and would otherwise be counted twice.
+     * ~$3,500/mo of total spend — with the mortgage and car payments backed out,
+     * since those are their own lines and would otherwise be counted twice.
+     *
+     * This is the least-verified number in the file and the plan is sensitive to it.
      */
     amountPerPaycheck: 1400,
     payDays: 'both',
@@ -98,6 +84,17 @@ export const OBLIGATIONS: Obligation[] = [
     priority: 30,
     kind: 'living',
     note: 'Estimated from Monarch, mortgage and car excluded to avoid double-counting.',
+  },
+  {
+    key: 'nth_investments',
+    label: 'Nth Investments',
+    amountPerPaycheck: 461,
+    payDays: 'first',
+    activeFrom: null,
+    activeTo: null,
+    priority: 35,
+    kind: 'secured_recurring',
+    note: '$461/mo, paid on the 1st.',
   },
   {
     key: 'debt_paydown',
@@ -120,5 +117,26 @@ export const OBLIGATIONS: Obligation[] = [
     priority: 50,
     kind: 'savings',
     note: 'Liquid balances are near zero. This is the first thing that should exist.',
+  },
+  {
+    key: 'mortgage_arrears',
+    label: 'Mortgage — arrears catch-up',
+    /**
+     * The ask is a full extra payment per payday; what actually gets paid is whatever
+     * survives everything above it. Being last is the entire design — see the file
+     * header. `balanceCap` stops it the moment the arrears are cured rather than
+     * billing forever.
+     */
+    amountPerPaycheck: 1300,
+    payDays: 'both',
+    activeFrom: null,
+    activeTo: null,
+    priority: 60,
+    kind: 'arrears_catchup',
+    balanceCap: MORTGAGE_ARREARS_BALANCE,
+    note:
+      'THE PRESSURE GAUGE. Last in priority on purpose: everything else is paid at ' +
+      'its real cost and this absorbs what is left, so the clearance date is a ' +
+      'measurement rather than a hope.',
   },
 ]

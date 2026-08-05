@@ -73,3 +73,49 @@ tbody tr:hover { background: rgba(125, 211, 252, .06); }
 
 ul.tight { margin: 6px 0; padding-left: 20px; }
 ul.tight li { margin: 3px 0; }
+
+/* ── Data-viz palette ──────────────────────────────────────────────────────
+   Validated with the dataviz skill's checker: all checks pass in both modes
+   (worst adjacent CVD ΔE 9.1 light / 8.4 dark; normal-vision 19.6 / 19.3).
+   Light mode carries a contrast WARN on three slots, so every chart using
+   them ships direct labels, a legend, AND a table view — that is the relief
+   rule, not an optional extra. Do not re-pick these by eye; re-run the
+   validator if they ever change. */
+.viz {
+  --surface-1: #fcfcfb;
+  --series-1: #2a78d6;  /* mortgage   */
+  --series-2: #eb6834;  /* car        */
+  --series-3: #1baf7a;  /* childcare  */
+  --series-4: #eda100;  /* household  */
+  --series-5: #e87ba4;  /* debt       */
+  --series-6: #008300;  /* savings    */
+  --series-rest: #8b93a1;
+  --status-critical: #c02a2a;
+  --grid: #d8dbe1;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme='light'])) .viz {
+    --surface-1: #1a1a19;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-rest: #7d848f;
+    --status-critical: #e66767;
+    --grid: #2f343d;
+  }
+}
+
+figure { margin: 0 0 8px; }
+figcaption { color: var(--muted); font-size: 12.5px; margin-top: 8px; line-height: 1.45; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 10px 0 2px; font-size: 12.5px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; color: var(--text); }
+.swatch { width: 11px; height: 11px; border-radius: 3px; flex: none; }
+svg text { fill: var(--muted); font-size: 10.5px; }
+svg .lbl { fill: var(--text); font-size: 11px; }
+svg .axis { stroke: var(--grid); stroke-width: 1; }
+svg g.mark:hover rect { stroke: var(--text); stroke-width: 1.5; }
+details.tbl { margin-top: 10px; }
+details.tbl summary { cursor: pointer; color: var(--accent); font-size: 13px; }

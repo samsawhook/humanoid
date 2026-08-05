@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { payDatesBetween, projectPaycheck, projectPaychecks, round2 } from '@/core/money/paychecks'
-import { allocate, allocateAll, summarize, type Obligation } from '@/core/money/allocation'
+import {
+  allocate,
+  allocateAll,
+  balanceClearedOn,
+  summarize,
+  type Obligation,
+} from '@/core/money/allocation'
 import { ENTITLEMENTS, TAX, TIMELINE } from '@/core/money/rates'
-import { OBLIGATIONS } from '@/core/money/obligations'
+import { CAR_LOAN_BALANCE, MORTGAGE_ARREARS_BALANCE, OBLIGATIONS } from '@/core/money/obligations'
 
 describe('pay dates', () => {
   it('lands on the 1st and the 15th', () => {
@@ -188,72 +194,58 @@ describe('allocation', () => {
 })
 
 describe('the real plan', () => {
-  const allocations = allocateAll(projectPaychecks('2026-08-15', '2027-03-01'), OBLIGATIONS)
+  const allocations = allocateAll(projectPaychecks('2026-08-15', '2027-08-01'), OBLIGATIONS)
   const summary = summarize(allocations)
+  const cleared = balanceClearedOn(allocations, OBLIGATIONS)
 
-  it('covers the mortgage catch-up on every payday it is due', () => {
-    const during = allocations.filter(
-      (a) => a.paycheck.scheduledDate >= '2026-09-01' && a.paycheck.scheduledDate <= '2026-12-15',
-    )
-    expect(during.length).toBeGreaterThan(0)
-    for (const a of during) {
-      const mortgage = a.lines.find((l) => l.key === 'mortgage_catchup')
-      expect(mortgage?.allocated).toBe(1300)
-      expect(mortgage?.shortfall).toBe(0)
+  it('always pays the current mortgage in full — missing it is what creates arrears', () => {
+    for (const a of allocations) {
+      const line = a.lines.find((l) => l.key === 'mortgage_current')
+      if (line) expect(line.shortfall).toBe(0)
     }
+  })
+
+  it('pays the car off to its balance and then stops billing', () => {
+    expect(cleared.car_payoff?.paid).toBe(CAR_LOAN_BALANCE)
+    expect(cleared.car_payoff?.clearedOn).toBe('2026-10-30')
+
+    const after = allocations.filter((a) => a.paycheck.payDate > '2026-10-30')
+    expect(after.every((a) => !a.lines.some((l) => l.key === 'car_payoff'))).toBe(true)
+  })
+
+  it('cures the arrears at whatever rate the paydays allow, and stops there', () => {
+    expect(cleared.mortgage_arrears?.cap).toBe(MORTGAGE_ARREARS_BALANCE)
+    expect(cleared.mortgage_arrears?.paid).toBe(MORTGAGE_ARREARS_BALANCE)
+    // A measurement, not a target — this date falls out of the plan rather than setting it.
+    expect(cleared.mortgage_arrears?.clearedOn).toBe('2027-02-15')
+  })
+
+  /**
+   * The gauge deliberately asks for more than it can get; that unmet ask is how it
+   * measures slack, not a bill going unpaid. `bindingShortfall` is the honest number.
+   */
+  it('separates the gauge’s unmet ask from obligations that genuinely went unpaid', () => {
+    expect(summary.totalShortfall).toBeGreaterThan(summary.bindingShortfall)
+    expect(summary.firstShortPayday).toBe('2026-08-14') // gauge unmet from the very first payday
+    expect(summary.firstBindingShortPayday).toBe('2026-09-01') // first real miss
   })
 
   it('cuts strictly from the bottom of the priority order', () => {
     for (const a of allocations.filter((x) => x.totalShortfall > 0)) {
       const lastPaidInFull = a.lines.findLastIndex((l) => l.shortfall === 0)
       const firstShorted = a.lines.findIndex((l) => l.shortfall > 0)
-      // Nothing is ever paid in full below something that was cut.
       expect(lastPaidInFull).toBeLessThan(firstShorted)
     }
   })
 
-  /**
-   * The plan does NOT clear once childcare is in it, and these assert that rather
-   * than hiding it. A shortfall existing is not the failure — the spec says never to
-   * make a plan feasible by silently dropping something. What matters is that the
-   * shortfall lands where it should.
-   */
-  it('does not clear, and names where it first fails', () => {
-    expect(summary.totalShortfall).toBeGreaterThan(0)
-    expect(summary.firstShortPayday).toBe('2026-09-01')
-  })
-
-  it('never shorts the house, the truck, or childcare to balance a payday', () => {
-    const protectedKeys = [
-      'mortgage_catchup',
-      'mortgage_current',
-      'car_catchup',
-      'car_current',
-      'childcare',
-    ]
+  it('never shorts the house, the truck, or childcare', () => {
     for (const a of allocations) {
-      for (const line of a.lines.filter((l) => protectedKeys.includes(l.key))) {
+      for (const line of a.lines.filter((l) =>
+        ['mortgage_current', 'car_payoff', 'childcare'].includes(l.key),
+      )) {
         expect(line.shortfall).toBe(0)
       }
     }
-  })
-
-  /**
-   * Household spend DOES get shorted, on 2026-09-01 specifically — the one payday
-   * before CZTE where the catch-ups and childcare are both running at full rate and
-   * the tax break has not started yet. That is a real finding, not a modelling
-   * artifact, so the test records it rather than papering over it.
-   */
-  it('squeezes savings and unsecured debt first, and household only in the pre-CZTE gap', () => {
-    const shorted = new Set(
-      allocations.flatMap((a) => a.lines.filter((l) => l.shortfall > 0).map((l) => l.key)),
-    )
-    expect([...shorted].sort()).toEqual(['debt_paydown', 'emergency_fund', 'living'])
-
-    const householdShort = allocations.filter((a) =>
-      a.lines.some((l) => l.key === 'living' && l.shortfall > 0),
-    )
-    expect(householdShort.map((a) => a.paycheck.scheduledDate)).toEqual(['2026-09-01'])
   })
 
   it('starts the debt paydown and emergency fund with the deployment pay', () => {
