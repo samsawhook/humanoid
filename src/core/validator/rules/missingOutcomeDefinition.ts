@@ -1,5 +1,5 @@
-import type { World, Proposal } from '../../types.js'
-import { VIOLATION_CODES, type Violation } from '../codes.js'
+import type { World, Proposal } from '../../types'
+import { VIOLATION_CODES, type Violation } from '../codes'
 
 /**
  * Goals are defined by output, never by time spent. See LIFE_DASH.md D2.

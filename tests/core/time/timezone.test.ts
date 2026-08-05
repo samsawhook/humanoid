@@ -7,9 +7,9 @@ import {
   startOfIsoWeek,
   startOfLocalDay,
   zoneOffsetMs,
-} from '@/core/time/localDay.js'
-import { localDayAt, resolveZoneAt, zoneChangedBetween } from '@/core/time/timezonePeriods.js'
-import { CHICAGO, KUWAIT } from '../../fixtures/world.js'
+} from '@/core/time/localDay'
+import { localDayAt, resolveZoneAt, zoneChangedBetween } from '@/core/time/timezonePeriods'
+import { CHICAGO, KUWAIT } from '../../fixtures/world'
 
 describe('local day arithmetic', () => {
   it('resolves an instant to the local day in the given zone', () => {

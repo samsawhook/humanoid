@@ -10,9 +10,9 @@
  * Budgets are effective-dated because a deployment changes every one of them at once.
  */
 
-import type { CapacityBudget, Commitment, LocalDate, World } from '../types.js'
-import { compareLocalDates, endOfLocalDay, startOfLocalDay } from '../time/localDay.js'
-import { resolveZoneAt } from '../time/timezonePeriods.js'
+import type { CapacityBudget, Commitment, LocalDate, World } from '../types'
+import { compareLocalDates, endOfLocalDay, startOfLocalDay } from '../time/localDay'
+import { resolveZoneAt } from '../time/timezonePeriods'
 
 /** The budget in force for a domain on a given local date, if any. */
 export function budgetFor(

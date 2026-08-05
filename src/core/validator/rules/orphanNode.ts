@@ -1,6 +1,6 @@
-import type { World, Proposal } from '../../types.js'
-import { indexNodes, levelRank } from '../../tree.js'
-import { VIOLATION_CODES, type Violation } from '../codes.js'
+import type { World, Proposal } from '../../types'
+import { indexNodes, levelRank } from '../../tree'
+import { VIOLATION_CODES, type Violation } from '../codes'
 
 /**
  * Structural integrity of the goal tree.

@@ -9,16 +9,16 @@
  * arithmetic. It reads the numbers this file produces.
  */
 
-import type { Proposal, World } from '../types.js'
-import type { Violation } from './codes.js'
-import { emptyState } from './rules/emptyState.js'
-import { orphanNode } from './rules/orphanNode.js'
-import { missingOutcomeDefinition } from './rules/missingOutcomeDefinition.js'
-import { dependencyCycle } from './rules/dependencyCycle.js'
-import { fixedConflict } from './rules/fixedConflict.js'
-import { overCapacity } from './rules/overCapacity.js'
-import { windowBreach } from './rules/windowBreach.js'
-import { unreachableVelocity } from './rules/unreachableVelocity.js'
+import type { Proposal, World } from '../types'
+import type { Violation } from './codes'
+import { emptyState } from './rules/emptyState'
+import { orphanNode } from './rules/orphanNode'
+import { missingOutcomeDefinition } from './rules/missingOutcomeDefinition'
+import { dependencyCycle } from './rules/dependencyCycle'
+import { fixedConflict } from './rules/fixedConflict'
+import { overCapacity } from './rules/overCapacity'
+import { windowBreach } from './rules/windowBreach'
+import { unreachableVelocity } from './rules/unreachableVelocity'
 
 export type Rule = (world: World, proposal: Proposal) => Violation[]
 
@@ -76,5 +76,5 @@ export function validate(world: World, proposal: Proposal): ValidationResult {
   return { violations, feasible: hardCount === 0, hardCount, softCount }
 }
 
-export { VIOLATION_CODES } from './codes.js'
-export type { Violation, ViolationCode, Severity } from './codes.js'
+export { VIOLATION_CODES } from './codes'
+export type { Violation, ViolationCode, Severity } from './codes'

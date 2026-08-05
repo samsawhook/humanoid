@@ -1,8 +1,8 @@
-import type { GoalNode, Proposal, World } from '../../types.js'
-import { ancestorsOf, indexNodes } from '../../tree.js'
-import { compareLocalDates, localDaysBetween } from '../../time/localDay.js'
-import { localDayAt } from '../../time/timezonePeriods.js'
-import { VIOLATION_CODES, type Violation } from '../codes.js'
+import type { GoalNode, Proposal, World } from '../../types'
+import { ancestorsOf, indexNodes } from '../../tree'
+import { compareLocalDates, localDaysBetween } from '../../time/localDay'
+import { localDayAt } from '../../time/timezonePeriods'
+import { VIOLATION_CODES, type Violation } from '../codes'
 
 /**
  * Windows, not deadlines.

@@ -1,7 +1,7 @@
-import type { GoalNode, Proposal, VelocityPeriod, World } from '../../types.js'
-import { ancestorsOf, indexNodes, itemsUnder } from '../../tree.js'
-import { demonstratedHoursPerWeek, estimationCalibration } from '../../capacity/throughput.js'
-import { VIOLATION_CODES, type Violation } from '../codes.js'
+import type { GoalNode, Proposal, VelocityPeriod, World } from '../../types'
+import { ancestorsOf, indexNodes, itemsUnder } from '../../tree'
+import { demonstratedHoursPerWeek, estimationCalibration } from '../../capacity/throughput'
+import { VIOLATION_CODES, type Violation } from '../codes'
 
 /** Weeks in a velocity period. Averaged; nothing here needs calendar precision. */
 const WEEKS_PER_PERIOD: Record<VelocityPeriod, number> = {

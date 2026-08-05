@@ -1,6 +1,6 @@
-import type { World, Proposal } from '../../types.js'
-import { indexNodes } from '../../tree.js'
-import { VIOLATION_CODES, type Violation } from '../codes.js'
+import type { World, Proposal } from '../../types'
+import { indexNodes } from '../../tree'
+import { VIOLATION_CODES, type Violation } from '../codes'
 
 /**
  * The dependency graph is what survives when dates don't.

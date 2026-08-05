@@ -1,9 +1,9 @@
-import type { Proposal, World } from '../../types.js'
-import { domainOf, indexNodes } from '../../tree.js'
-import { budgetFor } from '../../capacity/budgets.js'
-import { localDayAt } from '../../time/timezonePeriods.js'
-import { startOfIsoWeek } from '../../time/localDay.js'
-import { VIOLATION_CODES, type Violation } from '../codes.js'
+import type { Proposal, World } from '../../types'
+import { domainOf, indexNodes } from '../../tree'
+import { budgetFor } from '../../capacity/budgets'
+import { localDayAt } from '../../time/timezonePeriods'
+import { startOfIsoWeek } from '../../time/localDay'
+import { VIOLATION_CODES, type Violation } from '../codes'
 
 /**
  * Does the proposed week actually fit in the week.

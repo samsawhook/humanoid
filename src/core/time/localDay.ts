@@ -6,7 +6,7 @@
  *   2. Never store or pass a fixed offset. Offsets change twice a year; zones don't.
  */
 
-import type { IanaZone, LocalDate } from '../types.js'
+import type { IanaZone, LocalDate } from '../types'
 
 const LOCAL_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/
 

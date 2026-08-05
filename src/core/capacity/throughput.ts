@@ -10,8 +10,8 @@
  * built on what you demonstrably do rather than on optimism.
  */
 
-import type { CapacitySource, World } from '../types.js'
-import { startOfIsoWeek } from '../time/localDay.js'
+import type { CapacitySource, World } from '../types'
+import { startOfIsoWeek } from '../time/localDay'
 
 export interface ThroughputEstimate {
   hoursPerWeek: number

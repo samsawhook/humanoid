@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { validate, VIOLATION_CODES } from '@/core/validator/index.js'
-import type { Violation } from '@/core/validator/codes.js'
+import { validate, VIOLATION_CODES } from '@/core/validator/index'
+import type { Violation } from '@/core/validator/codes'
 import {
   block,
   budget,
@@ -12,7 +12,7 @@ import {
   outcome,
   proposal,
   world,
-} from '../../fixtures/world.js'
+} from '../../fixtures/world'
 
 const codes = (violations: Violation[]) => violations.map((v) => v.code)
 

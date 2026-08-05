@@ -17,7 +17,7 @@ import {
   type Proposal,
   type ProposedBlock,
   type World,
-} from '@/core/types.js'
+} from '@/core/types'
 
 /** A fixed instant so nothing in the suite depends on when it runs. */
 export const NOW = new Date('2026-08-05T15:00:00Z')

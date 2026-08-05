@@ -13,8 +13,8 @@
  * Texas after you land in Kuwait.
  */
 
-import type { IanaZone, LocalDate, TimezonePeriod } from '../types.js'
-import { localDayFor } from './localDay.js'
+import type { IanaZone, LocalDate, TimezonePeriod } from '../types'
+import { localDayFor } from './localDay'
 
 /** Sorted oldest-first. Callers may hand us periods in any order. */
 export function sortPeriods(periods: TimezonePeriod[]): TimezonePeriod[] {

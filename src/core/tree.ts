@@ -6,7 +6,7 @@
  * everything below it inherits it by walking up. One taxonomy, nothing to keep in sync.
  */
 
-import type { GoalNode, Item, NodeLevel } from './types.js'
+import type { GoalNode, Item, NodeLevel } from './types'
 
 /** Coarse to fine. A child may sit at the same level as its parent or finer, never coarser. */
 export const LEVEL_ORDER: NodeLevel[] = ['life', 'decade', 'campaign', 'year', 'quarter']

@@ -1,5 +1,5 @@
-import type { Proposal, ProposedBlock, World } from '../../types.js'
-import { VIOLATION_CODES, type Violation } from '../codes.js'
+import type { Proposal, ProposedBlock, World } from '../../types'
+import { VIOLATION_CODES, type Violation } from '../codes'
 
 /**
  * Double-booking. The single most common way a language model silently ruins a plan.
