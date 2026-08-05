@@ -13,6 +13,7 @@
 import { neon } from '@neondatabase/serverless'
 import type {
   Commitment,
+  LocalDate,
   CapacityBudget,
   GoalNode,
   Item,
@@ -65,6 +66,26 @@ const SEED_FALLBACK = (error?: string): LoadedPlan => ({
 const num = (v: unknown): number => (v === null || v === undefined ? 0 : Number(v))
 const date = (v: unknown): Date | null => (v ? new Date(String(v)) : null)
 
+/**
+ * Postgres `date` columns come back as JS Date objects, not 'YYYY-MM-DD' strings —
+ * node-postgres' default type parser converts OID 1082, and the Neon driver inherits
+ * that behaviour. Everything in `/src/core` expects the string form and
+ * `parseLocalDate` throws loudly on anything else, which is correct of it and fatal
+ * here.
+ *
+ * A DATE is parsed as local midnight, so the local getters round-trip it correctly
+ * whatever the server's timezone. `toISOString()` would shift the day west of UTC.
+ */
+export function localDate(v: unknown): LocalDate | null {
+  if (v === null || v === undefined) return null
+  if (v instanceof Date) {
+    const p = (n: number) => String(n).padStart(2, '0')
+    return `${v.getFullYear()}-${p(v.getMonth() + 1)}-${p(v.getDate())}`
+  }
+  const s = String(v)
+  return s.length >= 10 ? s.slice(0, 10) : s
+}
+
 export async function loadPlan(): Promise<LoadedPlan> {
   const url = process.env.DATABASE_URL
   if (!url) return SEED_FALLBACK('DATABASE_URL is not set.')
@@ -100,11 +121,11 @@ export async function loadPlan(): Promise<LoadedPlan> {
           level: r.level,
           kind: r.kind,
           outcomeDefinition: r.outcome_definition ?? null,
-          targetDate: r.target_date ?? null,
+          targetDate: localDate(r.target_date),
           dateBasis: r.date_basis ?? null,
           dateConfidence: r.date_confidence ?? null,
-          windowOpen: r.window_open ?? null,
-          windowClose: r.window_close ?? null,
+          windowOpen: localDate(r.window_open),
+          windowClose: localDate(r.window_close),
           requiredVelocity: r.required_velocity_amount
             ? {
                 amount: num(r.required_velocity_amount),
@@ -133,10 +154,10 @@ export async function loadPlan(): Promise<LoadedPlan> {
           sequence: num(r.sequence),
           amount: r.amount === null ? null : num(r.amount),
           unitLabel: r.unit_label ?? null,
-          targetDate: r.target_date ?? null,
+          targetDate: localDate(r.target_date),
           dateBasis: r.date_basis ?? null,
-          windowOpen: r.window_open ?? null,
-          windowClose: r.window_close ?? null,
+          windowOpen: localDate(r.window_open),
+          windowClose: localDate(r.window_close),
           achievedAt: date(r.achieved_at),
         }),
       ),
@@ -171,8 +192,8 @@ export async function loadPlan(): Promise<LoadedPlan> {
         (r): CapacityBudget => ({
           nodeId: String(r.node_id),
           hoursPerWeek: num(r.hours_per_week),
-          effectiveFrom: r.effective_from,
-          effectiveTo: r.effective_to ?? null,
+          effectiveFrom: localDate(r.effective_from)!,
+          effectiveTo: localDate(r.effective_to),
         }),
       ),
       timezonePeriods: tzRows.map(
