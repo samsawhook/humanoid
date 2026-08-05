@@ -47,57 +47,62 @@ export interface Debt {
 export const TEXAS_LIMITATIONS_YEARS = 4
 
 export const DEBTS: Debt[] = [
-  {
-    key: 'capital_one',
-    label: 'Capital One',
-    balance: 3489,
-    posture: 'active',
-    priority: 10,
-    note: 'Largest OPEN balance — the one that actually moves utilisation. VERIFY still open.',
-  },
-  {
-    key: 'citi',
-    label: 'Citi',
-    balance: 1777,
-    posture: 'active',
-    priority: 20,
-    note: 'VERIFY still open.',
-  },
+  // ── Open revolving. Only these move utilisation, and there is not much of it. ──
   {
     key: 'platinum',
     label: 'Platinum Card',
     balance: 1198.89,
     posture: 'active',
-    priority: 30,
-    note: 'VERIFY still open.',
+    priority: 10,
+    note: 'Largest OPEN balance. VERIFY still open.',
   },
   {
     key: 'brightway',
     label: 'Brightway',
     balance: 568,
     posture: 'active',
-    priority: 40,
-    note: 'Clears in one payday. VERIFY still open.',
+    priority: 20,
+    note: 'Clears in roughly one payday. VERIFY still open.',
   },
   {
     key: 'credit_one',
     label: 'Credit One',
     balance: 454,
     posture: 'active',
-    priority: 50,
+    priority: 30,
     note: 'Smallest open balance. VERIFY still open.',
+  },
+
+  // ── Closed. Real balances, no credit line, so no utilisation benefit. ──
+  // Ordered smallest first: closing accounts outright shortens the report, and with
+  // no rate information to avalanche on, fewer open lines is the available win.
+  {
+    key: 'citi',
+    label: 'Citi',
+    balance: 1777,
+    posture: 'closed',
+    priority: 500,
+    note: 'CLOSED. Paying it does nothing for utilisation, but it clears an account.',
+  },
+  {
+    key: 'capital_one',
+    label: 'Capital One',
+    balance: 3489,
+    posture: 'closed',
+    priority: 510,
+    note: 'CLOSED.',
   },
   {
     key: 'chase',
     label: 'Chase',
     balance: 7290,
     posture: 'closed',
-    priority: 500,
+    priority: 520,
     note:
-      'CLOSED. A closed account has no credit line, so paying it does nothing for ' +
-      'utilisation — my earlier "Chase first, it helps the score most" was simply wrong. ' +
-      'It ranks below every open account and above the dismissed ones: the balance is ' +
-      'real and unlike Goldman and PSECU there is no limitations trap in paying it.',
+      'CLOSED, and the largest of them. A closed account has no credit line, so paying ' +
+      'it does nothing for utilisation — my earlier "Chase first, it helps the score ' +
+      'most" was simply wrong. Behind every open account, ahead of the dismissed ones: ' +
+      'the balance is real and there is no limitations trap in paying it.',
   },
   {
     key: 'goldman',

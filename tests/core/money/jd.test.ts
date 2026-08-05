@@ -5,10 +5,13 @@ import {
   householdTotals,
   monthlyFor,
 } from '@/core/money/household'
+import { DEBTS } from '@/core/money/debts'
+import { CAR_LOAN_BALANCE } from '@/core/money/obligations'
 import {
   HOUSE,
   LAW_SCHOOLS,
   OPENING_BALANCE_SHEET,
+  openingBalanceSheetLines,
   sellNetAt,
   balanceSheet,
   housingScenarios,
@@ -20,7 +23,9 @@ describe('household profiles', () => {
   it('spends materially less deployed than at home', () => {
     const home = householdTotals('home')
     const deployed = householdTotals('deployed')
-    expect(deployed.categoryTotal).toBeLessThan(home.categoryTotal * 0.6)
+    // Not 0.6 any more: home improvement now RISES, which eats into the saving. The
+    // deployment is still much cheaper, just less dramatically so.
+    expect(deployed.categoryTotal).toBeLessThan(home.categoryTotal * 0.65)
   })
 
   it('raises support sent home while cutting personal consumption', () => {
@@ -38,7 +43,7 @@ describe('household profiles', () => {
   })
 
   it('collapses the lines that only exist because you are physically there', () => {
-    for (const key of ['restaurants', 'coffee', 'gas', 'home_improvement']) {
+    for (const key of ['restaurants', 'coffee', 'gas']) {
       const c = EXPENSE_CATEGORIES.find((x) => x.key === key)!
       expect(c.deployedMultiplier).toBeLessThanOrEqual(0.4)
     }
@@ -57,6 +62,11 @@ describe('household profiles', () => {
     }
   })
 
+  it('raises home improvement rather than cutting it — the house must be sellable', () => {
+    const c = EXPENSE_CATEGORIES.find((x) => x.key === 'home_improvement')!
+    expect(c.deployedMultiplier).toBeGreaterThan(1)
+  })
+
   it('scales a single category correctly', () => {
     const c = EXPENSE_CATEGORIES.find((x) => x.key === 'restaurants')!
     expect(monthlyFor(c, 'home')).toBe(c.monthlyHome)
@@ -72,13 +82,16 @@ describe('balance sheet', () => {
     // Monarch auto-valuations were disputed. Both moves make the number worse and
     // both are deliberate: a net worth propped up by figures nobody believes is
     // worse than useless.
-    expect(Math.round(opening.netWorth)).toBe(-27660)
+    // -27,860 rather than -27,660: composing from CAR_LOAN_BALANCE picks up the $1,800
+    // you told me, where the old hand-written sheet still carried Monarch's $1,600.
+    // That difference IS the point of composing.
+    expect(Math.round(opening.netWorth)).toBe(-27860)
     expect(opening.liquid).toBeLessThan(100)
   })
 
   it('keeps disputed values visible as a sensitivity rather than deleting them', () => {
     expect(opening.disputedTotal).toBeCloseTo(16898.59, 2)
-    expect(Math.round(opening.netWorthIfDisputedAccepted)).toBe(-10761)
+    expect(Math.round(opening.netWorthIfDisputedAccepted)).toBe(-10961)
     // The gap between the two IS the disputed total — nothing else moved.
     expect(opening.netWorthIfDisputedAccepted - opening.netWorth).toBeCloseTo(
       opening.disputedTotal,
@@ -131,7 +144,25 @@ describe('housing scenarios', () => {
   it('ranks the short-term let above a plain tenancy on cash flow alone', () => {
     const rent = scenarios.find((s) => s.scenario === 'rent')!
     const bnb = scenarios.find((s) => s.scenario === 'airbnb')!
-    expect(bnb.monthlyNet).toBeGreaterThan(rent.monthlyNet)
+    expect(bnb.monthlyCashFlow).toBeGreaterThan(rent.monthlyCashFlow)
+  })
+
+  /**
+   * The bug this replaced: selling was scored at +$1,300/mo (the payment relieved)
+   * against letting figures that already netted the payment off — a delta compared
+   * with an absolute, which flattered selling by exactly the payment.
+   */
+  it('puts all three on one basis: selling is zero a month, not plus the payment', () => {
+    const sell = scenarios.find((s) => s.scenario === 'sell')!
+    expect(sell.monthlyCashFlow).toBe(0)
+    expect(sell.monthlyVsHoldingEmpty).toBe(HOUSE.monthlyPayment)
+  })
+
+  it('keeps the two bases consistent for every scenario', () => {
+    for (const s of scenarios) {
+      // vs-empty is always the absolute figure plus the payment you stop losing.
+      expect(s.monthlyVsHoldingEmpty).toBeCloseTo(s.monthlyCashFlow + HOUSE.monthlyPayment, 2)
+    }
   })
 })
 
@@ -149,11 +180,13 @@ describe('three-year projection', () => {
     expect(run.years[0]!.otherIncome).toBe(500 * 12 + 1000)
   })
 
-  it('counts sale proceeds once, in year one', () => {
+  it('counts sale proceeds once, in year one, and nothing after', () => {
     const run = projectJd(school, scenario, base)
-    expect(run.years[0]!.housingScenarioIncome).toBeGreaterThan(
-      run.years[1]!.housingScenarioIncome,
-    )
+    expect(run.years[0]!.housingScenarioIncome).toBe(scenario.upfrontCash)
+    // Zero thereafter — the property is gone, and the Corpus mortgage was never among
+    // the school-year costs, so there is no relief to credit.
+    expect(run.years[1]!.housingScenarioIncome).toBe(0)
+    expect(run.years[2]!.housingScenarioIncome).toBe(0)
   })
 
   it('pays MHA for months in session, not twelve', () => {
@@ -200,8 +233,8 @@ describe('the house, on real Zillow figures', () => {
     expect(HOUSE.monthlyRentalTaxInsuranceUplift).toBeGreaterThan(0)
     const withUplift = housingScenarios()
     const withoutUplift = housingScenarios({ ...HOUSE, monthlyRentalTaxInsuranceUplift: 0 })
-    expect(withUplift.find((s) => s.scenario === 'rent')!.monthlyNet).toBeLessThan(
-      withoutUplift.find((s) => s.scenario === 'rent')!.monthlyNet,
+    expect(withUplift.find((s) => s.scenario === 'rent')!.monthlyCashFlow).toBeLessThan(
+      withoutUplift.find((s) => s.scenario === 'rent')!.monthlyCashFlow,
     )
   })
 
@@ -210,5 +243,42 @@ describe('the house, on real Zillow figures', () => {
       const s = housingScenarios().find((x) => x.scenario === key)!
       expect(s.risks.join(' ')).toMatch(/bathroom/i)
     }
+  })
+})
+
+describe('the balance sheet composes rather than restates', () => {
+  const lines = openingBalanceSheetLines()
+  const find = (label: string) => lines.find((l) => l.label === label)
+
+  it('takes the house from HOUSE, not a second copy', () => {
+    expect(find('628 Chamberlain St, Corpus Christi')!.amount).toBe(HOUSE.marketValue)
+    expect(find('Mortgage')!.amount).toBe(HOUSE.mortgageBalance)
+  })
+
+  it('takes every unsecured balance from the debt register', () => {
+    for (const debt of DEBTS) {
+      expect(find(debt.label)!.amount).toBe(debt.balance)
+    }
+  })
+
+  it('takes the auto loan from the obligation the budget pays it with', () => {
+    expect(find('Car loan')!.amount).toBe(CAR_LOAN_BALANCE)
+  })
+
+  it('carries every liability the debt register knows about — none dropped', () => {
+    const liabilityLabels = lines.filter((l) => l.kind === 'liability').map((l) => l.label)
+    for (const debt of DEBTS) expect(liabilityLabels).toContain(debt.label)
+  })
+
+  it('moves with its source: changing a debt changes the sheet', () => {
+    // The property that makes this worth doing — a single edit propagates.
+    const goldman = DEBTS.find((d) => d.key === 'goldman')!
+    expect(find('Goldman')!.amount).toBe(goldman.balance)
+    expect(balanceSheet('2026-08-05', lines).liabilities).toBeCloseTo(
+      HOUSE.mortgageBalance +
+        CAR_LOAN_BALANCE +
+        DEBTS.reduce((s, d) => s + d.balance, 0),
+      2,
+    )
   })
 })

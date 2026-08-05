@@ -85,9 +85,18 @@ export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
     key: 'home_improvement',
     label: 'Home improvement',
     monthlyHome: 281,
-    deployedMultiplier: 0.25,
+    /**
+     * RISES while deployed — your correction, and it makes sense two ways: work you
+     * would have done yourself has to be paid for, and deployment income is what
+     * finally funds the deferred jobs. 1.5× is my figure for that, not yours.
+     *
+     * It matters more than it looks: the house has to be sold, let or short-let in a
+     * year, and every one of those needs it presentable. This is the only category
+     * here that is arguably an investment rather than a cost.
+     */
+    deployedMultiplier: 1.5,
     source: 'monarch',
-    note: 'Mostly your labour and your trips to the store. Hard to spend while away.',
+    note: 'Rises: your labour has to be bought, and the house has to be ready to sell or let.',
   },
   {
     key: 'shopping',

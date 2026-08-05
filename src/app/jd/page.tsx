@@ -44,7 +44,7 @@ export default function JdPage() {
   const savings = paid('emergency_fund')
   const mortgagePrincipal = paid('mortgage_current') * 0.3 + (cleared.mortgage_arrears?.paid ?? 0)
 
-  // The paydown targets live accounts only — Goldman and PSECU are untouched.
+  // Same paydown the budget runs: live accounts in order, dismissed ones untouched.
   const paydown = simulatePaydown(debtPaid / allocations.length, allocations.length)
 
   const projected = projectedBalanceSheet('2027-08-04', OPENING_BALANCE_SHEET, [
@@ -86,6 +86,13 @@ export default function JdPage() {
       </p>
 
       <div className="note">
+        <strong>Nothing on this page is typed in twice.</strong> The balance sheet composes
+        from the same figures the budget uses — the house from Zillow, every debt from the
+        debt register, the auto loan from the obligation, cash from the Monarch export.
+        Correct a number in the budget and it corrects here. Two pages that restate the
+        same fact are two pages that eventually disagree.
+        <br />
+        <br />
         <strong>What is real and what is not.</strong> Balances, pay and obligations are
         yours. <em>Every MHA rate, every rent figure, the house&rsquo;s market value and the
         Corpus Christi rental market are my estimates</em>, flagged low confidence
@@ -335,17 +342,26 @@ export default function JdPage() {
         {usd0(Math.abs(sellNetAt(HOUSE.valueLow)))} <em>to</em> closing — money you do not
         have. Selling is not the safe option; it is the one with a tail risk.
       </div>
+      <p className="sub">
+        Both figures are on one basis. <strong>Monthly cash flow</strong> is absolute — what
+        the property does to your bank balance, mortgage payment included — so selling is
+        zero, not a positive. <strong>Versus holding it empty</strong> is the change against
+        doing nothing and paying {usd0(HOUSE.monthlyPayment)}/mo for an empty house. Mixing
+        the two made selling look {usd0(HOUSE.monthlyPayment)}/mo better than it is.
+      </p>
       <div className="cards">
         {scenarios.map((s, i) => (
           <div className="panel card" key={s.scenario}>
             <div className="k">{s.label}</div>
-            <div className={`v ${s.monthlyNet >= 0 ? 'good' : 'bad'}`}>
-              {usd0(s.monthlyNet)}
+            <div className={`v ${s.monthlyCashFlow >= 0 ? 'good' : 'bad'}`}>
+              {usd0(s.monthlyCashFlow)}
               <span style={{ fontSize: 13 }} className="muted">
                 /mo
               </span>
             </div>
             <div className="muted" style={{ fontSize: 12 }}>
+              {usd0(s.monthlyVsHoldingEmpty)}/mo vs holding it empty
+              <br />
               {s.upfrontCash > 0 ? `+${usd0(s.upfrontCash)} upfront` : 'no cash released'}
             </div>
           </div>

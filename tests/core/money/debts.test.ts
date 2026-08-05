@@ -14,14 +14,19 @@ describe('debt posture', () => {
     expect(activeDebts().every((d) => d.posture !== 'sued_dismissed')).toBe(true)
   })
 
-  it('ranks every OPEN account above the closed one', () => {
-    // Chase is closed: no credit line, so paying it does nothing for utilisation.
-    // It is still payable — there is no limitations trap — just not first.
-    const chase = DEBTS.find((d) => d.key === 'chase')!
-    expect(chase.posture).toBe('closed')
+  it('ranks every OPEN account above every closed one', () => {
+    // Closed accounts have no credit line, so paying them does nothing for utilisation.
+    // They are still payable — no limitations trap — just never first.
+    const closed = DEBTS.filter((d) => d.posture === 'closed')
+    expect(closed.map((d) => d.key).sort()).toEqual(['capital_one', 'chase', 'citi'])
     for (const open of openDebts()) {
-      expect(open.priority).toBeLessThan(chase.priority)
+      for (const c of closed) expect(open.priority).toBeLessThan(c.priority)
     }
+  })
+
+  it('holds only $2,221 of open revolving debt', () => {
+    expect(totalBalance(openDebts())).toBeCloseTo(2220.89, 2)
+    expect(openDebts().map((d) => d.key)).toEqual(['platinum', 'brightway', 'credit_one'])
   })
 
   it('puts the deprioritised accounts behind every live one', () => {
@@ -70,22 +75,26 @@ describe('paydown simulation', () => {
    * three small accounts are untouched. Recording it rather than asserting the
    * comfortable version.
    */
-  it('clears every OPEN account, then part-pays the closed one', () => {
+  it('clears all open revolving debt within five paydays', () => {
+    // Only $2,221 of it exists, so the utilisation fix is fast and cheap — the most
+    // useful thing the closed-account reclassification surfaced.
+    const result = simulatePaydown(500, 24)
+    const openCleared = result.steps.filter(
+      (s) => s.debt.posture === 'active' && s.clearedAfterPayments !== null,
+    )
+    expect(openCleared).toHaveLength(openDebts().length)
+    expect(Math.max(...openCleared.map((s) => s.clearedAfterPayments!))).toBeLessThanOrEqual(5)
+  })
+
+  it('then works the closed balances smallest first, and does not finish Chase', () => {
     const result = simulatePaydown(500, 24)
     expect(result.totalPaid).toBe(12000)
 
-    // All five open accounts gone by payday 15 — that is the utilisation win.
-    const cleared = result.steps.filter((s) => s.clearedAfterPayments !== null)
-    expect(cleared.map((s) => s.debt.key)).toEqual([
-      'capital_one',
-      'citi',
-      'platinum',
-      'brightway',
-      'credit_one',
-    ])
-    expect(Math.max(...cleared.map((s) => s.clearedAfterPayments!))).toBeLessThanOrEqual(15)
+    const cleared = result.steps
+      .filter((s) => s.clearedAfterPayments !== null)
+      .map((s) => s.debt.key)
+    expect(cleared).toEqual(['platinum', 'brightway', 'credit_one', 'citi', 'capital_one'])
 
-    // Chase is closed, so it takes the remainder and does not finish.
     const chase = result.steps.find((s) => s.debt.key === 'chase')!
     expect(chase.paid).toBeCloseTo(4513.11, 2)
     expect(result.allClearedAfter).toBeNull()
