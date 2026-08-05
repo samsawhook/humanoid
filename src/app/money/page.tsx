@@ -236,11 +236,10 @@ export default function MoneyPage() {
             One FULL payment of {usd0(MORTGAGE_PAYMENT)} on{' '}
             {arrearsProgress.firstPayment?.date}
           </strong>{' '}
-          — plus {usd(( arrearsProgress.firstPayment?.amount ?? 0) - MORTGAGE_PAYMENT)}{' '}
-          partial on top the same day. A full payment on each 1st stays a separate bill
-          at the top of the stack, and everything free after that goes at the arrears as
-          partials. The one-off shares the arrears balance, so it buys back a missed
-          month rather than being a fifth payment on a four-payment debt.
+          — one transfer, not two. A full payment on each 1st stays a separate bill at
+          the top of the stack, and from the next payday on, everything free goes at the
+          arrears as partials. The one-off shares the arrears balance, so it buys back a
+          missed month rather than being a fifth payment on a four-payment debt.
         </p>
         <p style={{ marginTop: 8 }} className="bad">
           <strong>This rests on the drill back pay landing by the 14th.</strong> That

@@ -391,6 +391,11 @@ describe('the real plan', () => {
     expect(
       allocations.filter((a) => a.lines.some((l) => l.key === 'arrears_first_payment')),
     ).toHaveLength(1)
+
+    // ONE transfer that day, not a full payment plus a partial chaser. Two entries to
+    // the same servicer on the same date is just a confusing statement.
+    const toArrears = first.lines.filter((l) => (l.capGroup ?? l.key) === 'mortgage_arrears')
+    expect(toArrears).toHaveLength(1)
   })
 
   it('pays a full mortgage payment as a bill on every 1st', () => {
@@ -421,7 +426,11 @@ describe('the real plan', () => {
         .filter((l) => (l.capGroup ?? l.key) === 'mortgage_arrears')
         .reduce((t, l) => t + l.allocated, 0)
       if (running >= MORTGAGE_ARREARS_BALANCE - 0.005) break
-      // Still behind on the house, so nothing below it has taken anything.
+      // 14 August is the one exception, and it is deliberate: the arrears sweep is
+      // switched off that day so the servicer gets ONE clean full payment rather than a
+      // payment and a chaser. What is left falls through the waterfall instead.
+      if (a.paycheck.payDate === '2026-08-14') continue
+      // Every other payday: still behind on the house, so nothing below it took anything.
       for (const key of ['late_payments', 'debt_paydown_open', 'debt_paydown_closed']) {
         expect(a.lines.find((l) => l.key === key)?.allocated ?? 0).toBe(0)
       }

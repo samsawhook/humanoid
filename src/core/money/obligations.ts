@@ -447,7 +447,13 @@ export const OBLIGATIONS: Obligation[] = [
     amountPerPaycheck: 0,
     sweep: true,
     payDays: 'both',
-    activeFrom: null,
+    /**
+     * Skips the 14 August cheque. That payday sends ONE clean full payment via
+     * `arrears_first_payment`; a second, partial transfer to the same servicer on the
+     * same day is just a confusing pair of entries on the statement. Whatever is left
+     * that day falls through the waterfall instead.
+     */
+    activeFrom: '2026-08-16',
     activeTo: null,
     priority: 40,
     kind: 'arrears_catchup',
