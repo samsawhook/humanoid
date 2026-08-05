@@ -15,13 +15,19 @@ import {
   formatLocalDate,
   parseLocalDate,
 } from '../time/localDay'
-import { ENTITLEMENTS, TAX, TIMELINE, type Entitlement } from './rates'
+import { DEDUCTIONS, ENTITLEMENTS, TAX, TIMELINE, type Deduction, type Entitlement } from './rates'
 
 export interface PaycheckLine {
   key: string
   label: string
   amount: number
   taxable: boolean
+}
+
+export interface PaycheckDeduction {
+  key: string
+  label: string
+  amount: number
 }
 
 export interface Paycheck {
@@ -36,6 +42,9 @@ export interface Paycheck {
   taxableGross: number
   federalTax: number
   fica: number
+  /** Money paid and then taken back — meal collection, and later SGLI, TSP and the rest. */
+  deductions: PaycheckDeduction[]
+  deductionsTotal: number
   net: number
   /** True when the period falls inside the combat-zone exclusion. */
   czte: boolean
@@ -80,10 +89,18 @@ export function payDatesBetween(from: LocalDate, to: LocalDate): LocalDate[] {
   return out.sort(compareLocalDates)
 }
 
-function isActive(entitlement: Entitlement, on: LocalDate): boolean {
-  if (entitlement.activeFrom && compareLocalDates(on, entitlement.activeFrom) < 0) return false
-  if (entitlement.activeTo && compareLocalDates(on, entitlement.activeTo) > 0) return false
+function isActiveRange(
+  from: LocalDate | null,
+  to: LocalDate | null,
+  on: LocalDate,
+): boolean {
+  if (from && compareLocalDates(on, from) < 0) return false
+  if (to && compareLocalDates(on, to) > 0) return false
   return true
+}
+
+function isActive(entitlement: Entitlement, on: LocalDate): boolean {
+  return isActiveRange(entitlement.activeFrom, entitlement.activeTo, on)
 }
 
 /**
@@ -119,6 +136,7 @@ function czteAppliesTo(periodEnd: LocalDate): boolean {
 export function projectPaycheck(
   scheduled: LocalDate,
   entitlements: Entitlement[] = ENTITLEMENTS,
+  deductionList: Deduction[] = DEDUCTIONS,
 ): Paycheck {
   const period = periodFor(scheduled)
   // Evaluate entitlements at period end: a mid-period start still pays that period.
@@ -142,6 +160,11 @@ export function projectPaycheck(
       .reduce((sum, e) => sum + e.monthlyAmount / 2, 0),
   )
 
+  const deductions: PaycheckDeduction[] = deductionList
+    .filter((d) => isActiveRange(d.activeFrom, d.activeTo, period.end))
+    .map((d) => ({ key: d.key, label: d.label, amount: round2(d.monthlyAmount / 2) }))
+  const deductionsTotal = round2(deductions.reduce((sum, d) => sum + d.amount, 0))
+
   const czte = czteAppliesTo(period.end)
   // CZTE zeroes federal income tax on excluded pay. It does NOT touch FICA.
   const federalTax = czte ? 0 : round2(taxableGross * TAX.effectiveFederalRate)
@@ -157,7 +180,9 @@ export function projectPaycheck(
     taxableGross,
     federalTax,
     fica,
-    net: round2(gross - federalTax - fica),
+    deductions,
+    deductionsTotal,
+    net: round2(gross - federalTax - fica - deductionsTotal),
     czte,
   }
 }
@@ -166,8 +191,9 @@ export function projectPaychecks(
   from: LocalDate,
   to: LocalDate,
   entitlements: Entitlement[] = ENTITLEMENTS,
+  deductionList: Deduction[] = DEDUCTIONS,
 ): Paycheck[] {
-  return payDatesBetween(from, to).map((d) => projectPaycheck(d, entitlements))
+  return payDatesBetween(from, to).map((d) => projectPaycheck(d, entitlements, deductionList))
 }
 
 export function round2(n: number): number {

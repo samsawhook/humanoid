@@ -229,8 +229,9 @@ describe('the real plan', () => {
     // it, and it moves whenever anything upstream does: 01-15 with the deployed
     // household profile, back to 02-15 when home improvement was corrected upward,
     // forward again to 01-15 once the car turned out to bill monthly rather than
-    // twice a month. Each move is the gauge doing its job.
-    expect(cleared.mortgage_arrears?.clearedOn).toBe('2027-01-15')
+    // twice a month, then back to 03-15 when the SGLI and DFAC deductions landed.
+    // Each move is the gauge doing its job: it is the slack, so it absorbs everything.
+    expect(cleared.mortgage_arrears?.clearedOn).toBe('2027-03-15')
   })
 
   /**
@@ -265,5 +266,46 @@ describe('the real plan', () => {
     const early = allocations.find((a) => a.paycheck.scheduledDate === '2026-08-15')!
     expect(early.lines.map((l) => l.key)).not.toContain('debt_paydown')
     expect(TIMELINE.czteStart).toBe('2026-09-04')
+  })
+})
+
+describe('deductions', () => {
+  it('collects BAS back once you are eating at the DFAC', () => {
+    const before = projectPaycheck('2026-09-01')
+    const during = projectPaycheck('2026-10-01')
+
+    expect(before.deductions.map((d) => d.key)).toEqual(['sglv'])
+    expect(during.deductions.map((d) => d.key)).toEqual(['sglv', 'meal_collection'])
+    // Collected at the BAS rate, so the pair cancels.
+    const bas = ENTITLEMENTS.find((e) => e.key === 'bas')!
+    const meal = during.deductions.find((d) => d.key === 'meal_collection')!
+    expect(meal.amount).toBe(bas.monthlyAmount / 2)
+  })
+
+  it('keeps BAS in gross rather than netting it away', () => {
+    // It is still an entitlement on the LES; it is simply collected. Removing it from
+    // gross would understate gross and corrupt the taxable-pay arithmetic.
+    const during = projectPaycheck('2026-10-01')
+    expect(during.lines.map((l) => l.key)).toContain('bas')
+    expect(during.gross).toBeGreaterThan(during.net)
+  })
+
+  it('subtracts deductions from net, alongside tax', () => {
+    const p = projectPaycheck('2026-10-01')
+    expect(p.net).toBeCloseTo(p.gross - p.federalTax - p.fica - p.deductionsTotal, 2)
+  })
+
+  it('takes SGLI in every paycheck, deployed or not', () => {
+    // Unlike the meal collection, this never switches off.
+    for (const p of projectPaychecks('2026-08-15', '2027-08-01')) {
+      expect(p.deductions.some((d) => d.key === 'sglv')).toBe(true)
+    }
+  })
+
+  it('leaves taxable gross untouched — a collection is not a tax break', () => {
+    const p = projectPaycheck('2026-10-01')
+    expect(p.taxableGross).toBe(
+      p.lines.filter((l) => l.taxable).reduce((s, l) => s + l.amount, 0),
+    )
   })
 })

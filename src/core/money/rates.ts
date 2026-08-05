@@ -135,6 +135,52 @@ export const ENTITLEMENTS: Entitlement[] = [
 ]
 
 /**
+ * Deductions — money that appears as an entitlement and is then taken back.
+ *
+ * Kept separate from entitlements rather than netted off them, because that is how an
+ * LES reads and because gross should stay gross: BAS is still paid, it is simply
+ * collected for meals. Netting it away would understate gross and quietly corrupt the
+ * taxable-pay arithmetic.
+ */
+export interface Deduction {
+  key: string
+  label: string
+  monthlyAmount: number
+  activeFrom: LocalDate | null
+  activeTo: LocalDate | null
+  confidence: Confidence
+  note: string
+}
+
+export const DEDUCTIONS: Deduction[] = [
+  {
+    key: 'sglv',
+    label: 'SGLI / SGLV premium',
+    monthlyAmount: 50,
+    /** Runs throughout — it does not stop when you come home. */
+    activeFrom: null,
+    activeTo: null,
+    confidence: 'medium',
+    note:
+      'Your figure, ~$50/mo. Covers the SGLI premium plus TSGLI and any family cover. ' +
+      'Unlike the meal collection this never switches off, so it is in every paycheck.',
+  },
+  {
+    key: 'meal_collection',
+    label: 'Meal collection (DFAC)',
+    /** Collected at the BAS rate, so the two cancel while you are being fed. */
+    monthlyAmount: 475,
+    activeFrom: TIMELINE.deploymentStart,
+    activeTo: TIMELINE.expectedReturn,
+    confidence: 'high',
+    note:
+      'You said BAS is deducted for DFAC. Modelled as a collection at the BAS rate, ' +
+      'so BAS still shows as an entitlement and nets to zero — which is how the LES ' +
+      'reads and keeps gross honest.',
+  },
+]
+
+/**
  * Tax assumptions.
  *
  * CZTE for enlisted excludes ALL military pay earned in the zone from federal income

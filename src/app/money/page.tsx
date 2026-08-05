@@ -151,6 +151,7 @@ export default function MoneyPage() {
                 <th>Payday</th>
                 <th>Gross</th>
                 <th>Tax</th>
+                <th>Deducted</th>
                 <th>Net in</th>
                 <th>Committed out</th>
                 <th>Difference</th>
@@ -173,6 +174,9 @@ export default function MoneyPage() {
                     <td className="muted">
                       {usd(a.paycheck.federalTax + a.paycheck.fica)}
                     </td>
+                    <td className="muted">
+                      {a.paycheck.deductionsTotal > 0 ? usd(a.paycheck.deductionsTotal) : '—'}
+                    </td>
                     <td>{usd(a.paycheck.net)}</td>
                     <td>{usd(committed)}</td>
                     <td className={diff >= 0 ? 'good' : 'bad'}>{usd(diff)}</td>
@@ -192,7 +196,8 @@ export default function MoneyPage() {
         caption={
           <>
             The <strong>solid stack is net</strong> — what actually lands. The dashed block
-            on top is tax withheld, so the full bar height is gross. Watch it collapse at
+            on top is everything withheld: tax, FICA, and the DFAC meal collection once
+            you are in theatre. So the full bar height is gross. Watch it collapse at
             the CZTE boundary: federal income tax goes to zero while FICA keeps coming out
             of base pay, which is why the bar barely moves but net jumps{' '}
             {usd0(
@@ -218,8 +223,13 @@ export default function MoneyPage() {
               })),
               {
                 key: 'withheld',
-                label: `Tax withheld (fed ${usd0(a.paycheck.federalTax)} + FICA ${usd0(a.paycheck.fica)})`,
-                value: a.paycheck.federalTax + a.paycheck.fica,
+                label:
+                  `Withheld: fed ${usd0(a.paycheck.federalTax)} + FICA ${usd0(a.paycheck.fica)}` +
+                  (a.paycheck.deductionsTotal > 0
+                    ? ` + ${a.paycheck.deductions.map((d) => `${d.label} ${usd0(d.amount)}`).join(', ')}`
+                    : ''),
+                value:
+                  a.paycheck.federalTax + a.paycheck.fica + a.paycheck.deductionsTotal,
                 color: 'var(--series-rest)',
                 hatched: true,
               },
@@ -232,7 +242,7 @@ export default function MoneyPage() {
               label: e.label.split(' — ')[0] ?? e.key,
               color: seriesColor(i),
             })),
-            { label: 'Tax withheld (not kept)', color: 'var(--series-rest)' },
+            { label: 'Withheld — tax, FICA, meal collection', color: 'var(--series-rest)' },
           ]}
         />
       </Figure>
