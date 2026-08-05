@@ -10,7 +10,7 @@
  */
 
 import type { LocalDate } from '../types'
-import { compareLocalDates } from '../time/localDay'
+import { compareLocalDates, localDaysBetween } from '../time/localDay'
 import { round2, type Paycheck } from './paychecks'
 
 export type PayDaySelector = 'both' | 'first' | 'fifteenth'
@@ -33,13 +33,25 @@ export interface Obligation {
   /** Lower is paid first. Ties broken by declaration order. */
   priority: number
   kind: ObligationKind
+  /**
+   * Charge only for the part of the pay period the obligation was actually running.
+   *
+   * Off by default, because most obligations are lump sums attached to a payday — a
+   * mortgage payment due on the 1st is $1,300 whether the month had 28 days or 31.
+   * Turn it on for things that accrue daily, like childcare: a nanny starting on the
+   * 9th costs seven fifteenths of a half-month, not a half-month.
+   */
+  prorate?: boolean
   note?: string
 }
 
 export interface AllocationLine {
   key: string
   label: string
+  /** After proration. This is what the payday is actually asked for. */
   requested: number
+  /** Set when proration reduced the ask, so a part-period charge is legible. */
+  proratedFrom?: number
   allocated: number
   shortfall: number
   kind: ObligationKind
@@ -68,6 +80,35 @@ function appliesOn(obligation: Obligation, paycheck: Paycheck): boolean {
 }
 
 /**
+ * How much a prorated obligation actually costs for one pay period: the full
+ * per-paycheck amount scaled by the share of the period it was running.
+ *
+ * A nanny starting on the 9th, against a period covering the 1st to the 15th, is
+ * seven days out of fifteen.
+ */
+function requestedAmount(obligation: Obligation, paycheck: Paycheck): number {
+  if (!obligation.prorate) return obligation.amountPerPaycheck
+
+  const periodDays = localDaysBetween(paycheck.periodStart, paycheck.periodEnd) + 1
+  if (periodDays <= 0) return obligation.amountPerPaycheck
+
+  const start =
+    obligation.activeFrom && compareLocalDates(obligation.activeFrom, paycheck.periodStart) > 0
+      ? obligation.activeFrom
+      : paycheck.periodStart
+  const end =
+    obligation.activeTo && compareLocalDates(obligation.activeTo, paycheck.periodEnd) < 0
+      ? obligation.activeTo
+      : paycheck.periodEnd
+
+  const coveredDays = localDaysBetween(start, end) + 1
+  if (coveredDays <= 0) return 0
+  if (coveredDays >= periodDays) return obligation.amountPerPaycheck
+
+  return round2((obligation.amountPerPaycheck * coveredDays) / periodDays)
+}
+
+/**
  * Strict priority, not proportional. A partial mortgage payment and a partial car
  * payment is worse than one whole payment — cure the roof first, then the truck.
  */
@@ -80,14 +121,18 @@ export function allocate(paycheck: Paycheck, obligations: Obligation[]): Allocat
   const lines: AllocationLine[] = []
 
   for (const o of due) {
-    const allocated = round2(Math.max(0, Math.min(available, o.amountPerPaycheck)))
+    const requested = requestedAmount(o, paycheck)
+    if (requested <= 0) continue
+
+    const allocated = round2(Math.max(0, Math.min(available, requested)))
     available = round2(available - allocated)
     lines.push({
       key: o.key,
       label: o.label,
-      requested: o.amountPerPaycheck,
+      requested,
+      ...(requested !== o.amountPerPaycheck ? { proratedFrom: o.amountPerPaycheck } : {}),
       allocated,
-      shortfall: round2(o.amountPerPaycheck - allocated),
+      shortfall: round2(requested - allocated),
       kind: o.kind,
     })
   }

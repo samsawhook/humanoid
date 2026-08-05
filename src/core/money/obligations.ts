@@ -67,8 +67,9 @@ export const OBLIGATIONS: Obligation[] = [
     label: 'Nannies',
     amountPerPaycheck: 750,
     payDays: 'both',
-    activeFrom: null,
+    activeFrom: '2026-08-09',
     activeTo: null,
+    prorate: true,
     /**
      * Above general household spend and below the secured catch-ups. The house and
      * the truck can be foreclosed and repossessed; nannies quit, and childcare failing
@@ -78,8 +79,9 @@ export const OBLIGATIONS: Obligation[] = [
     priority: 25,
     kind: 'living',
     note:
-      '$1,500/mo. Confirmed new spend — nothing resembling childcare appears anywhere ' +
-      'in the Monarch history, so this is additive to the household line, not inside it.',
+      '$1,500/mo from 2026-08-09, prorated for the part-period start. Confirmed new ' +
+      'spend — nothing resembling childcare appears anywhere in the Monarch history, ' +
+      'so this is additive to the household line, not inside it.',
   },
   {
     key: 'living',

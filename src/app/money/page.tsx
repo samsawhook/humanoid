@@ -140,7 +140,12 @@ export default function MoneyPage() {
                 <tr key={l.key}>
                   <td>{l.label}</td>
                   <td className="muted">{l.kind.replace(/_/g, ' ')}</td>
-                  <td>{usdCents(l.requested)}</td>
+                  <td>
+                    {usdCents(l.requested)}
+                    {l.proratedFrom !== undefined && (
+                      <span className="muted"> (prorated from {usdCents(l.proratedFrom)})</span>
+                    )}
+                  </td>
                   <td className={l.shortfall > 0 ? 'bad' : 'good'}>
                     {l.shortfall > 0 ? `${usdCents(l.allocated)} paid` : 'paid'}
                   </td>

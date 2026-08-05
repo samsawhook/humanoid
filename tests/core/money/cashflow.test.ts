@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { payDatesBetween, projectPaycheck, projectPaychecks } from '@/core/money/paychecks'
+import { payDatesBetween, projectPaycheck, projectPaychecks, round2 } from '@/core/money/paychecks'
 import { allocate, allocateAll, summarize, type Obligation } from '@/core/money/allocation'
 import { ENTITLEMENTS, TAX, TIMELINE } from '@/core/money/rates'
 import { OBLIGATIONS } from '@/core/money/obligations'
@@ -147,6 +147,36 @@ describe('allocation', () => {
     const firstOnly: Obligation = { ...rent, key: 'first_only', payDays: 'first' }
     expect(allocate(projectPaycheck('2026-09-01'), [firstOnly]).lines).toHaveLength(1)
     expect(allocate(projectPaycheck('2026-09-15'), [firstOnly]).lines).toHaveLength(0)
+  })
+
+  it('prorates a mid-period start, and only that period', () => {
+    const nanny: Obligation = {
+      ...rent,
+      key: 'nanny',
+      label: 'Nanny',
+      amountPerPaycheck: 750,
+      activeFrom: '2026-08-09',
+      prorate: true,
+    }
+
+    // Period 08-01..08-15 is 15 days; the nanny runs 08-09..08-15, so 7 of them.
+    const partial = allocate(projectPaycheck('2026-08-15'), [nanny]).lines[0]!
+    expect(partial.requested).toBe(round2((750 * 7) / 15))
+    expect(partial.requested).toBe(350)
+    expect(partial.proratedFrom).toBe(750)
+
+    // The next period is fully covered, so it charges in full and says nothing about proration.
+    const full = allocate(projectPaycheck('2026-09-01'), [nanny]).lines[0]!
+    expect(full.requested).toBe(750)
+    expect(full.proratedFrom).toBeUndefined()
+  })
+
+  it('leaves un-prorated obligations at their flat amount regardless of period length', () => {
+    // February's second half is 13 days, August's is 16. A flat obligation ignores that.
+    const feb = allocate(projectPaycheck('2027-03-01'), [rent]).lines[0]!
+    const aug = allocate(projectPaycheck('2026-09-01'), [rent]).lines[0]!
+    expect(feb.requested).toBe(1000)
+    expect(aug.requested).toBe(1000)
   })
 
   it('respects the active window', () => {
