@@ -28,6 +28,16 @@ export interface Debt {
   posture: DebtPosture
   /** Lower is paid first. */
   priority: number
+  /**
+   * A negotiated monthly payment on this balance.
+   *
+   * Changes what the debt *is*. Everything else here is discretionary — a balance you
+   * choose a rate for — but an agreement is a commitment with a default clause, and
+   * missing it typically voids the arrangement and re-exposes the full balance. So a
+   * debt under agreement leaves the paydown queue entirely and becomes a bill, paid
+   * on a date at a fixed amount like the mortgage.
+   */
+  agreementMonthly?: number
   note: string
 }
 
@@ -54,7 +64,7 @@ export const DEBTS: Debt[] = [
     balance: 1198.89,
     posture: 'active',
     priority: 10,
-    note: 'Largest OPEN balance. VERIFY still open.',
+    note: 'Largest open balance. Open status confirmed 2026-08-05.',
   },
   {
     key: 'brightway',
@@ -62,7 +72,7 @@ export const DEBTS: Debt[] = [
     balance: 568,
     posture: 'active',
     priority: 20,
-    note: 'Clears in roughly one payday. VERIFY still open.',
+    note: 'Clears in roughly one payday. Open status confirmed 2026-08-05.',
   },
   {
     key: 'credit_one',
@@ -70,7 +80,7 @@ export const DEBTS: Debt[] = [
     balance: 454,
     posture: 'active',
     priority: 30,
-    note: 'Smallest open balance. VERIFY still open.',
+    note: 'Smallest open balance — clears first. Open status confirmed 2026-08-05.',
   },
 
   // ── Closed. Real balances, no credit line, so no utilisation benefit. ──
@@ -98,11 +108,13 @@ export const DEBTS: Debt[] = [
     balance: 7290,
     posture: 'closed',
     priority: 520,
+    /** Confirmed 2026-08-05. Under a negotiated payment plan. */
+    agreementMonthly: 110,
     note:
-      'CLOSED, and the largest of them. A closed account has no credit line, so paying ' +
-      'it does nothing for utilisation — my earlier "Chase first, it helps the score ' +
-      'most" was simply wrong. Behind every open account, ahead of the dismissed ones: ' +
-      'the balance is real and there is no limitations trap in paying it.',
+      'CLOSED, and the largest of them — but under a $110/mo agreement, which takes it ' +
+      'out of the paydown queue and into the bills. At $110 against $7,290 this runs ' +
+      'well past the deployment; the agreement is about keeping it quiet, not clearing ' +
+      'it. Do not miss it: a missed payment usually voids the arrangement.',
   },
   {
     key: 'goldman',
@@ -127,10 +139,26 @@ export const DEBTS: Debt[] = [
   },
 ]
 
-/** Everything the paydown is allowed to touch: open accounts, then closed ones. */
+/**
+ * Everything the paydown is allowed to touch: open accounts, then closed ones.
+ *
+ * Debts under a payment agreement are excluded — not because they are unimportant, but
+ * because they are already being paid on a schedule. Leaving one here would have the
+ * paydown and the agreement both funding the same balance.
+ */
 export function activeDebts(debts: Debt[] = DEBTS): Debt[] {
   return debts
-    .filter((d) => d.posture === 'active' || d.posture === 'closed')
+    .filter(
+      (d) =>
+        (d.posture === 'active' || d.posture === 'closed') && d.agreementMonthly === undefined,
+    )
+    .sort((a, b) => a.priority - b.priority)
+}
+
+/** Debts being paid on a negotiated schedule. These are bills, not paydown targets. */
+export function agreementDebts(debts: Debt[] = DEBTS): Debt[] {
+  return debts
+    .filter((d) => d.agreementMonthly !== undefined)
     .sort((a, b) => a.priority - b.priority)
 }
 

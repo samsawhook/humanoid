@@ -12,6 +12,7 @@ import {
   CLOSED_DEBT_BALANCE,
   MORTGAGE_ARREARS_BALANCE,
   OPEN_DEBT_BALANCE,
+  AGREEMENT_MONTHLY,
 } from '@/core/money/obligations'
 import { ENTITLEMENTS, TAX, TIMELINE } from '@/core/money/rates'
 import {
@@ -44,6 +45,7 @@ const COLOR: Record<string, string> = {
   support_home: seriesColor(4),
   support_home_deployed: seriesColor(4),
   nth_investments: seriesColor(5),
+  debt_agreements: seriesColor(9),
   debt_paydown_open: seriesColor(6),
   debt_paydown_closed: seriesColor(7),
   emergency_fund: seriesColor(8),
@@ -170,9 +172,12 @@ export default function MoneyPage() {
         <strong>{cleared.debt_paydown_open?.clearedOn ?? 'not within the horizon'}</strong>.
         The emergency fund then reaches {usd0(cleared.emergency_fund?.paid ?? 0)} of its{' '}
         {usd0(cleared.emergency_fund?.cap ?? 0)} target by the time you come home. The{' '}
-        {usd0(CLOSED_DEBT_BALANCE)} on closed accounts is queued behind all of that and is
-        not reached — worth clearing eventually, but there is no credit line to free up, so
-        it does not outrank a cash reserve. Goldman and PSECU are in no line here at all:
+        {usd0(CLOSED_DEBT_BALANCE)} on the remaining closed accounts is queued behind all
+        of that and is not reached — worth clearing eventually, but there is no credit line to free up, so
+        it does not outrank a cash reserve. Chase is not in that figure — it is under a{' '}
+        {usd0(AGREEMENT_MONTHLY)}/mo agreement, which makes it a bill rather than a
+        balance you choose a rate for, and defaulting on an arrangement costs more than
+        the payment does. Goldman and PSECU are in no line here at all:
         both were sued on and dismissed, and paying them is a legal decision rather than a
         scheduling one.
       </div>

@@ -42,6 +42,12 @@ export default function JdPage() {
     allocations.reduce((s, a) => s + (a.lines.find((l) => l.key === key)?.allocated ?? 0), 0)
 
   const debtPaid = paid('debt_paydown_open') + paid('debt_paydown_closed')
+  /**
+   * The Chase agreement is a bill rather than a paydown, so it is not in `debtPaid` and
+   * not in the paydown simulation — but it is still money reducing a real balance, so
+   * the balance sheet has to see it. Applied as its own liability delta below.
+   */
+  const agreementPaid = paid('debt_agreements')
   const savings = paid('emergency_fund')
   const mortgagePrincipal = paid('mortgage_current') * 0.3 + (cleared.mortgage_arrears?.paid ?? 0)
 
@@ -51,6 +57,7 @@ export default function JdPage() {
   const projected = projectedBalanceSheet('2027-08-04', OPENING_BALANCE_SHEET, [
     { label: 'Car loan', delta: -(cleared.car_payoff?.paid ?? 0) },
     { label: 'Mortgage', delta: -mortgagePrincipal },
+    { label: 'Chase', delta: -agreementPaid },
     ...paydown.steps.map((step) => ({
       label: step.debt.label,
       delta: -step.paid,

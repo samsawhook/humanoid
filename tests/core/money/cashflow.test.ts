@@ -301,10 +301,10 @@ describe('the real plan', () => {
    */
   it('runs the waterfall one balance at a time, in the order chosen', () => {
     expect(cleared.mortgage_arrears?.paid).toBe(MORTGAGE_ARREARS_BALANCE)
-    expect(cleared.mortgage_arrears?.clearedOn).toBe('2027-03-01')
+    expect(cleared.mortgage_arrears?.clearedOn).toBe('2027-03-15')
 
     // The open cards only start once the house is current.
-    expect(cleared.debt_paydown_open?.clearedOn).toBe('2027-04-15')
+    expect(cleared.debt_paydown_open?.clearedOn).toBe('2027-05-14')
     expect(cleared.debt_paydown_open?.clearedOn! > cleared.mortgage_arrears?.clearedOn!).toBe(true)
 
     // And the reserve only starts once those are gone. It does not finish before you

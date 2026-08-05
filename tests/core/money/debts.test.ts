@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   DEBTS,
   activeDebts,
+  agreementDebts,
   openDebts,
   deprioritisedDebts,
   simulatePaydown,
@@ -86,22 +87,35 @@ describe('paydown simulation', () => {
     expect(Math.max(...openCleared.map((s) => s.clearedAfterPayments!))).toBeLessThanOrEqual(5)
   })
 
-  it('then works the closed balances smallest first, and does not finish Chase', () => {
+  it('then works the closed balances smallest first', () => {
     const result = simulatePaydown(500, 24)
-    expect(result.totalPaid).toBe(12000)
+    // Caps at what is owed rather than spending the full 24 × $500 budget.
+    expect(result.totalPaid).toBeCloseTo(7486.89, 2)
 
     const cleared = result.steps
       .filter((s) => s.clearedAfterPayments !== null)
       .map((s) => s.debt.key)
     expect(cleared).toEqual(['platinum', 'brightway', 'credit_one', 'citi', 'capital_one'])
-
-    const chase = result.steps.find((s) => s.debt.key === 'chase')!
-    expect(chase.paid).toBeCloseTo(4513.11, 2)
-    expect(result.allClearedAfter).toBeNull()
+    expect(result.allClearedAfter).toBe(15)
   })
 
-  it('would clear everything including Chase at $620 a payday', () => {
-    expect(simulatePaydown(620, 24).allClearedAfter).not.toBeNull()
+  /**
+   * Chase is $7,290 — comfortably the largest balance the paydown could otherwise
+   * touch — but it is under a $110/mo agreement, so it is a bill rather than a
+   * paydown target. Leaving it in the queue would have the agreement and the paydown
+   * both funding the same balance.
+   */
+  it('excludes a debt under a payment agreement from the paydown queue', () => {
+    const chase = DEBTS.find((d) => d.key === 'chase')!
+    expect(chase.agreementMonthly).toBe(110)
+    expect(agreementDebts().map((d) => d.key)).toEqual(['chase'])
+
+    expect(activeDebts().map((d) => d.key)).not.toContain('chase')
+    expect(simulatePaydown(500, 24).steps.map((s) => s.debt.key)).not.toContain('chase')
+
+    // At $110 against $7,290 the agreement runs well past any horizon here. That is
+    // what the arrangement is for; it is not trying to clear the balance.
+    expect(chase.balance / chase.agreementMonthly!).toBeGreaterThan(60)
   })
 
   it('never pays more than a balance', () => {

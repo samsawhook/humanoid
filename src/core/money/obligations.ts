@@ -3,9 +3,9 @@
  *
  * It has two halves, and they work differently on purpose.
  *
- * **Bills** come first: mortgage, truck, nannies, household, support home, Nth. Each
- * asks for a specific figure on a specific payday because someone else chose that
- * figure. If one goes unpaid the model says so out loud.
+ * **Bills** come first: mortgage, truck, nannies, household, support home, Nth, and the
+ * Chase agreement. Each asks for a specific figure on a specific payday because someone
+ * else chose that figure. If one goes unpaid the model says so out loud.
  *
  * **The waterfall** comes second, and asks for no figure at all. Each line takes ALL
  * the free money until its balance is cleared, then disappears and hands the whole
@@ -27,7 +27,7 @@
 import type { Obligation } from './allocation'
 import { TIMELINE } from './rates'
 import { householdTotals } from './household'
-import { DEBTS, openDebts, totalBalance } from './debts'
+import { DEBTS, agreementDebts, openDebts, totalBalance } from './debts'
 
 /**
  * Household running costs, split by profile and derived from the Monarch categories
@@ -46,12 +46,21 @@ export const EMERGENCY_FUND_TARGET = 4500
  */
 export const OPEN_DEBT_BALANCE = totalBalance(openDebts())
 /**
- * Citi, Capital One and Chase. Real balances, closed accounts: worth clearing, but they
- * buy no score improvement, so they queue behind the cash reserve rather than ahead of
- * it. Goldman and PSECU are excluded entirely — sued on and dismissed; see debts.ts.
+ * Citi and Capital One. Real balances on closed accounts: worth clearing, but they buy
+ * no score improvement, so they queue behind the cash reserve rather than ahead of it.
+ *
+ * Chase is NOT in this figure despite also being closed — it is under a $110/mo
+ * agreement, so it is paid as a bill above. Counting it here as well would fund the
+ * same balance twice. Goldman and PSECU are excluded entirely: sued on and dismissed.
  */
 export const CLOSED_DEBT_BALANCE = totalBalance(
-  DEBTS.filter((d) => d.posture === 'closed'),
+  DEBTS.filter((d) => d.posture === 'closed' && d.agreementMonthly === undefined),
+)
+
+/** Total monthly cost of every negotiated payment plan. Composed, never retyped. */
+export const AGREEMENT_MONTHLY = agreementDebts().reduce(
+  (s, d) => s + (d.agreementMonthly ?? 0),
+  0,
 )
 
 /** Four months behind at roughly $1,300 a month. */
@@ -182,6 +191,32 @@ export const OBLIGATIONS: Obligation[] = [
     execution: 'automatic',
     note: '$461/mo, billed on the 15th.',
   },
+  {
+    key: 'debt_agreements',
+    label: 'Chase — payment agreement',
+    /**
+     * A bill, not a paydown. Every other unsecured balance here is one you choose a
+     * rate for; this one has a rate someone else set and a default clause attached, so
+     * it sits with the mortgage and the truck rather than in the waterfall.
+     *
+     * ASSUMPTION: billed on the 1st. You told me the amount, not the date — if it
+     * actually drafts mid-month, change `payDays` to 'fifteenth'. It shifts which
+     * payday carries it, not the monthly cost.
+     */
+    amountPerPaycheck: AGREEMENT_MONTHLY,
+    payDays: 'first',
+    activeFrom: null,
+    activeTo: null,
+    priority: 36,
+    kind: 'unsecured_debt',
+    execution: 'manual',
+    howTo: 'Chase, agreed monthly amount. Missing it usually voids the arrangement.',
+    note:
+      '$110/mo against $7,290. That does not clear it inside the deployment and is not ' +
+      'meant to — the agreement keeps the account quiet and out of collections. Ranked ' +
+      'above the waterfall because defaulting on an arrangement costs more than the ' +
+      'payment does.',
+  },
   /**
    * ────────────────────────────────────────────────────────────────────────────
    *  THE WATERFALL. Everything below this point takes ALL available free dollars,
@@ -199,6 +234,8 @@ export const OBLIGATIONS: Obligation[] = [
    *  next surprise does not recreate the arrears. Then the closed balances, which
    *  are real debts but buy nothing back. Whatever outlives all of that is the law
    *  school fund.
+   *
+   *  Chase is not in this queue. It is under an agreement and therefore a bill.
    * ────────────────────────────────────────────────────────────────────────────
    */
   {
