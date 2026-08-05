@@ -423,6 +423,48 @@ export const OBLIGATIONS: Obligation[] = [
       'above the waterfall because defaulting on an arrangement costs more than the ' +
       'payment does.',
   },
+  {
+    key: 'arrears_first_payment',
+    label: 'Mortgage — one FULL arrears payment, 15 August',
+    /**
+     * A whole monthly payment on the first cheque. Not a sweep, not a partial, not
+     * contingent on anything arriving: a fixed bill on a fixed date, because that is
+     * what was asked for three times and it is the right call. Around four payments
+     * behind is where a servicer may make its first foreclosure filing, and one whole
+     * payment buys a month back off that count.
+     *
+     * Shares the arrears balance via `capGroup`, so it draws down the same $5,200 as
+     * the sweep rather than being a fifth payment on a four-payment debt.
+     *
+     * The cheque alone frees about $510 of this, so the model reports the rest as a
+     * genuine unpaid bill rather than hiding it. Closing that gap is the drill back
+     * pay's first job — see BACK_PAY_CLAIMS.
+     */
+    amountPerPaycheck: MORTGAGE_PAYMENT,
+    payDays: 'fifteenth',
+    activeFrom: null,
+    /** Fires once: the 15 August cheque, which lands on the 14th. */
+    activeTo: '2026-08-31',
+    priority: 39,
+    /**
+     * A BILL, not a gauge line — deliberately not `arrears_catchup`. The gauge kind
+     * means the forward reserve may throttle it AND its unmet ask is excluded from the
+     * shortfall headline, because asking for more than it can get is how a gauge
+     * measures slack. Neither is true here. This has to happen, and if it cannot be
+     * paid in full that is a real gap the page should shout about.
+     */
+    kind: 'secured_recurring',
+    balanceCap: MORTGAGE_ARREARS_BALANCE,
+    capGroup: 'mortgage_arrears',
+    execution: 'manual',
+    howTo:
+      'Send the full $1,300 marked "for arrears — apply to the oldest outstanding ' +
+      'payment", not as a principal prepayment. If the back pay has not landed, send ' +
+      'the cheque\'s share now and the balance the day it does.',
+    note:
+      'One transfer, one whole payment, on the first money you receive. Everything ' +
+      'after this goes at the arrears as partials.',
+  },
   /**
    * ────────────────────────────────────────────────────────────────────────────
    *  THE WATERFALL. Everything below this point takes ALL available free dollars,
@@ -456,7 +498,12 @@ export const OBLIGATIONS: Obligation[] = [
     amountPerPaycheck: 0,
     sweep: true,
     payDays: 'both',
-    activeFrom: null,
+    /**
+     * Skips the 15 August cheque. That payday sends ONE full payment via
+     * `arrears_first_payment`; a partial chaser to the same servicer the same day is
+     * just a confusing pair of entries.
+     */
+    activeFrom: '2026-08-16',
     activeTo: null,
     priority: 40,
     kind: 'arrears_catchup',

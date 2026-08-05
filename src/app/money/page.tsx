@@ -106,7 +106,26 @@ export default function MoneyPage() {
     return { months, cured, firstPayment }
   })()
 
-  const columns = allocations.slice(0, 12).map((a) => ({
+  /**
+   * The back pay as its own bar, sitting between the paydays it falls between.
+   *
+   * Starred because the date is a guess — it is drawn as a column so it is visible in
+   * the same shape as everything else, not because it is scheduled. Its segments come
+   * from the ordered claim list, so the bar shows the plan rather than a total.
+   */
+  const backPayColumn = {
+    label: '8/21*',
+    sublabel: `${usd0(bp.net)} back pay`,
+    segments: backPayPlan.lines.map((l) => ({
+      key: `bp-${l.key}`,
+      label: `${l.label} — ${usd0(l.amount)}${l.partial ? ` (${usd0(l.remaining)} still owed)` : ''}`,
+      value: round0(l.amount),
+      color:
+        l.key === 'tolls' ? COLOR.late_payments! : COLOR.mortgage_arrears!,
+    })),
+  }
+
+  const paydayColumns = allocations.slice(0, 12).map((a) => ({
     label: a.paycheck.payDate.slice(5),
     sublabel: a.paycheck.czte ? 'CZTE' : '',
     segments: a.lines
@@ -120,6 +139,13 @@ export default function MoneyPage() {
         color: COLOR[l.key] ?? 'var(--series-rest)',
       })),
   }))
+
+  /** Slot the starred bar in after the cheque it follows. */
+  const columns = [
+    ...paydayColumns.slice(0, 1),
+    backPayColumn,
+    ...paydayColumns.slice(1),
+  ]
 
   const arrearsCurve = allocations.reduce<{ label: string; value: number }[]>((acc, a) => {
     const paid = a.lines.find((l) => l.key === 'mortgage_arrears')?.allocated ?? 0
@@ -237,20 +263,32 @@ export default function MoneyPage() {
         first in the waterfall and take everything free from the very first cheque.
         <p style={{ marginTop: 8 }}>
           <strong>
-            One FULL payment of {usd0(MORTGAGE_PAYMENT)} on{' '}
-            {arrearsProgress.firstPayment?.date}
+            One FULL payment of {usd0(MORTGAGE_PAYMENT)} on the 15 August cheque
           </strong>{' '}
-          — one transfer, not two. A full payment on each 1st stays a separate bill at
-          the top of the stack, and from the next payday on, everything free goes at the
-          arrears as partials. The one-off shares the arrears balance, so it buys back a
-          missed month rather than being a fifth payment on a four-payment debt.
+          — one transfer, not two, and not contingent on anything arriving. A full
+          payment on each 1st stays a separate bill at the top of the stack, and from the
+          next payday on everything free goes at the arrears as partials. It shares the
+          arrears balance, so it buys back a missed month rather than being a fifth
+          payment on a four-payment debt.
         </p>
         <p style={{ marginTop: 8 }} className="bad">
-          <strong>This rests on the drill back pay landing by the 14th.</strong> That
-          cheque frees about {usd0(510)} on its own, so without the{' '}
-          {usd0(EXPECTED_BACK_PAY_NET)} the full payment is roughly {usd0(790)} short —
-          which the model reports as an unpaid bill rather than absorbing quietly. If it
-          has not arrived by the 14th, send what you have and send the rest on receipt.
+          <strong>What it costs, stated plainly.</strong> That cheque frees about{' '}
+          {usd0(510)} after every other bill, so {usd0(790)} of the {usd0(MORTGAGE_PAYMENT)}{' '}
+          has no funding on the day — the model reports it as an unpaid bill rather than
+          absorbing it quietly, and it is the only such gap in the whole horizon. It also
+          spends the cheque to the last dollar, so nothing carries into 1 September.
+        </p>
+        <p style={{ marginTop: 8 }}>
+          <strong>
+            The back pay closes both, and it only has to land before 1 September — not
+            before the 15th.
+          </strong>{' '}
+          That is a much softer dependency than the date suggests. But if it slips past
+          the 1st, the casualty is the{' '}
+          <strong>{usd0(AGREEMENT_MONTHLY)} Chase agreement payment</strong>, and missing
+          one of those typically voids the arrangement and re-exposes the full balance.
+          If the money has not appeared by the last week of August, pay Chase first and
+          send the mortgage balance late.
         </p>
         <table style={{ marginTop: 8 }}>
           <tbody>
@@ -714,7 +752,7 @@ export default function MoneyPage() {
 
       <h2>Where each paycheck goes</h2>
       <Figure
-        title="Allocation per payday — first 12"
+        title="Allocation per payday — first 12, plus the starred back pay"
         caption={
           <>
             Stacked by obligation in payment order, bottom to top. A dashed, faded block

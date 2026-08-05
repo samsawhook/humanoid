@@ -269,14 +269,38 @@ describe('the real plan', () => {
    * savings targets it replaced were figures I invented, and their permanent "unmet ask"
    * made a solvent plan read like a crisis while telling nobody anything.
    */
-  it('covers every bill on every payday', () => {
-    // True only since the household profile was corrected to start at PRE-MOB rather
-    // than at the deployment date. The single short payday was 2026-09-01, where the
-    // at-home profile ($1,417/payday) was still being charged for a month already spent
-    // away. Being gone is cheaper, and the plan was billing for a life not being lived.
-    expect(summary.bindingShortfall).toBe(0)
-    expect(summary.bindingShortPaydays).toEqual([])
-    expect(summary.firstBindingShortPayday).toBe(null)
+  it('covers every bill except the deliberate 15 August stretch', () => {
+    // One gap, and it is intentional: a FULL $1,300 arrears payment goes on the first
+    // cheque, which frees about $510 on its own. The rest is a real unpaid bill and is
+    // reported as one rather than hidden — closing it is the back pay's first job.
+    expect(summary.bindingShortPaydays).toEqual(['2026-08-14'])
+    expect(summary.bindingShortfall).toBeCloseTo(790.48, 2)
+
+    const gap = allocations
+      .find((a) => a.paycheck.payDate === '2026-08-14')!
+      .lines.find((l) => l.key === 'arrears_first_payment')!
+    expect(gap.requested).toBe(MORTGAGE_PAYMENT)
+    expect(gap.shortfall).toBeCloseTo(summary.bindingShortfall, 2)
+  })
+
+  /**
+   * You asked for this three times and I kept re-deciding it. It is a fixed bill on a
+   * fixed date now — not a sweep, not a partial, not contingent on the back pay
+   * arriving. This test exists so it cannot quietly become any of those again.
+   */
+  it('sends ONE FULL mortgage payment on the 15 August cheque', () => {
+    const first = allocations.find((a) => a.paycheck.scheduledDate === '2026-08-15')!
+    const line = first.lines.find((l) => l.key === 'arrears_first_payment')!
+    expect(line.requested).toBe(MORTGAGE_PAYMENT)
+    expect(line.capGroup).toBe('mortgage_arrears')
+    expect(line.swept).toBeUndefined()
+
+    // One transfer that day, not a payment plus a chaser.
+    expect(first.lines.filter((l) => (l.capGroup ?? l.key) === 'mortgage_arrears')).toHaveLength(1)
+    // And it fires exactly once.
+    expect(
+      allocations.filter((a) => a.lines.some((l) => l.key === 'arrears_first_payment')),
+    ).toHaveLength(1)
   })
 
   /**
@@ -375,21 +399,6 @@ describe('the real plan', () => {
     for (const a of allocations) {
       expect(a.lines.find((l) => l.key === 'debt_paydown_closed')?.allocated ?? 0).toBe(0)
     }
-  })
-
-  /**
-   * The 14 August cheque pays what it can pay ON ITS OWN — no deadline-bearing payment
-   * is sized against the drill back pay, whose amount and arrival date are both
-   * guesses. Completing August's payment is the back pay's job, and it has its own
-   * ordered plan for whenever it lands. See windfall.ts.
-   */
-  it('sends everything free at the arrears on the very first cheque', () => {
-    const first = allocations.find((a) => a.paycheck.payDate === '2026-08-14')!
-    const toArrears = first.lines.filter((l) => (l.capGroup ?? l.key) === 'mortgage_arrears')
-    // ONE transfer, not a payment plus a chaser.
-    expect(toArrears).toHaveLength(1)
-    expect(toArrears[0]!.allocated).toBeGreaterThan(0)
-    expect(first.remainder).toBe(0)
   })
 
   it('pays a full mortgage payment as a bill on every 1st', () => {

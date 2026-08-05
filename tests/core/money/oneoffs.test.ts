@@ -6,6 +6,7 @@ import {
   ONE_OFFS,
   LATE_PAYMENTS_BALANCE,
   EXPECTED_BACK_PAY_NET,
+  BACK_PAY_CLAIMS,
 } from '@/core/money/obligations'
 import { backPay, mutaRate, EXPECTED_BACK_PAY } from '@/core/money/drillPay'
 import { ENTITLEMENTS, TAX } from '@/core/money/rates'
@@ -77,29 +78,37 @@ describe('one-off inflows', () => {
   })
 
   /**
-   * Nothing with a deadline is sized against the back pay, because its amount and its
-   * arrival date are both guesses. The proof is that removing it entirely changes no
-   * bill's funding — it only slows the arrears down.
+   * The one gap in the plan is the 15 August full mortgage payment, and the back pay's
+   * first claim is exactly the size of it. That is the design: the payment happens on
+   * the date it was asked for, and the windfall closes the stretch whenever it lands.
    */
-  it('carries no deadline: removing it leaves every bill still paid', () => {
-    expect(summarize(withOneOffs).bindingShortfall).toBe(0)
-    expect(summarize(without).bindingShortfall).toBe(0)
+  it('is sized to close the 15 August gap, whenever it arrives', () => {
+    const gap = summarize(withOneOffs).bindingShortfall
+    expect(gap).toBeCloseTo(790.48, 2)
 
-    const arrearsBy = (set: typeof withOneOffs, on: string) =>
-      set
-        .filter((a) => a.paycheck.payDate <= on)
-        .reduce(
-          (t, a) =>
-            t +
-            a.lines
-              .filter((l) => (l.capGroup ?? l.key) === 'mortgage_arrears')
-              .reduce((u, l) => u + l.allocated, 0),
-          0,
-        )
-    // All it does is get the house current sooner.
-    expect(arrearsBy(withOneOffs, '2026-09-01')).toBeGreaterThan(
-      arrearsBy(without, '2026-09-01'),
-    )
+    const topup = BACK_PAY_CLAIMS.find((c) => c.key === 'august_mortgage_topup')!
+    expect(topup.cap).toBeGreaterThanOrEqual(Math.floor(gap))
+    // And it is first, so it is funded at every plausible amount.
+    expect(BACK_PAY_CLAIMS[0]!.key).toBe('august_mortgage_topup')
+  })
+
+  /**
+   * The real cost of insisting on a FULL payment on 15 August: it spends the cheque to
+   * the last dollar, so nothing carries into 1 September. The back pay refills that.
+   * Without it a second payday goes short, and the casualty is the Chase agreement —
+   * missing one of those typically voids the arrangement and re-exposes $7,290.
+   *
+   * The dependency is much softer than it looks, though: the back pay only has to land
+   * before 1 September, not before the 15th.
+   */
+  it('has to arrive before 1 September, or the Chase agreement is the casualty', () => {
+    expect(summarize(withOneOffs).bindingShortPaydays).toEqual(['2026-08-14'])
+
+    const lateShort = summarize(without).bindingShortPaydays
+    expect(lateShort).toContain('2026-09-01')
+
+    const sept = without.find((a) => a.paycheck.scheduledDate === '2026-09-01')!
+    expect(sept.lines.find((l) => l.key === 'debt_agreements')!.shortfall).toBe(110)
   })
 
   it('clears the tolls eventually, behind the mortgage rather than ahead of it', () => {
