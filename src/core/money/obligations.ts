@@ -63,6 +63,25 @@ export const OBLIGATIONS: Obligation[] = [
     kind: 'secured_recurring',
   },
   {
+    key: 'childcare',
+    label: 'Nannies',
+    amountPerPaycheck: 750,
+    payDays: 'both',
+    activeFrom: null,
+    activeTo: null,
+    /**
+     * Above general household spend and below the secured catch-ups. The house and
+     * the truck can be foreclosed and repossessed; nannies quit, and childcare failing
+     * while you are deployed cascades into everything else. Reasonable people could
+     * rank this above the car — change the number if you do.
+     */
+    priority: 25,
+    kind: 'living',
+    note:
+      '$1,500/mo. Confirmed new spend — nothing resembling childcare appears anywhere ' +
+      'in the Monarch history, so this is additive to the household line, not inside it.',
+  },
+  {
     key: 'living',
     label: 'Household running costs',
     /**

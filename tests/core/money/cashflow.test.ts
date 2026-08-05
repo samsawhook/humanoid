@@ -173,27 +173,57 @@ describe('the real plan', () => {
     }
   })
 
-  it('squeezes the lowest-priority line rather than a secured one', () => {
+  it('cuts strictly from the bottom of the priority order', () => {
     for (const a of allocations.filter((x) => x.totalShortfall > 0)) {
-      const shorted = a.lines.filter((l) => l.shortfall > 0)
-      // Everything that gets cut is savings or unsecured — never the house or the truck.
-      expect(shorted.every((l) => l.kind === 'savings' || l.kind === 'unsecured_debt')).toBe(true)
+      const lastPaidInFull = a.lines.findLastIndex((l) => l.shortfall === 0)
+      const firstShorted = a.lines.findIndex((l) => l.shortfall > 0)
+      // Nothing is ever paid in full below something that was cut.
+      expect(lastPaidInFull).toBeLessThan(firstShorted)
     }
   })
 
   /**
-   * With the confirmed rates the plan clears — every obligation on every payday,
-   * including both catch-ups. This asserts that outcome so a future rate or
-   * obligation change that breaks it fails loudly here rather than silently.
+   * The plan does NOT clear once childcare is in it, and these assert that rather
+   * than hiding it. A shortfall existing is not the failure — the spec says never to
+   * make a plan feasible by silently dropping something. What matters is that the
+   * shortfall lands where it should.
    */
-  it('covers every obligation on every payday', () => {
-    expect(summary.totalShortfall).toBe(0)
-    expect(summary.firstShortPayday).toBeNull()
-    expect(summary.shortPaydays).toEqual([])
+  it('does not clear, and names where it first fails', () => {
+    expect(summary.totalShortfall).toBeGreaterThan(0)
+    expect(summary.firstShortPayday).toBe('2026-09-01')
   })
 
-  it('leaves a real surplus rather than landing exactly on zero', () => {
-    expect(summary.totalRemainder).toBeGreaterThan(0)
+  it('never shorts the house, the truck, or childcare to balance a payday', () => {
+    const protectedKeys = [
+      'mortgage_catchup',
+      'mortgage_current',
+      'car_catchup',
+      'car_current',
+      'childcare',
+    ]
+    for (const a of allocations) {
+      for (const line of a.lines.filter((l) => protectedKeys.includes(l.key))) {
+        expect(line.shortfall).toBe(0)
+      }
+    }
+  })
+
+  /**
+   * Household spend DOES get shorted, on 2026-09-01 specifically — the one payday
+   * before CZTE where the catch-ups and childcare are both running at full rate and
+   * the tax break has not started yet. That is a real finding, not a modelling
+   * artifact, so the test records it rather than papering over it.
+   */
+  it('squeezes savings and unsecured debt first, and household only in the pre-CZTE gap', () => {
+    const shorted = new Set(
+      allocations.flatMap((a) => a.lines.filter((l) => l.shortfall > 0).map((l) => l.key)),
+    )
+    expect([...shorted].sort()).toEqual(['debt_paydown', 'emergency_fund', 'living'])
+
+    const householdShort = allocations.filter((a) =>
+      a.lines.some((l) => l.key === 'living' && l.shortfall > 0),
+    )
+    expect(householdShort.map((a) => a.paycheck.scheduledDate)).toEqual(['2026-09-01'])
   })
 
   it('starts the debt paydown and emergency fund with the deployment pay', () => {
