@@ -118,24 +118,54 @@ export const LAW_SCHOOLS: LawSchool[] = [
 
 // ── The Corpus Christi house ────────────────────────────────────────────────
 
-/** From your Monarch snapshot, 2026-08-05. */
+/**
+ * 628 Chamberlain St — real figures from Zillow, 2026-08-05.
+ *
+ * 3 bed / 1 bath, 1,416 sqft, built 1951, 8,232 sqft lot.
+ *
+ * Two of these corrected my earlier estimates in ways that change the answer:
+ * selling costs are 11%, not the 7% I assumed, and the value is a RANGE. Between
+ * them, selling can plausibly leave you owing money at closing.
+ */
 export const HOUSE = {
-  marketValue: 187400,
+  /** Zestimate. */
+  marketValue: 185100,
+  /** Zillow's stated range. The sell decision is dominated by where in this you land. */
+  valueLow: 165000,
+  valueHigh: 205000,
   mortgageBalance: 162783,
   monthlyPayment: 1300,
-  /** Agent commission, title, repairs. 7% is a normal Texas all-in figure. */
-  sellingCostRate: 0.07,
-  /** Corpus Christi market rent for the property. MY ESTIMATE — confirm it. */
-  monthlyMarketRent: 1650,
-  rentConfidence: 'low' as Confidence,
+  /**
+   * Zillow's own figure: $6,000 prep and repair + $14,225 closing = $20,225 on a
+   * $185,100 sale, i.e. 11%. My earlier 7% was optimistic by roughly $7,400.
+   */
+  sellingCostRate: 0.11,
+  prepAndRepair: 6000,
+  /** Rent Zestimate. */
+  monthlyMarketRent: 1705,
+  rentConfidence: 'medium' as Confidence,
+  /** Nueces County, 2026. Escrowed inside the payment while it is your homestead. */
+  annualPropertyTax: 3117,
+  /**
+   * Assessed well above the Zestimate. Worth a protest — and note that converting to
+   * a rental forfeits the homestead exemption and cap, which raises the bill.
+   */
+  taxAssessedValue: 221715,
   /** Property management, if you are not there to do it. */
   managementRate: 0.1,
-  /** Vacancy and maintenance reserve, as a share of gross rent. */
+  /** Vacancy and maintenance reserve. A 1951 build with one bathroom earns the high end. */
   vacancyMaintenanceRate: 0.15,
+  /** Extra tax and insurance once it stops being your homestead. MY ESTIMATE. */
+  monthlyRentalTaxInsuranceUplift: 150,
   /** Short-term let: higher gross, much higher cost and variance. */
   airbnbGrossMultiplier: 1.6,
   airbnbCostRate: 0.35,
   airbnbConfidence: 'low' as Confidence,
+}
+
+/** Net cash at closing at a given sale price. Negative means you bring money. */
+export function sellNetAt(price: number, house = HOUSE): number {
+  return round2(price * (1 - house.sellingCostRate) - house.mortgageBalance)
 }
 
 export type HousingScenario = 'sell' | 'rent' | 'airbnb'
@@ -154,16 +184,23 @@ export interface HousingOutcome {
 }
 
 export function housingScenarios(house = HOUSE): HousingOutcome[] {
-  const grossProceeds = house.marketValue * (1 - house.sellingCostRate)
-  const sellNet = round2(grossProceeds - house.mortgageBalance)
+  const sellNet = sellNetAt(house.marketValue, house)
+  const sellNetLow = sellNetAt(house.valueLow, house)
+  const sellNetHigh = sellNetAt(house.valueHigh, house)
 
   const rentGross = house.monthlyMarketRent
   const rentNet = round2(
-    rentGross * (1 - house.managementRate - house.vacancyMaintenanceRate) - house.monthlyPayment,
+    rentGross * (1 - house.managementRate - house.vacancyMaintenanceRate) -
+      house.monthlyPayment -
+      house.monthlyRentalTaxInsuranceUplift,
   )
 
   const bnbGross = house.monthlyMarketRent * house.airbnbGrossMultiplier
-  const bnbNet = round2(bnbGross * (1 - house.airbnbCostRate) - house.monthlyPayment)
+  const bnbNet = round2(
+    bnbGross * (1 - house.airbnbCostRate) -
+      house.monthlyPayment -
+      house.monthlyRentalTaxInsuranceUplift,
+  )
 
   // Roughly 36 payments of principal. Deliberately crude and labelled as such.
   const principalOver3y = round2(house.monthlyPayment * 36 * 0.35)
@@ -176,10 +213,12 @@ export function housingScenarios(house = HOUSE): HousingOutcome[] {
       monthlyNet: house.monthlyPayment, // the payment stops, so it is a positive to cash flow
       equityRetainedAfter3y: 0,
       risks: [
-        'Gives up an appreciating asset in a market you know.',
-        'Sale must complete around a PCS-like move with no slack in the timing.',
+        `Value is a RANGE. At ${usd(house.valueLow)} you bring ${usd(Math.abs(sellNetLow))} TO closing; at ${usd(house.valueHigh)} you walk with ${usd(sellNetHigh)}.`,
+        'Selling costs are 11% — $6,000 prep and repair plus $14,225 closing.',
+        'Gives up the asset and the homestead exemption permanently.',
+        'Must complete around the move, with no slack in the timing.',
       ],
-      note: `Releases ${usd(sellNet)} and removes the ${usd(house.monthlyPayment)}/mo payment. The only option that produces cash for the move itself.`,
+      note: `Nets about ${usd(sellNet)} at the Zestimate — far thinner than it looks, because 11% of ${usd(house.marketValue)} is ${usd(house.marketValue * house.sellingCostRate)}. Removes the ${usd(house.monthlyPayment)}/mo payment.`,
     },
     {
       scenario: 'rent',
@@ -189,8 +228,9 @@ export function housingScenarios(house = HOUSE): HousingOutcome[] {
       equityRetainedAfter3y: round2(house.marketValue - house.mortgageBalance + principalOver3y),
       risks: [
         'A bad tenant while you are in class is a genuine problem.',
+        '3 bed / 1 bath, built 1951 — one bathroom materially narrows the tenant pool.',
+        'Loses the homestead exemption and cap; assessed value is already $221,715 against a $185,100 Zestimate.',
         'Arrears history may complicate refinancing or a HELOC if you need cash fast.',
-        'Rent estimate is mine, not a broker’s.',
       ],
       note: `Keeps the asset. After management and a vacancy reserve it runs ${rentNet >= 0 ? 'positive' : 'negative'} at ${usd(rentNet)}/mo.`,
     },
@@ -205,6 +245,8 @@ export function housingScenarios(house = HOUSE): HousingOutcome[] {
         'Effectively a small business run remotely while in law school.',
         'Corpus Christi short-term regulations can change.',
         'The 1.6× gross multiplier is a guess and drives the whole result.',
+        'One bathroom caps nightly rate and party size — the multiplier may be generous.',
+        'Also loses the homestead exemption.',
       ],
       note: `Highest expected return at ${usd(bnbNet)}/mo, and the only option that adds a job to your 1L year.`,
     },
@@ -357,7 +399,7 @@ export interface BalanceLine {
 
 /** From the Monarch export, 2026-08-05. Real figures. */
 export const OPENING_BALANCE_SHEET: BalanceLine[] = [
-  { label: '628 Chamberlain St, Corpus Christi', amount: 187400, kind: 'asset' },
+  { label: '628 Chamberlain St, Corpus Christi', amount: 185100, kind: 'asset' },
   { label: '2013 Ford Expedition King Ranch', amount: 8898.59, kind: 'asset' },
   { label: 'Boat', amount: 8000, kind: 'asset' },
   { label: 'Share Savings', amount: 46.83, kind: 'asset' },

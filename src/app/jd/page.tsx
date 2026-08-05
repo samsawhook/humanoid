@@ -1,6 +1,7 @@
 import {
   LAW_SCHOOLS,
   HOUSE,
+  sellNetAt,
   OPENING_BALANCE_SHEET,
   balanceSheet,
   housingScenarios,
@@ -198,9 +199,43 @@ export default function JdPage() {
 
       <h2>The Corpus Christi house</h2>
       <p className="sub">
-        You move regardless, so the house is a decision either way. Value {usd0(HOUSE.marketValue)},
-        mortgage {usd0(HOUSE.mortgageBalance)}, payment {usd0(HOUSE.monthlyPayment)}/mo.
+        Zillow, {'2026-08-05'}: Zestimate {usd0(HOUSE.marketValue)} (range {usd0(HOUSE.valueLow)}–
+        {usd0(HOUSE.valueHigh)}), rent Zestimate {usd0(HOUSE.monthlyMarketRent)}/mo, mortgage{' '}
+        {usd0(HOUSE.mortgageBalance)}. 3 bed / 1 bath, 1,416 sqft, built 1951.
       </p>
+
+      <div className="note">
+        <strong>Selling barely clears the mortgage, and could cost you money.</strong> Zillow
+        puts total selling costs at <strong>11%</strong> — {usd0(HOUSE.prepAndRepair)} prep and
+        repair plus {usd0(HOUSE.marketValue * HOUSE.sellingCostRate - HOUSE.prepAndRepair)}{' '}
+        closing — not the 7% I had assumed. Against a {usd0(HOUSE.mortgageBalance)} balance
+        that leaves:
+        <div className="scroll" style={{ marginTop: 8 }}>
+          <table>
+            <thead>
+              <tr>
+                <th>Sale price</th>
+                <th>After 11% costs</th>
+                <th>Net at closing</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[HOUSE.valueLow, HOUSE.marketValue, HOUSE.valueHigh].map((price) => (
+                <tr key={price}>
+                  <td>{usd0(price)}</td>
+                  <td>{usd0(price * (1 - HOUSE.sellingCostRate))}</td>
+                  <td className={sellNetAt(price) >= 0 ? 'good' : 'bad'}>
+                    {usd0(sellNetAt(price))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        At the bottom of Zillow&rsquo;s own range you would need to bring{' '}
+        {usd0(Math.abs(sellNetAt(HOUSE.valueLow)))} <em>to</em> closing — money you do not
+        have. Selling is not the safe option; it is the one with a tail risk.
+      </div>
       <div className="cards">
         {scenarios.map((s, i) => (
           <div className="panel card" key={s.scenario}>

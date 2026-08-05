@@ -6,8 +6,10 @@ import {
   monthlyFor,
 } from '@/core/money/household'
 import {
+  HOUSE,
   LAW_SCHOOLS,
   OPENING_BALANCE_SHEET,
+  sellNetAt,
   balanceSheet,
   housingScenarios,
   projectJd,
@@ -66,7 +68,9 @@ describe('balance sheet', () => {
   const opening = balanceSheet('2026-08-05', OPENING_BALANCE_SHEET)
 
   it('reflects the real starting position', () => {
-    expect(Math.round(opening.netWorth)).toBe(-8461)
+    // -10,761 rather than the -8,461 Monarch showed: the house is carried at Zillow's
+    // 185,100 Zestimate rather than Monarch's 187,400, which is 2,300 of the gap.
+    expect(Math.round(opening.netWorth)).toBe(-10761)
     expect(opening.liquid).toBeLessThan(100)
   })
 
@@ -160,6 +164,39 @@ describe('three-year projection', () => {
     for (const s of LAW_SCHOOLS) {
       const run = projectJd(s, scenario, base)
       expect(run.warnings.join(' ')).toMatch(/my estimate/i)
+    }
+  })
+})
+
+describe('the house, on real Zillow figures', () => {
+  it('nets almost nothing at the Zestimate — 11% costs eat the equity', () => {
+    expect(sellNetAt(HOUSE.marketValue)).toBeLessThan(3000)
+    expect(sellNetAt(HOUSE.marketValue)).toBeGreaterThan(0)
+  })
+
+  it('goes NEGATIVE at the bottom of Zillow’s own range', () => {
+    // The finding that changes the recommendation: selling can require cash he
+    // does not have. A single point estimate would have hidden this entirely.
+    expect(sellNetAt(HOUSE.valueLow)).toBeLessThan(0)
+  })
+
+  it('only clears real money at the top of the range', () => {
+    expect(sellNetAt(HOUSE.valueHigh)).toBeGreaterThan(15000)
+  })
+
+  it('charges the rental scenarios for losing the homestead exemption', () => {
+    expect(HOUSE.monthlyRentalTaxInsuranceUplift).toBeGreaterThan(0)
+    const withUplift = housingScenarios()
+    const withoutUplift = housingScenarios({ ...HOUSE, monthlyRentalTaxInsuranceUplift: 0 })
+    expect(withUplift.find((s) => s.scenario === 'rent')!.monthlyNet).toBeLessThan(
+      withoutUplift.find((s) => s.scenario === 'rent')!.monthlyNet,
+    )
+  })
+
+  it('names the one-bathroom problem in both letting scenarios', () => {
+    for (const key of ['rent', 'airbnb'] as const) {
+      const s = housingScenarios().find((x) => x.scenario === key)!
+      expect(s.risks.join(' ')).toMatch(/bathroom/i)
     }
   })
 })
