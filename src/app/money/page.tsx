@@ -154,15 +154,20 @@ export default function MoneyPage() {
       </div>
 
       <div className="note">
-        <strong>Right now the gauge reads roughly zero, and that is the finding.</strong>{' '}
-        After every genuinely committed line — mortgage, truck, nannies, household,
-        support home, Nth — steady-state slack is about{' '}
-        <strong>{usd0(steadySlack)} a month</strong>. Sitting above the gauge are two
-        targets that are aspirations rather than bills: {usd0(2 * 500)}/mo of unsecured
-        paydown and {usd0(2 * 250)}/mo into the emergency fund. Together they ask{' '}
-        {usd0(1500)} against {usd0(steadySlack)} available, so they absorb all of it and
-        the arrears never move. Three claims, one pot — the order between them is a
-        decision, not a calculation, and it is currently set to pay unsecured debt first.
+        <strong>Three claims, one pot — and the pot is small.</strong> After every
+        genuinely committed line (mortgage, truck, nannies, household, support home, Nth)
+        steady-state slack is about <strong>{usd0(steadySlack)} a month</strong>. Competing
+        for it: {usd0(1000)}/mo of unsecured paydown, {usd0(500)}/mo into the emergency
+        fund, and the arrears. That is {usd0(1500)} of savings targets alone against{' '}
+        {usd0(steadySlack)} available, so the order between them decides the outcome
+        outright. As currently ranked — unsecured debt, then emergency fund, then arrears
+        — the arrears reach{' '}
+        <strong>
+          {usd0(cleared.mortgage_arrears?.paid ?? 0)} of {usd0(MORTGAGE_ARREARS_BALANCE)}
+        </strong>{' '}
+        and are not cured within the horizon. Rank the arrears first instead and they cure
+        in early 2027, at the cost of roughly half the debt paydown. That ordering is a
+        decision, not a calculation, so this page states it rather than resolving it.
       </div>
 
       <h2>Uses of funds — every dollar has a job</h2>

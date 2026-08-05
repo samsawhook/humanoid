@@ -166,12 +166,17 @@ const GAUGE: ObligationKind = 'arrears_catchup'
 /**
  * Lines that exist to absorb slack rather than to pay a bill on a date.
  *
- * The arrears gauge and the terminal sweep are both "whatever is left" lines. They are
- * the only ones allowed to be squeezed by the forward reserve, because they are the
- * only ones where paying less this fortnight costs nothing but time.
+ * The arrears gauge, the savings targets and the terminal sweep are all "whatever is
+ * left" lines: paying one of them less this fortnight costs time, not a missed payment.
+ * They are exactly the lines the forward reserve is allowed to squeeze, so that none of
+ * them can drain the buffer a later payday's actual bills depend on.
+ *
+ * Applying this to the gauge alone — as an earlier version did — silently made the
+ * arrears the only throttled claim, so reordering it above the savings targets changed
+ * nothing. Whichever of the three is ranked first should get the slack.
  */
 function isDiscretionary(o: Obligation): boolean {
-  return o.sweep === true || o.kind === GAUGE
+  return o.sweep === true || o.target === true || o.kind === GAUGE
 }
 
 export interface AllocateOptions {
@@ -326,7 +331,7 @@ export function allocateAll(paychecks: Paycheck[], obligations: Obligation[]): A
       drained = round2(
         drained +
           a.lines
-            .filter((l) => l.kind === GAUGE || l.swept)
+            .filter((l) => l.kind === GAUGE || l.swept || l.target)
             .reduce((s, l) => s + l.allocated, 0),
       )
     },

@@ -276,6 +276,28 @@ describe('the real plan', () => {
     }
   })
 
+  /**
+   * Regression. The forward reserve first throttled only the gauge, leaving the savings
+   * targets free to drain the buffer. Ranking the arrears above them then changed
+   * nothing at all — the ordering silently did not matter, which is the worst kind of
+   * wrong: the plan looked like it was answering a question it was ignoring.
+   */
+  it('lets the priority order between the flexible claims actually decide who gets the slack', () => {
+    const pays = projectPaychecks('2026-08-15', '2027-08-01')
+    const arrearsFirst = OBLIGATIONS.map((o) =>
+      o.key === 'mortgage_arrears' ? { ...o, priority: 38 } : o,
+    )
+
+    const asIs = balanceClearedOn(allocateAll(pays, OBLIGATIONS), OBLIGATIONS)
+    const reordered = balanceClearedOn(allocateAll(pays, arrearsFirst), arrearsFirst)
+
+    expect(asIs.mortgage_arrears?.clearedOn).toBe(null)
+    expect(reordered.mortgage_arrears?.clearedOn).not.toBe(null)
+    expect(reordered.mortgage_arrears?.paid).toBeGreaterThan(
+      asIs.mortgage_arrears?.paid ?? 0,
+    )
+  })
+
   it('measures the pot the flexible claims compete for, excluding the claims themselves', () => {
     const slack = steadyMonthlySlack(allocations)
     // Roughly $800/mo against ~$4,100/mo of flexible asks. The exact figure moves with
