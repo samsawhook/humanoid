@@ -114,8 +114,10 @@ export const SCRA_EXCLUDED: ScraTarget[] = [
     creditor: 'Chase',
     debtKey: 'chase',
     reason:
-      'Under a $110/mo agreement. Re-opening the terms to chase a rate cap risks the ' +
-      'arrangement on a $7,290 balance whose payment is already fixed. Not worth it.',
+      'Your call, and it stands. The arrangement is old and the account closed, so ' +
+      'there is less to protect than I first assumed — but there is also less to gain: ' +
+      'the payment is fixed at $110 regardless of the rate, so a cap changes nothing ' +
+      'about your cashflow. Low upside either way. Leave it.',
   },
   {
     creditor: 'Goldman / PSECU',
@@ -186,7 +188,9 @@ export const DEBTS: Debt[] = [
       'CLOSED, and the largest of them — but under a $110/mo agreement, which takes it ' +
       'out of the paydown queue and into the bills. At $110 against $7,290 this runs ' +
       'well past the deployment; the agreement is about keeping it quiet, not clearing ' +
-      'it. Do not miss it: a missed payment usually voids the arrangement.',
+      'it. Your read is that the arrangement is old enough that missing one is ' +
+      'survivable, so it ranks LAST among the bills and is the first thing to yield on ' +
+      'a tight payday.',
   },
   {
     key: 'goldman',

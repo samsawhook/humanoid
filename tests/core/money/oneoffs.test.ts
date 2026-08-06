@@ -95,13 +95,13 @@ describe('one-off inflows', () => {
   /**
    * The real cost of insisting on a FULL payment on 15 August: it spends the cheque to
    * the last dollar, so nothing carries into 1 September. The back pay refills that.
-   * Without it a second payday goes short, and the casualty is the Chase agreement —
-   * missing one of those typically voids the arrangement and re-exposes $7,290.
    *
-   * The dependency is much softer than it looks, though: the back pay only has to land
-   * before 1 September, not before the 15th.
+   * Without it a second payday goes short and Chase is what yields — which is the
+   * intended behaviour rather than a problem. It is a closed account on an old
+   * arrangement, ranked LAST among the bills for exactly this reason, so the squeeze
+   * lands there instead of on the nannies or a live credit line.
    */
-  it('has to arrive before 1 September, or the Chase agreement is the casualty', () => {
+  it('lets Chase be the line that yields when it arrives late', () => {
     expect(summarize(withOneOffs).bindingShortPaydays).toEqual(['2026-08-14'])
 
     const lateShort = summarize(without).bindingShortPaydays

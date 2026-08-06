@@ -413,15 +413,25 @@ export const OBLIGATIONS: Obligation[] = [
     payDays: 'first',
     activeFrom: null,
     activeTo: null,
-    priority: 36,
+    /**
+     * LAST of the bills, and therefore the designated give.
+     *
+     * It sat above the card minimums until you pointed out it is a closed account on an
+     * old arrangement and missing one is not the end of the world. That is a judgement
+     * about consequences, and it belongs in the priority order rather than in a note:
+     * on a payday that cannot cover everything, this is the line that should yield —
+     * before the nannies, before the household, before a live credit line.
+     */
+    priority: 39,
     kind: 'unsecured_debt',
     execution: 'manual',
-    howTo: 'Chase, agreed monthly amount. Missing it usually voids the arrangement.',
+    howTo: 'Chase, agreed monthly amount.',
     note:
-      '$110/mo against $7,290. That does not clear it inside the deployment and is not ' +
-      'meant to — the agreement keeps the account quiet and out of collections. Ranked ' +
-      'above the waterfall because defaulting on an arrangement costs more than the ' +
-      'payment does.',
+      '$110/mo against $7,290 — it does not clear inside the deployment and is not meant ' +
+      'to. Your read: closed account, old arrangement, missing one is survivable. So it ' +
+      'ranks last among the bills and yields first when a payday is tight. Still ABOVE ' +
+      'the waterfall, because $110 a month is cheap insurance against the account waking ' +
+      'up; just not above the roof, the nannies, or a live credit line.',
   },
   {
     key: 'arrears_first_payment',
@@ -445,7 +455,7 @@ export const OBLIGATIONS: Obligation[] = [
     activeFrom: null,
     /** Fires once: the 15 August cheque, which lands on the 14th. */
     activeTo: '2026-08-31',
-    priority: 39,
+    priority: 38,
     /**
      * A BILL, not a gauge line — deliberately not `arrears_catchup`. The gauge kind
      * means the forward reserve may throttle it AND its unmet ask is excluded from the

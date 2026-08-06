@@ -283,12 +283,11 @@ export default function MoneyPage() {
             The back pay closes both, and it only has to land before 1 September — not
             before the 15th.
           </strong>{' '}
-          That is a much softer dependency than the date suggests. But if it slips past
-          the 1st, the casualty is the{' '}
-          <strong>{usd0(AGREEMENT_MONTHLY)} Chase agreement payment</strong>, and missing
-          one of those typically voids the arrangement and re-exposes the full balance.
-          If the money has not appeared by the last week of August, pay Chase first and
-          send the mortgage balance late.
+          A much softer dependency than the date suggests. If it slips past the 1st, what
+          gives is the {usd0(AGREEMENT_MONTHLY)} Chase payment — a closed account on an
+          old arrangement, ranked last among the bills precisely so that it is the thing
+          that yields. Missing one is survivable, which is why nothing here reshuffles to
+          protect it.
         </p>
         <table style={{ marginTop: 8 }}>
           <tbody>
