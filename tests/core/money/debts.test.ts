@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   DEBTS,
+  SCRA_TARGETS,
   activeDebts,
-  agreementDebts,
+  scheduledDebts,
+  minimumPayment,
   openDebts,
   deprioritisedDebts,
   simulatePaydown,
@@ -105,17 +107,56 @@ describe('paydown simulation', () => {
    * paydown target. Leaving it in the queue would have the agreement and the paydown
    * both funding the same balance.
    */
+  /**
+   * An instalment loan is open, live, and completely unlike a card. It has no credit
+   * line, so paying it down frees no limit and moves no utilisation — which is the
+   * entire argument for ranking the open cards ahead of the cash reserve. Letting it
+   * into `openDebts()` inflated that bucket from $2,221 to $7,150 and quietly borrowed
+   * a rationale that does not apply to it.
+   */
+  it('keeps the Avant loan out of the revolving bucket', () => {
+    const avant = DEBTS.find((d) => d.key === 'avant')!
+    expect(avant.instrument).toBe('installment')
+    expect(avant.posture).toBe('active')
+
+    expect(openDebts().map((d) => d.key)).not.toContain('avant')
+    expect(openDebts().every((d) => d.instrument === 'revolving')).toBe(true)
+    expect(totalBalance(openDebts())).toBeCloseTo(2220.89, 2)
+  })
+
+  it('treats Avant as a bill, not a paydown target, since it is already being paid', () => {
+    const avant = DEBTS.find((d) => d.key === 'avant')!
+    expect(avant.scheduledMonthly).toBe(210)
+    expect(avant.pastDue).toBeCloseTo(250.02, 2)
+    // Same rule as Chase: in the queue AND on a schedule would fund it twice.
+    expect(activeDebts().map((d) => d.key)).not.toContain('avant')
+    expect(minimumPayment(avant)).toBe(210)
+  })
+
+  it('leaves the Avant rate genuinely unknown rather than guessing one', () => {
+    // You said only that it is high. A number invented here would propagate into every
+    // downstream comparison wearing the same confidence as the balances.
+    const avant = DEBTS.find((d) => d.key === 'avant')!
+    expect(avant.apr).toBeUndefined()
+    expect(avant.note).toMatch(/unknown/i)
+  })
+
+  it('' + 'puts Avant first on the SCRA list, because it is worth the most', () => {
+    expect(SCRA_TARGETS[0]!.creditor).toBe('Avant')
+    expect(SCRA_TARGETS[0]!.debtKey).toBe('avant')
+  })
+
   it('excludes a debt under a payment agreement from the paydown queue', () => {
     const chase = DEBTS.find((d) => d.key === 'chase')!
-    expect(chase.agreementMonthly).toBe(110)
-    expect(agreementDebts().map((d) => d.key)).toEqual(['chase'])
+    expect(chase.scheduledMonthly).toBe(110)
+    expect(scheduledDebts().map((d) => d.key).sort()).toEqual(['avant', 'chase'])
 
     expect(activeDebts().map((d) => d.key)).not.toContain('chase')
     expect(simulatePaydown(500, 24).steps.map((s) => s.debt.key)).not.toContain('chase')
 
     // At $110 against $7,290 the agreement runs well past any horizon here. That is
     // what the arrangement is for; it is not trying to clear the balance.
-    expect(chase.balance / chase.agreementMonthly!).toBeGreaterThan(60)
+    expect(chase.balance / chase.scheduledMonthly!).toBeGreaterThan(60)
   })
 
   it('never pays more than a balance', () => {

@@ -29,7 +29,7 @@ import type { WindfallClaim } from './windfall'
 import { backPay, EXPECTED_BACK_PAY } from './drillPay'
 import { TIMELINE } from './rates'
 import { householdTotals } from './household'
-import { DEBTS, agreementDebts, openDebts, totalBalance, totalMinimums } from './debts'
+import { DEBTS, scheduledDebts, openDebts, totalBalance, totalMinimums } from './debts'
 
 /**
  * Household running costs, split by profile and derived from the Monarch categories
@@ -56,23 +56,38 @@ export const OPEN_DEBT_BALANCE = totalBalance(openDebts())
  * same balance twice. Goldman and PSECU are excluded entirely: sued on and dismissed.
  */
 export const CLOSED_DEBT_BALANCE = totalBalance(
-  DEBTS.filter((d) => d.posture === 'closed' && d.agreementMonthly === undefined),
+  DEBTS.filter((d) => d.posture === 'closed' && d.scheduledMonthly === undefined),
 )
 
 /** Closed accounts still bill a minimum: the credit line is gone, the balance is not. */
 const CLOSED_DEBTS = DEBTS.filter(
-  (d) => d.posture === 'closed' && d.agreementMonthly === undefined,
+  (d) => d.posture === 'closed' && d.scheduledMonthly === undefined,
 )
 
 /** Estimated monthly minimums. See minimumPayment() in debts.ts for the basis. */
 export const OPEN_CARD_MINIMUMS = totalMinimums(openDebts())
 export const CLOSED_CARD_MINIMUMS = totalMinimums(CLOSED_DEBTS)
 
-/** Total monthly cost of every negotiated payment plan. Composed, never retyped. */
-export const AGREEMENT_MONTHLY = agreementDebts().reduce(
-  (s, d) => s + (d.agreementMonthly ?? 0),
-  0,
-)
+/**
+ * Debts already being paid on their own schedule, each with its own obligation line
+ * below. Pulled out individually rather than summed: they have different creditors,
+ * different consequences for missing one, and therefore different priorities. A single
+ * "scheduled payments" total would have quietly merged Chase — which you are content to
+ * miss — with Avant, which you are not.
+ */
+const debtBy = (key: string) => {
+  const d = DEBTS.find((x) => x.key === key)
+  if (!d) throw new Error(`unknown debt: ${key}`)
+  return d
+}
+
+export const AGREEMENT_MONTHLY = debtBy('chase').scheduledMonthly ?? 0
+export const AVANT_MONTHLY = debtBy('avant').scheduledMonthly ?? 0
+export const AVANT_PAST_DUE = debtBy('avant').pastDue ?? 0
+export const AVANT_BALANCE = debtBy('avant').balance
+
+/** Sanity: every scheduled debt must have a line, or it silently goes unpaid. */
+const SCHEDULED_KEYS = scheduledDebts().map((d) => d.key)
 
 /**
  * Accumulated toll charges and late fees. Your estimate, ~$1,100.
@@ -396,6 +411,50 @@ export const OBLIGATIONS: Obligation[] = [
       '$1,100, taken in one go as soon as the mortgage is out of danger. Second in the ' +
       'waterfall rather than first, because the escalation path here is administrative ' +
       'and measured in months, where the mortgage is measured in days.',
+  },
+  {
+    key: 'avant_past_due',
+    label: 'Avant — cure the missed payment',
+    /**
+     * $250.02 already missed on a LIVE instalment loan. Ranked above the ordinary
+     * payment and above the card minimums, because a delinquency that keeps ageing is
+     * reported every month it stays open, and this is small enough to end outright.
+     * One cheap action that stops a recurring harm.
+     */
+    amountPerPaycheck: AVANT_PAST_DUE,
+    payDays: 'first',
+    activeFrom: null,
+    activeTo: null,
+    priority: 34,
+    kind: 'unsecured_debt',
+    balanceCap: AVANT_PAST_DUE,
+    capGroup: 'avant',
+    execution: 'manual',
+    howTo: 'Pay the past-due amount separately from the regular instalment so it is applied to the arrears.',
+    note: 'One-off. Clears on the first payday it can and the line disappears.',
+  },
+  {
+    key: 'avant_payment',
+    label: 'Avant personal loan — monthly',
+    /**
+     * Contractual instalment on a live loan, so it is a bill like the mortgage rather
+     * than a paydown target. Ranked with the card minimums: missing it damages a live
+     * account, but nothing here forecloses.
+     */
+    amountPerPaycheck: AVANT_MONTHLY,
+    payDays: 'first',
+    activeFrom: null,
+    activeTo: null,
+    priority: 37,
+    kind: 'unsecured_debt',
+    balanceCap: AVANT_BALANCE,
+    capGroup: 'avant',
+    execution: 'manual',
+    howTo: 'Autopay it. High rate and no credit line, so there is nothing clever to do here — just do not miss it.',
+    note:
+      '$210/mo against $4,928.97. RATE UNKNOWN and described as high, which makes the ' +
+      'SCRA cap the highest-value single action available: every point above 6% is ' +
+      'about $49 a year at this balance.',
   },
   {
     key: 'debt_agreements',

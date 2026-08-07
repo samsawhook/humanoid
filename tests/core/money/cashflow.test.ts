@@ -315,7 +315,11 @@ describe('the real plan', () => {
       if (!pool) continue
       expect(pool.paid).toBeLessThanOrEqual(pool.cap + 0.005)
     }
-    expect(cleared.open_cards?.paid).toBeCloseTo(cleared.open_cards!.cap, 2)
+    // Avant is the case that broke this: a $250.02 past-due line and a $210/mo
+    // instalment share one $4,928.97 balance, each capping itself at what IT may pay.
+    // Reading the pool size off the first contributor reported $2,770 against $250.
+    expect(cleared.avant?.cap).toBeCloseTo(4928.97, 2)
+    expect(cleared.avant!.paid).toBeLessThanOrEqual(cleared.avant!.cap)
   })
 
   it('pays a card minimum as a bill and the sweep as acceleration, onto one balance', () => {
@@ -381,16 +385,18 @@ describe('the real plan', () => {
     expect(cleared.mortgage_arrears?.paid).toBe(MORTGAGE_ARREARS_BALANCE)
     // Later than it was: $211/mo of estimated card minimums now comes off the top as a
     // bill, and the gauge is what absorbs anything added above it.
-    expect(cleared.mortgage_arrears?.clearedOn).toBe('2027-03-15')
+    expect(cleared.mortgage_arrears?.clearedOn).toBe('2027-05-14')
 
-    // Balances are reported by POOL now, since a minimum and a sweep share one.
-    expect(cleared.open_cards?.clearedOn).toBe('2027-05-14')
-    expect(cleared.open_cards!.clearedOn! > cleared.mortgage_arrears!.clearedOn!).toBe(true)
+    // The open cards no longer clear inside the deployment at all. Avant's $210/mo
+    // takes about a third of the slack, and the arrears are ahead of them in the queue.
+    expect(cleared.open_cards?.clearedOn).toBe(null)
+    expect(cleared.open_cards!.paid).toBeGreaterThan(0)
 
     // And the reserve only starts once those are gone. It does not finish before you
     // come home, which is information about the horizon rather than about the target.
+    // The reserve is not reached at all now — an honest statement about the horizon.
     expect(cleared.emergency_fund?.clearedOn).toBe(null)
-    expect(cleared.emergency_fund?.paid).toBeGreaterThan(0)
+    expect(cleared.emergency_fund?.paid).toBe(0)
 
     // The closed balances are never reached BY THE SWEEP inside the deployment — but
     // they are not untouched, because their minimums are bills and run from day one.

@@ -20,6 +20,9 @@ import {
   MORTGAGE_PAYMENT,
   EXPECTED_BACK_PAY_NET,
   BACK_PAY_CLAIMS,
+  AVANT_BALANCE,
+  AVANT_MONTHLY,
+  AVANT_PAST_DUE,
 } from '@/core/money/obligations'
 import { ENTITLEMENTS, TAX, TIMELINE } from '@/core/money/rates'
 import { backPay, EXPECTED_BACK_PAY } from '@/core/money/drillPay'
@@ -61,7 +64,9 @@ const COLOR: Record<string, string> = {
   debt_paydown_open: seriesColor(6),
   card_minimums_closed: seriesColor(7),
   debt_paydown_closed: seriesColor(7),
-  late_payments: seriesColor(10),
+  avant_payment: seriesColor(10),
+  avant_past_due: seriesColor(10),
+  late_payments: seriesColor(11),
   emergency_fund: seriesColor(8),
   mortgage_arrears: 'var(--accent)',
   future_fund: 'var(--series-rest)',
@@ -379,6 +384,16 @@ export default function MoneyPage() {
             </li>
           ))}
         </ul>
+        <p style={{ marginTop: 8 }}>
+          <strong>Avant is the one that pays for the afternoon.</strong> A{' '}
+          {usd0(AVANT_BALANCE)} instalment balance at a personal-loan rate, where every
+          point above {Math.round(SCRA_INTEREST_CAP * 100)}% is about{' '}
+          {usd0(AVANT_BALANCE * 0.01)} a year. Avant publishes roughly 10%–36%, so the cap
+          is worth somewhere around {usd0(200)}–{usd0(1500)} a year — more than every card
+          on this list put together, and unlike a card the balance does not shrink on its
+          own. <strong>Find the actual rate;</strong> it is the most valuable unknown left
+          in this file.
+        </p>
         <p className="muted" style={{ fontSize: 12.5 }}>
           Mortgage and auto already have SCRA active — verify the cap actually appears on
           a statement rather than assuming the request was processed. Not legal advice.

@@ -416,6 +416,20 @@ export function balanceClearedOn(
     if (seenGroups.has(capKey)) continue
     seenGroups.add(capKey)
 
+    /**
+     * Contributors to a pool may carry DIFFERENT caps, and the pool's is the largest.
+     *
+     * The Avant loan is the case: a $250.02 past-due line and a $210/mo instalment both
+     * draw down one $4,928.97 balance, and each caps itself at what IT may pay. Reading
+     * the pool's size off whichever obligation happened to come first reported $2,770
+     * paid against a $250 cap — a balance apparently overpaid elevenfold.
+     */
+    const cap = Math.max(
+      ...obligations
+        .filter((x) => (x.capGroup ?? x.key) === capKey && x.balanceCap !== undefined)
+        .map((x) => x.balanceCap!),
+    )
+
     let paid = 0
     let clearedOn: LocalDate | null = null
     for (const a of allocations) {
@@ -424,9 +438,9 @@ export function balanceClearedOn(
         .reduce((s, l) => s + l.allocated, 0)
       if (contributed === 0) continue
       paid = round2(paid + contributed)
-      if (clearedOn === null && paid >= o.balanceCap - 0.005) clearedOn = a.paycheck.payDate
+      if (clearedOn === null && paid >= cap - 0.005) clearedOn = a.paycheck.payDate
     }
-    out[capKey] = { cap: o.balanceCap, paid, clearedOn }
+    out[capKey] = { cap, paid, clearedOn }
   }
   return out
 }

@@ -89,13 +89,13 @@ describe('balance sheet', () => {
     // -27,860 rather than -27,660: composing from CAR_LOAN_BALANCE picks up the $1,800
     // you told me, where the old hand-written sheet still carried Monarch's $1,600.
     // That difference IS the point of composing.
-    expect(Math.round(opening.netWorth)).toBe(-27860)
+    expect(Math.round(opening.netWorth)).toBe(-32789)
     expect(opening.liquid).toBeLessThan(100)
   })
 
   it('keeps disputed values visible as a sensitivity rather than deleting them', () => {
     expect(opening.disputedTotal).toBeCloseTo(16898.59, 2)
-    expect(Math.round(opening.netWorthIfDisputedAccepted)).toBe(-10961)
+    expect(Math.round(opening.netWorthIfDisputedAccepted)).toBe(-15890)
     // The gap between the two IS the disputed total — nothing else moved.
     expect(opening.netWorthIfDisputedAccepted - opening.netWorth).toBeCloseTo(
       opening.disputedTotal,

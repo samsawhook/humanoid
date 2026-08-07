@@ -21,23 +21,43 @@ export type DebtPosture =
   | 'charged_off'
   | 'in_collections'
 
+/**
+ * Revolving debt has a credit line, so paying it down moves utilisation and therefore
+ * moves a score. An installment loan does not — the balance falls on a schedule and the
+ * limit is not a thing. Keeping them apart matters because the whole argument for
+ * ranking the open cards ahead of the cash reserve is a utilisation argument, and it
+ * does not transfer to a personal loan.
+ */
+export type DebtInstrument = 'revolving' | 'installment'
+
 export interface Debt {
   key: string
   label: string
   balance: number
+  instrument: DebtInstrument
   posture: DebtPosture
   /** Lower is paid first. */
   priority: number
   /**
-   * A negotiated monthly payment on this balance.
+   * A monthly payment this debt is already being paid on — a negotiated arrangement or
+   * a loan's contractual instalment.
    *
-   * Changes what the debt *is*. Everything else here is discretionary — a balance you
-   * choose a rate for — but an agreement is a commitment with a default clause, and
-   * missing it typically voids the arrangement and re-exposes the full balance. So a
-   * debt under agreement leaves the paydown queue entirely and becomes a bill, paid
-   * on a date at a fixed amount like the mortgage.
+   * Changes what the debt *is*. Everything else here is discretionary: a balance where
+   * you choose the rate. A scheduled payment is a commitment on a date, so the debt
+   * leaves the paydown queue entirely and becomes a bill, like the mortgage. Leaving it
+   * in both would fund the same balance twice.
    */
-  agreementMonthly?: number
+  scheduledMonthly?: number
+  /**
+   * Arrears on a scheduled debt — a payment already missed, owed on top of the next one.
+   * Distinct from the balance, because curing it is what stops the delinquency ageing.
+   */
+  pastDue?: number
+  /**
+   * Annual rate, where known. Absent means genuinely unknown rather than zero — the
+   * band it plausibly falls in is documented on the debt itself.
+   */
+  apr?: number
   note: string
 }
 
@@ -89,6 +109,15 @@ export interface ScraTarget {
 
 export const SCRA_TARGETS: ScraTarget[] = [
   {
+    creditor: 'Avant',
+    debtKey: 'avant',
+    reason:
+      'DO THIS ONE FIRST. Instalment loan, $4,928.97, at a personal-loan rate you have ' +
+      'described as high. Every point above 6% is about $49 a year here, so the cap is ' +
+      'worth roughly $200-$1,500 a year — more than every card on this list combined, ' +
+      'and unlike a card the balance does not shrink on its own.',
+  },
+  {
     creditor: 'Wells Fargo Platinum',
     debtKey: 'platinum',
     reason:
@@ -133,6 +162,7 @@ export const DEBTS: Debt[] = [
     key: 'platinum',
     label: 'Wells Fargo Platinum',
     balance: 1198.89,
+    instrument: 'revolving',
     posture: 'active',
     priority: 10,
     note:
@@ -144,6 +174,7 @@ export const DEBTS: Debt[] = [
     key: 'brightway',
     label: 'Brightway',
     balance: 568,
+    instrument: 'revolving',
     posture: 'active',
     priority: 20,
     note: 'Clears in roughly one payday. Open status confirmed 2026-08-05.',
@@ -152,9 +183,41 @@ export const DEBTS: Debt[] = [
     key: 'credit_one',
     label: 'Credit One',
     balance: 454,
+    instrument: 'revolving',
     posture: 'active',
     priority: 30,
     note: 'Smallest open balance — clears first. Open status confirmed 2026-08-05.',
+  },
+
+  {
+    key: 'avant',
+    label: 'Avant personal loan',
+    balance: 4928.97,
+    /**
+     * An INSTALMENT loan, not a card. It has no credit line, so paying it down does
+     * nothing for utilisation — which is why it sits outside the open-card bucket even
+     * though it is very much live.
+     */
+    instrument: 'installment',
+    posture: 'active',
+    priority: 5,
+    /** Contractual payment, so this is a bill rather than a paydown target. */
+    scheduledMonthly: 210,
+    /** One missed payment, owed on top of the next one. Cure this first. */
+    pastDue: 250.02,
+    /**
+     * UNKNOWN, and left unknown rather than guessed. You said only that it is high.
+     * Avant's published range runs roughly 10% to 36%; at this balance every point is
+     * about $49 a year, so the SCRA cap is worth somewhere between $200 and $1,500 a
+     * year depending where in that band you actually sit. Find the rate — it is the
+     * single most valuable unknown left in this file.
+     */
+    apr: undefined,
+    note:
+      'Live instalment loan: $4,928.97 principal, $210/mo contractual, $250.02 past due. ' +
+      'High rate, exact figure unknown. The highest-value SCRA target you have — a rate ' +
+      'cap on a five-figure-ish balance at a personal-loan rate beats a cap on any of ' +
+      'the cards, and unlike the cards the balance does not fall on its own.',
   },
 
   // ── Closed. Real balances, no credit line, so no utilisation benefit. ──
@@ -164,6 +227,7 @@ export const DEBTS: Debt[] = [
     key: 'citi',
     label: 'Citi',
     balance: 1777,
+    instrument: 'revolving',
     posture: 'closed',
     priority: 500,
     note: 'CLOSED. Paying it does nothing for utilisation, but it clears an account.',
@@ -172,6 +236,7 @@ export const DEBTS: Debt[] = [
     key: 'capital_one',
     label: 'Capital One',
     balance: 3489,
+    instrument: 'revolving',
     posture: 'closed',
     priority: 510,
     note: 'CLOSED.',
@@ -180,10 +245,11 @@ export const DEBTS: Debt[] = [
     key: 'chase',
     label: 'Chase',
     balance: 7290,
+    instrument: 'revolving',
     posture: 'closed',
     priority: 520,
     /** Confirmed 2026-08-05. Under a negotiated payment plan. */
-    agreementMonthly: 110,
+    scheduledMonthly: 110,
     note:
       'CLOSED, and the largest of them — but under a $110/mo agreement, which takes it ' +
       'out of the paydown queue and into the bills. At $110 against $7,290 this runs ' +
@@ -196,6 +262,7 @@ export const DEBTS: Debt[] = [
     key: 'goldman',
     label: 'Goldman',
     balance: 22730,
+    instrument: 'revolving',
     posture: 'sued_dismissed',
     priority: 900,
     note:
@@ -206,6 +273,7 @@ export const DEBTS: Debt[] = [
     key: 'psecu',
     label: 'PSECU',
     balance: 10922,
+    instrument: 'revolving',
     posture: 'sued_dismissed',
     priority: 910,
     note:
@@ -240,7 +308,7 @@ export const MINIMUM_PAYMENT_RATE = 0.02
 
 /** Estimated monthly minimum on one balance. */
 export function minimumPayment(debt: Debt): number {
-  if (debt.agreementMonthly !== undefined) return debt.agreementMonthly
+  if (debt.scheduledMonthly !== undefined) return debt.scheduledMonthly
   return Math.max(MINIMUM_PAYMENT_FLOOR, Math.ceil(debt.balance * MINIMUM_PAYMENT_RATE))
 }
 
@@ -260,21 +328,30 @@ export function activeDebts(debts: Debt[] = DEBTS): Debt[] {
   return debts
     .filter(
       (d) =>
-        (d.posture === 'active' || d.posture === 'closed') && d.agreementMonthly === undefined,
+        (d.posture === 'active' || d.posture === 'closed') && d.scheduledMonthly === undefined,
     )
     .sort((a, b) => a.priority - b.priority)
 }
 
-/** Debts being paid on a negotiated schedule. These are bills, not paydown targets. */
-export function agreementDebts(debts: Debt[] = DEBTS): Debt[] {
+/** Debts already being paid on a schedule. These are bills, not paydown targets. */
+export function scheduledDebts(debts: Debt[] = DEBTS): Debt[] {
   return debts
-    .filter((d) => d.agreementMonthly !== undefined)
+    .filter((d) => d.scheduledMonthly !== undefined)
     .sort((a, b) => a.priority - b.priority)
 }
 
-/** Open revolving accounts only — the balances that drive utilisation. */
+/**
+ * Open REVOLVING accounts only — the balances that drive utilisation.
+ *
+ * Both filters matter. `posture` excludes closed cards, which have a balance but no
+ * credit line. `instrument` excludes the Avant loan, which is very much open but is an
+ * instalment: paying it down frees no limit, so the utilisation argument that puts this
+ * bucket ahead of the cash reserve simply does not apply to it.
+ */
 export function openDebts(debts: Debt[] = DEBTS): Debt[] {
-  return debts.filter((d) => d.posture === 'active').sort((a, b) => a.priority - b.priority)
+  return debts
+    .filter((d) => d.posture === 'active' && d.instrument === 'revolving')
+    .sort((a, b) => a.priority - b.priority)
 }
 
 /** Never touched by the paydown: the two that were sued on and dismissed. */
