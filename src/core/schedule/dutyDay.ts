@@ -293,13 +293,18 @@ export interface WeekCapacity {
    */
   alwaysLost: string[]
   /**
-   * Atomic blocks lost this week — capabilities rather than hours.
+   * Atomic blocks lost with NO surviving alternative — a capability genuinely gone for
+   * the week, rather than merely one of its slots.
    *
-   * Kept out of the hours total on purpose. Rolling a lost practice test into "7.5
-   * hours gone" makes it look like something an extra evening could replace, and it is
-   * not: there is no other four-hour block in the week.
+   * Kept out of the hours total on purpose: rolling a lost practice test into "hours
+   * gone" makes it look like something an extra evening could replace. But it also has
+   * to stop crying wolf. Once Sunday carried a second four-hour block, reporting the
+   * lost Saturday as a lost capability would have been false — the test still happens,
+   * just a day later.
    */
   capabilitiesLost: string[]
+  /** Atomic blocks lost where a fallback survived. Worth knowing, not worth alarm. */
+  capabilitiesCovered: string[]
 }
 
 /**
@@ -354,10 +359,18 @@ export function representativeWeek(
 
   const round1 = (n: number) => Math.round(n * 10) / 10
   const atomicLabels = new Set(template.filter((b) => b.atomic).map((b) => b.label))
+  const atomicLost = [...new Set(days.flatMap((d) => d.lost).filter((l) => atomicLabels.has(l)))]
+  // Did ANY atomic block survive the week? If so the capability is covered, not lost.
+  const atomicSurvived = days.some(
+    (d) =>
+      d.survivingMinutes > 0 &&
+      templateIntervalsFor(zone, d.date, template).some(
+        (i) => i.block.atomic && !d.lost.includes(i.block.label),
+      ),
+  )
   return {
-    capabilitiesLost: [
-      ...new Set(days.flatMap((d) => d.lost).filter((l) => atomicLabels.has(l))),
-    ],
+    capabilitiesLost: atomicSurvived ? [] : atomicLost,
+    capabilitiesCovered: atomicSurvived ? atomicLost : [],
     days,
     plannedHours: round1(days.reduce((t, d) => t + d.plannedMinutes, 0) / 60),
     actualHours: round1(days.reduce((t, d) => t + d.survivingMinutes, 0) / 60),
@@ -368,9 +381,15 @@ export function representativeWeek(
 }
 
 export interface AtomicSlotCount {
-  /** Dates where the atomic block survives intact. */
+  /**
+   * WEEKENDS with at least one surviving long block, not dates.
+   *
+   * Counting dates double-counted the capability the moment Sunday gained a block of
+   * its own: you sit at most one full timed test a weekend, so two four-hour windows on
+   * consecutive days is one opportunity with a spare, not two opportunities.
+   */
   available: LocalDate[]
-  /** Dates where a known duty day destroys it. */
+  /** Weekends where duty took every long block. */
   lost: LocalDate[]
   /**
    * Dates counted as available only because no duty day is recorded for them yet.
@@ -393,30 +412,49 @@ export function atomicSlotsBetween(
   zone: IanaZone,
   from: LocalDate,
   to: LocalDate,
-  blockKey = 'sat_long',
   template: TemplateBlock[] = DEFAULT_DAY_TEMPLATE,
   known: DutyDay[] = DUTY_DAYS,
 ): AtomicSlotCount {
-  const block = template.find((b) => b.key === blockKey)
-  if (!block) throw new Error(`unknown block: ${blockKey}`)
+  // EVERY atomic block, not one named one. There are two now — Saturday and Sunday —
+  // and counting only the first would report the week as having lost the capability
+  // when the fallback was sitting right there.
+  const blocks = template.filter((b) => b.atomic)
+  if (blocks.length === 0) throw new Error('template has no atomic blocks')
+
+  // Group the candidate dates into weekends, keyed by the Saturday they belong to.
+  const weekends = new Map<LocalDate, { survives: boolean; scheduled: boolean }>()
+
+  for (let date = from; date <= to; date = addLocalDays(date, 1)) {
+    const dow = new Date(`${date}T00:00:00Z`).getUTCDay()
+    const onThisDay = blocks.filter((b) => b.weekdays.includes(dow))
+    if (onThisDay.length === 0) continue
+
+    // Sunday belongs to the weekend that started the day before.
+    const key = dow === 0 ? addLocalDays(date, -1) : date
+    const entry = weekends.get(key) ?? { survives: false, scheduled: false }
+
+    const duty = dutyDayFor(date, known)
+    if (!duty) {
+      entry.survives = true
+    } else {
+      entry.scheduled = true
+      const cap = dayCapacity(zone, date, template, [duty])
+      if (!onThisDay.every((b) => cap.lost.includes(b.label))) entry.survives = true
+    }
+    weekends.set(key, entry)
+  }
 
   const available: LocalDate[] = []
   const lost: LocalDate[] = []
   let assumedFree = 0
 
-  for (let date = from; date <= to; date = addLocalDays(date, 1)) {
-    const dow = new Date(`${date}T00:00:00Z`).getUTCDay()
-    if (!block.weekdays.includes(dow)) continue
-
-    const duty = dutyDayFor(date, known)
-    if (!duty) {
-      available.push(date)
-      assumedFree++
-      continue
+  for (const [key, entry] of [...weekends.entries()].sort()) {
+    if (entry.survives) {
+      available.push(key)
+      if (!entry.scheduled) assumedFree++
+    } else {
+      lost.push(key)
     }
-    const cap = dayCapacity(zone, date, template, [duty])
-    if (cap.lost.includes(block.label)) lost.push(date)
-    else available.push(date)
   }
 
   return { available, lost, assumedFree }

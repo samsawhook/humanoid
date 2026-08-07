@@ -19,7 +19,11 @@ describe('day template', () => {
     const wed = templateIntervalsFor(ZONE, WED).map((i) => i.block.key)
     expect(wed).toEqual(['am_deep', 'pm_drill', 'admin'])
     expect(templateIntervalsFor(ZONE, SAT).map((i) => i.block.key)).toEqual(['sat_long'])
-    expect(templateIntervalsFor(ZONE, SUN).map((i) => i.block.key)).toEqual(['sun_review'])
+    // Sunday now carries a long block too — the fallback slot for a full timed test.
+    expect(templateIntervalsFor(ZONE, SUN).map((i) => i.block.key)).toEqual([
+      'sun_long',
+      'sun_review',
+    ])
   })
 
   it('places blocks at the right local time regardless of UTC offset', () => {
@@ -127,7 +131,9 @@ describe('filling template blocks from the queue', () => {
   })
 
   it('reserves a null-domain block for anything', () => {
-    const { fills } = fillTemplate(templateIntervalsFor(ZONE, SUN), [moneyItem], inDomain)
+    // The review block, not the long one — Sunday's first block is now reserved for LSAT.
+    const sunday = templateIntervalsFor(ZONE, SUN).filter((i) => i.block.nodeId === null)
+    const { fills } = fillTemplate(sunday, [moneyItem], inDomain)
     expect(fills[0]!.interval.block.nodeId).toBeNull()
     expect(fills[0]!.items.map((x) => x.item.id)).toEqual(['m'])
   })

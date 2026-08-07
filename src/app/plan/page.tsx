@@ -162,25 +162,36 @@ export default function PlanPage() {
           </tbody>
         </table>
         <p style={{ marginTop: 10 }}>
-          <strong>This is a lost capability, not lost hours.</strong> Four hours is the
-          only window in the week long enough for a full timed LSAT, and a timed
-          full-length is not something you assemble out of evenings — the point of it is
-          sustained performance under fatigue. Half a practice test is not half a
-          practice test, it is none. So it is reported separately from the hours total
-          rather than rolled into it, because {week.plannedHours - week.actualHours} hours
-          gone reads like something an extra evening could replace, and this is not.
+          <strong>Sunday absorbs it, which is why Sunday now carries a long block.</strong>{' '}
+          Four hours is what a full timed LSAT needs, and a timed full-length is not
+          something you assemble out of evenings — the point of it is sustained
+          performance under fatigue, so half a practice test is none. With one such block
+          in the week, one weekend duty day cost the capability outright. With two, the
+          test moves a day and the week holds at {week.actualHours} hours.
+          {week.capabilitiesCovered.length > 0 && (
+            <>
+              {' '}
+              This week the Saturday block is reported as <em>covered</em> rather than
+              lost — a fact worth knowing, not one worth alarm.
+            </>
+          )}
         </p>
         <p style={{ marginTop: 10 }}>
           <strong>
-            Practice-test windows before the November sitting: {ptSlots.available.length}{' '}
-            — every one of them an assumption.
+            Practice-test weekends before the November sitting: {ptSlots.available.length}
           </strong>{' '}
-          None of those Saturdays has a schedule yet, so they count as free only because
-          nothing says otherwise. Of the Saturdays actually known, <strong>one out of
-          one</strong> was a duty day. &ldquo;Weekends are free&rdquo; is now contradicted
-          by 100% of the evidence, so treat that count as a ceiling that will fall rather
-          than a plan. Send me each weekend as it is published and the number becomes
-          real.
+          — counted as weekends rather than dates, because you sit at most one full test
+          a weekend, so two four-hour windows on consecutive days is one opportunity with
+          a spare. {ptSlots.assumedFree} of those {ptSlots.available.length} are
+          assumptions: no schedule exists for them yet, and they count as free only
+          because nothing says otherwise. Send me each weekend as it is published and the
+          number becomes real.
+        </p>
+        <p style={{ marginTop: 10 }} className="muted">
+          The remaining fragility is that the weekend now carries most of the week. That
+          is the right shape given weekday mornings are gone — but it means the next
+          weekend duty day costs more than any weekday can, and a weekend where BOTH days
+          go to duty takes the practice test with it.
         </p>
       </div>
 

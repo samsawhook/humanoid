@@ -97,34 +97,27 @@ describe('what the duty day costs', () => {
     expect(cap.survivingMinutes).toBe(cap.plannedMinutes)
   })
 
-  it('costs more than half the week once the Saturday goes too', () => {
+  it('still costs the whole morning, every day, even with Sunday opened up', () => {
     const week = representativeWeek(ZONE, '2026-08-03')
-    expect(week.plannedHours).toBeCloseTo(20.8, 1)
-    // 13.3 with weekends free; 9.3 in the week actually scheduled.
-    expect(week.actualHours).toBeCloseTo(9.3, 1)
+    expect(week.plannedHours).toBeCloseTo(24.8, 1)
+    // Sunday's extra block puts the week back to 13.3 despite losing all of Saturday.
+    expect(week.actualHours).toBeCloseTo(13.3, 1)
     // Not "sometimes the morning goes" — it goes every duty day, so it is not capacity.
     expect(week.alwaysLost).toContain('Morning deep work — LSAT')
   })
 
   /**
-   * With weekends free they carried more than a third of the study time across two days
-   * out of seven — flagged as the fragile part. Then Saturday became a range day, and
-   * the weekend share collapsed to the Sunday review block alone.
+   * The weekend now carries MORE of the week, not less — which is the point of opening
+   * Sunday up. It is also the remaining fragility: two days out of seven holding this
+   * much means the next weekend duty day costs more than any weekday can.
    */
-  it('shows how much the weekend was carrying, by losing it', () => {
-    const withSaturday = representativeWeek(ZONE, '2026-08-03', undefined, undefined, [])
-    const weekendFree = withSaturday.days
-      .filter((d) => !d.isDutyDay)
-      .reduce((t, d) => t + d.survivingMinutes, 0)
-    const totalFree = withSaturday.days.reduce((t, d) => t + d.survivingMinutes, 0)
-    expect(weekendFree / totalFree).toBeGreaterThan(0.35)
-
-    // And with the real schedule, the same two days carry a fraction of that.
-    const actual = representativeWeek(ZONE, '2026-08-03')
-    const weekendActual = actual.days
+  it('leaves the weekend carrying most of the week', () => {
+    const week = representativeWeek(ZONE, '2026-08-03')
+    const weekend = week.days
       .filter((d) => d.date >= '2026-08-08')
       .reduce((t, d) => t + d.survivingMinutes, 0)
-    expect(weekendActual).toBeLessThan(weekendFree / 3)
+    const total = week.days.reduce((t, d) => t + d.survivingMinutes, 0)
+    expect(weekend / total).toBeGreaterThan(0.4)
   })
 })
 
@@ -141,9 +134,13 @@ describe('the weekend, which was assumed free and was not', () => {
     expect(cap.survivingMinutes).toBe(0)
   })
 
-  it('drops the week from 13.3 to 9.3 hours', () => {
+  /**
+   * It would have cost 4 of 13.3 hours and the practice test with it. Opening Sunday up
+   * is what absorbs it: the week is back to 13.3 and the test simply moves a day.
+   */
+  it('is absorbed by the Sunday block rather than costing the week', () => {
     const week = representativeWeek(ZONE, '2026-08-03')
-    expect(week.actualHours).toBeCloseTo(9.3, 1)
+    expect(week.actualHours).toBeCloseTo(13.3, 1)
   })
 
   /**
@@ -151,14 +148,20 @@ describe('the weekend, which was assumed free and was not', () => {
    * half a timed LSAT is not half a practice test, it is no practice test. Rolling this
    * into "hours lost" would make it look like something an extra evening could replace.
    */
-  it('reports a lost CAPABILITY, kept out of the hours total', () => {
+  /**
+   * The alarm has to stop crying wolf. Before Sunday had a long block, losing Saturday
+   * lost the capability outright. Now the test happens a day later, so the block is
+   * reported as COVERED — a fact worth knowing, not a fact worth alarm.
+   */
+  it('reports the block as covered, not lost, now that Sunday can hold the test', () => {
     const week = representativeWeek(ZONE, '2026-08-03')
-    expect(week.capabilitiesLost).toEqual(['Saturday long block'])
+    expect(week.capabilitiesCovered).toEqual(['Saturday long block'])
+    expect(week.capabilitiesLost).toEqual([])
 
-    // Only atomic blocks appear there. The morning block is lost just as reliably, but
-    // it is replaceable time rather than a lost capability, so it stays out.
-    expect(week.capabilitiesLost).not.toContain('Morning deep work — LSAT')
-    expect(week.alwaysLost).toContain('Morning deep work — LSAT')
+    // And with no fallback, it would be a genuine loss.
+    const satOnly = DEFAULT_DAY_TEMPLATE.filter((b) => b.key !== 'sun_long')
+    const fragile = representativeWeek(ZONE, '2026-08-03', undefined, satOnly)
+    expect(fragile.capabilitiesLost).toEqual(['Saturday long block'])
   })
 })
 
@@ -169,10 +172,15 @@ describe('practice-test slots', () => {
    * one a week. That makes it a small countable integer where hours are a large number
    * that hides the constraint.
    */
-  it('counts whole windows rather than hours', () => {
+  it('counts WEEKENDS rather than dates, since you sit one test a weekend', () => {
     const slots = atomicSlotsBetween(ZONE, '2026-08-06', '2026-11-11')
-    expect(slots.lost).toEqual([SATURDAY_RANGE_DAY.date])
-    expect(slots.available.length).toBeGreaterThan(0)
+    // The range Saturday does not cost the weekend — Sunday still holds a full test.
+    expect(slots.lost).toEqual([])
+    expect(slots.available).toContain(SATURDAY_RANGE_DAY.date)
+
+    // Two four-hour windows on consecutive days is one opportunity with a spare.
+    const weeks = 14
+    expect(slots.available.length).toBe(weeks)
   })
 
   /**
@@ -181,9 +189,9 @@ describe('practice-test slots', () => {
    * known, one out of one was a duty day — so "assumed free" is currently contradicted
    * by 100% of the evidence.
    */
-  it('admits that every remaining slot is an assumption, not a booking', () => {
+  it('separates the weekend it actually knows about from the ones it assumes', () => {
     const slots = atomicSlotsBetween(ZONE, '2026-08-06', '2026-11-11')
-    expect(slots.assumedFree).toBe(slots.available.length)
-    expect(slots.lost.length).toBe(1)
+    // One weekend has a real schedule; every other is free only because nothing says so.
+    expect(slots.assumedFree).toBe(slots.available.length - 1)
   })
 })

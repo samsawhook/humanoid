@@ -120,15 +120,38 @@ export const DEFAULT_DAY_TEMPLATE: TemplateBlock[] = [
     purpose: 'Full timed practice tests. The only slot long enough for one.',
   },
   {
+    key: 'sun_long',
+    label: 'Sunday long block',
+    weekdays: [0],
+    startMinute: hm(9, 0),
+    endMinute: hm(13, 0),
+    nodeId: 'lsat',
+    demand: 'high',
+    /**
+     * A SECOND home for the full timed practice test, and the reason it exists is the
+     * range Saturday: with one atomic block in the week, a single weekend duty day cost
+     * the capability outright. Two makes the week survive losing one.
+     *
+     * Redundancy rather than more work — the two are not both used in a normal week.
+     * Sunday is the fallback, and on a week where Saturday holds, Sunday is drilling.
+     */
+    atomic: true,
+    purpose: 'Fallback slot for a full timed test when Saturday goes to duty. Otherwise drilling.',
+  },
+  {
     key: 'sun_review',
     label: 'Sunday review and reset',
     weekdays: [0],
-    startMinute: hm(9, 0),
-    endMinute: hm(10, 30),
+    /**
+     * AFTER the long block, not before. The error log is worth most immediately after a
+     * timed test, while the wrong answers are still yours rather than a stranger's.
+     */
+    startMinute: hm(15, 0),
+    endMinute: hm(16, 30),
     nodeId: null,
     /** Reviewing is lighter than doing, which is why it survives a bad Sunday. */
     demand: 'low',
-    purpose: 'Error log, week ahead, anything the week dropped.',
+    purpose: 'Error log while the test is fresh, week ahead, anything the week dropped.',
   },
 ]
 
