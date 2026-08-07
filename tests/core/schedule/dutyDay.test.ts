@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   M4_RANGE_DAY,
   RFI_ECS_DAY,
+  SATURDAY_RANGE_DAY,
+  atomicSlotsBetween,
   dutyWindow,
   dutyCommitments,
   dutyDayFor,
@@ -47,13 +49,14 @@ describe('a published duty day', () => {
     expect(c).toHaveLength(1)
     expect(c[0]!.title).toMatch(/end unknown/)
     // Two days recorded now, and only the range day has an unpublished end.
-    expect(dutyCommitments(ZONE)).toHaveLength(2)
+    expect(dutyCommitments(ZONE)).toHaveLength(3)
   })
 
   it('finds a day by date and returns null otherwise', () => {
     expect(dutyDayFor('2026-08-06')?.label).toMatch(/RFI/)
     expect(dutyDayFor('2026-08-07')?.label).toMatch(/range/i)
-    expect(dutyDayFor('2026-08-08')).toBe(null)
+    expect(dutyDayFor('2026-08-08')?.label).toMatch(/Saturday/)
+    expect(dutyDayFor('2026-08-10')).toBe(null)
   })
 
   /**
@@ -94,21 +97,93 @@ describe('what the duty day costs', () => {
     expect(cap.survivingMinutes).toBe(cap.plannedMinutes)
   })
 
-  it('costs a third of the week, and the same block every single day', () => {
+  it('costs more than half the week once the Saturday goes too', () => {
     const week = representativeWeek(ZONE, '2026-08-03')
     expect(week.plannedHours).toBeCloseTo(20.8, 1)
-    expect(week.actualHours).toBeCloseTo(13.3, 1)
+    // 13.3 with weekends free; 9.3 in the week actually scheduled.
+    expect(week.actualHours).toBeCloseTo(9.3, 1)
     // Not "sometimes the morning goes" — it goes every duty day, so it is not capacity.
-    expect(week.alwaysLost).toEqual(['Morning deep work — LSAT'])
+    expect(week.alwaysLost).toContain('Morning deep work — LSAT')
   })
 
-  it('leaves the weekends carrying most of what is left', () => {
+  /**
+   * With weekends free they carried more than a third of the study time across two days
+   * out of seven — flagged as the fragile part. Then Saturday became a range day, and
+   * the weekend share collapsed to the Sunday review block alone.
+   */
+  it('shows how much the weekend was carrying, by losing it', () => {
+    const withSaturday = representativeWeek(ZONE, '2026-08-03', undefined, undefined, [])
+    const weekendFree = withSaturday.days
+      .filter((d) => !d.isDutyDay)
+      .reduce((t, d) => t + d.survivingMinutes, 0)
+    const totalFree = withSaturday.days.reduce((t, d) => t + d.survivingMinutes, 0)
+    expect(weekendFree / totalFree).toBeGreaterThan(0.35)
+
+    // And with the real schedule, the same two days carry a fraction of that.
+    const actual = representativeWeek(ZONE, '2026-08-03')
+    const weekendActual = actual.days
+      .filter((d) => d.date >= '2026-08-08')
+      .reduce((t, d) => t + d.survivingMinutes, 0)
+    expect(weekendActual).toBeLessThan(weekendFree / 3)
+  })
+})
+
+describe('the weekend, which was assumed free and was not', () => {
+  /**
+   * Written down as a risk one day before it happened: "the weekends carry more than a
+   * third of your study time across two days out of seven, and one lost weekend costs
+   * more than a lost week of evenings." Then Saturday became a range day.
+   */
+  it('costs four hours in one day, more than any weekday', () => {
+    const cap = dayCapacity(ZONE, SATURDAY_RANGE_DAY.date)
+    expect(cap.isDutyDay).toBe(true)
+    expect(cap.plannedMinutes).toBe(240)
+    expect(cap.survivingMinutes).toBe(0)
+  })
+
+  it('drops the week from 13.3 to 9.3 hours', () => {
     const week = representativeWeek(ZONE, '2026-08-03')
-    const weekend = week.days.filter((d) => !d.isDutyDay)
-    const weekendMinutes = weekend.reduce((t, d) => t + d.survivingMinutes, 0)
-    const total = week.days.reduce((t, d) => t + d.survivingMinutes, 0)
-    // Two days out of seven carrying more than a third of the study time is fragile:
-    // one lost weekend costs more than a lost week of evenings.
-    expect(weekendMinutes / total).toBeGreaterThan(0.35)
+    expect(week.actualHours).toBeCloseTo(9.3, 1)
+  })
+
+  /**
+   * The distinction the `atomic` flag exists for. A four-hour block does not divide:
+   * half a timed LSAT is not half a practice test, it is no practice test. Rolling this
+   * into "hours lost" would make it look like something an extra evening could replace.
+   */
+  it('reports a lost CAPABILITY, kept out of the hours total', () => {
+    const week = representativeWeek(ZONE, '2026-08-03')
+    expect(week.capabilitiesLost).toEqual(['Saturday long block'])
+
+    // Only atomic blocks appear there. The morning block is lost just as reliably, but
+    // it is replaceable time rather than a lost capability, so it stays out.
+    expect(week.capabilitiesLost).not.toContain('Morning deep work — LSAT')
+    expect(week.alwaysLost).toContain('Morning deep work — LSAT')
+  })
+})
+
+describe('practice-test slots', () => {
+  /**
+   * A better readiness measure than hours. You do not accumulate a timed full-length
+   * out of evenings — it needs one uninterrupted four-hour window, and there is exactly
+   * one a week. That makes it a small countable integer where hours are a large number
+   * that hides the constraint.
+   */
+  it('counts whole windows rather than hours', () => {
+    const slots = atomicSlotsBetween(ZONE, '2026-08-06', '2026-11-11')
+    expect(slots.lost).toEqual([SATURDAY_RANGE_DAY.date])
+    expect(slots.available.length).toBeGreaterThan(0)
+  })
+
+  /**
+   * The honest caveat, and it is doing real work here: every remaining slot counts as
+   * available only because no schedule exists for it yet. Of the Saturdays actually
+   * known, one out of one was a duty day — so "assumed free" is currently contradicted
+   * by 100% of the evidence.
+   */
+  it('admits that every remaining slot is an assumption, not a booking', () => {
+    const slots = atomicSlotsBetween(ZONE, '2026-08-06', '2026-11-11')
+    expect(slots.assumedFree).toBe(slots.available.length)
+    expect(slots.lost.length).toBe(1)
   })
 })

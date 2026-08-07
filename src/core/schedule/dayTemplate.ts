@@ -40,6 +40,16 @@ export interface TemplateBlock {
    * template keeps offering the wrong work and calling the result a discipline problem.
    */
   demand: CognitiveDemand
+  /**
+   * The block's value comes from its LENGTH, so shortening it destroys it rather than
+   * reducing it.
+   *
+   * A full timed LSAT is about four hours and cannot be assembled out of four separate
+   * hours — the whole point is sustained performance under fatigue. Losing an atomic
+   * block is losing a capability, not losing time, and the two should never be summed
+   * into one "hours lost" figure. Half of a practice test is not half a practice test.
+   */
+  atomic?: boolean
   purpose: string
 }
 
@@ -105,6 +115,8 @@ export const DEFAULT_DAY_TEMPLATE: TemplateBlock[] = [
     endMinute: hm(12, 0),
     nodeId: 'lsat',
     demand: 'high',
+    /** The only block in the week long enough to hold one, and it does not divide. */
+    atomic: true,
     purpose: 'Full timed practice tests. The only slot long enough for one.',
   },
   {

@@ -164,7 +164,24 @@ export const RFI_ECS_DAY: DutyDay = {
     'from a schedule. A fielding day finishes; a range day does not.',
 }
 
-export const DUTY_DAYS: DutyDay[] = [RFI_ECS_DAY, M4_RANGE_DAY]
+/**
+ * Range again on the Saturday. Same shape as Friday — no published end, drivers behind
+ * everyone else — but it costs far more, because Saturday is the only day in the
+ * template with a block long enough to hold a full timed practice test.
+ *
+ * This is the "one lost weekend costs more than a lost week of evenings" case, arriving
+ * one day after that was written down as a risk.
+ */
+export const SATURDAY_RANGE_DAY: DutyDay = {
+  ...M4_RANGE_DAY,
+  date: '2026-08-08',
+  label: 'M4 range — Saturday',
+  note:
+    'Weekend duty. The published schedule is the Friday one; the cost is different ' +
+    'because Saturday carries the 4-hour block and nothing else in the week does.',
+}
+
+export const DUTY_DAYS: DutyDay[] = [RFI_ECS_DAY, M4_RANGE_DAY, SATURDAY_RANGE_DAY]
 
 export interface DutyWindow {
   /** Minutes from local midnight. Includes prep, so it is earlier than the formation. */
@@ -265,8 +282,24 @@ export interface WeekCapacity {
   days: DayCapacity[]
   plannedHours: number
   actualHours: number
-  /** Blocks that die on EVERY duty day — the ones that were never really capacity. */
+  /**
+   * Blocks lost on every duty day THAT PLANNED THEM — the ones that were never really
+   * capacity.
+   *
+   * The qualifier matters. Counting "lost on every duty day" full stop made the morning
+   * block look survivable the moment a range Saturday appeared, purely because Saturday
+   * has no morning block to lose. The question is not how many days killed a block, it
+   * is whether a block ever survived a day that offered it.
+   */
   alwaysLost: string[]
+  /**
+   * Atomic blocks lost this week — capabilities rather than hours.
+   *
+   * Kept out of the hours total on purpose. Rolling a lost practice test into "7.5
+   * hours gone" makes it look like something an extra evening could replace, and it is
+   * not: there is no other four-hour block in the week.
+   */
+  capabilitiesLost: string[]
 }
 
 /**
@@ -288,34 +321,103 @@ export function representativeWeek(
   weekStart: LocalDate,
   references: DutyDay[] = [RFI_ECS_DAY, M4_RANGE_DAY],
   template: TemplateBlock[] = DEFAULT_DAY_TEMPLATE,
+  known: DutyDay[] = DUTY_DAYS,
 ): WeekCapacity {
   const days: DayCapacity[] = []
   const lostCounts = new Map<string, number>()
-  let dutyDayCount = 0
+  const offeredCounts = new Map<string, number>()
 
   for (let i = 0; i < 7; i++) {
     const date = addLocalDays(weekStart, i)
     const dow = new Date(`${date}T00:00:00Z`).getUTCDay()
     const isWeekday = dow >= 1 && dow <= 5
-    // Same shape as the observed day, moved onto this date.
-    // Cycle the observed shapes so the week reflects the spread, not the worst day.
+    /**
+     * A REAL duty day on this date wins over the generic shape — including at the
+     * weekend. Assuming weekends are free is exactly the assumption that just failed:
+     * 2026-08-08 is a range Saturday, and Saturday is the only day carrying a block
+     * long enough for a full timed practice test.
+     */
+    const realDuty = dutyDayFor(date, known)
+    // Otherwise cycle the observed shapes, so the week reflects the spread of duty
+    // days rather than the worst one.
     const shape = references[i % references.length]!
-    const asDuty: DutyDay[] = isWeekday ? [{ ...shape, date }] : []
+    const asDuty: DutyDay[] = realDuty ? [realDuty] : isWeekday ? [{ ...shape, date }] : []
     const cap = dayCapacity(zone, date, template, asDuty)
     if (cap.isDutyDay) {
-      dutyDayCount++
       for (const l of cap.lost) lostCounts.set(l, (lostCounts.get(l) ?? 0) + 1)
+      for (const b of templateIntervalsFor(zone, date, template)) {
+        offeredCounts.set(b.block.label, (offeredCounts.get(b.block.label) ?? 0) + 1)
+      }
     }
     days.push(cap)
   }
 
   const round1 = (n: number) => Math.round(n * 10) / 10
+  const atomicLabels = new Set(template.filter((b) => b.atomic).map((b) => b.label))
   return {
+    capabilitiesLost: [
+      ...new Set(days.flatMap((d) => d.lost).filter((l) => atomicLabels.has(l))),
+    ],
     days,
     plannedHours: round1(days.reduce((t, d) => t + d.plannedMinutes, 0) / 60),
     actualHours: round1(days.reduce((t, d) => t + d.survivingMinutes, 0) / 60),
     alwaysLost: [...lostCounts.entries()]
-      .filter(([, n]) => n === dutyDayCount && dutyDayCount > 0)
+      .filter(([label, n]) => n > 0 && n === offeredCounts.get(label))
       .map(([label]) => label),
   }
+}
+
+export interface AtomicSlotCount {
+  /** Dates where the atomic block survives intact. */
+  available: LocalDate[]
+  /** Dates where a known duty day destroys it. */
+  lost: LocalDate[]
+  /**
+   * Dates counted as available only because no duty day is recorded for them yet.
+   * The honest caveat: absence of a schedule is not evidence of a free day, and the
+   * one weekend actually observed was worked.
+   */
+  assumedFree: number
+}
+
+/**
+ * Count the surviving slots for an atomic block between two dates.
+ *
+ * For the LSAT this is a better readiness measure than hours. Sitting a timed
+ * full-length is not something you accumulate out of evenings — it needs one
+ * uninterrupted four-hour window, and there is exactly one per week. "How many
+ * practice tests can I still take" is therefore a countable integer, and a small one,
+ * where "how many hours do I have" is a large number that hides the constraint.
+ */
+export function atomicSlotsBetween(
+  zone: IanaZone,
+  from: LocalDate,
+  to: LocalDate,
+  blockKey = 'sat_long',
+  template: TemplateBlock[] = DEFAULT_DAY_TEMPLATE,
+  known: DutyDay[] = DUTY_DAYS,
+): AtomicSlotCount {
+  const block = template.find((b) => b.key === blockKey)
+  if (!block) throw new Error(`unknown block: ${blockKey}`)
+
+  const available: LocalDate[] = []
+  const lost: LocalDate[] = []
+  let assumedFree = 0
+
+  for (let date = from; date <= to; date = addLocalDays(date, 1)) {
+    const dow = new Date(`${date}T00:00:00Z`).getUTCDay()
+    if (!block.weekdays.includes(dow)) continue
+
+    const duty = dutyDayFor(date, known)
+    if (!duty) {
+      available.push(date)
+      assumedFree++
+      continue
+    }
+    const cap = dayCapacity(zone, date, template, [duty])
+    if (cap.lost.includes(block.label)) lost.push(date)
+    else available.push(date)
+  }
+
+  return { available, lost, assumedFree }
 }

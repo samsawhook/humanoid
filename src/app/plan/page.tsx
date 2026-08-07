@@ -16,6 +16,8 @@ import { Figure, TableView, Timeline, seriesColor } from '@/components/viz'
 import {
   M4_RANGE_DAY,
   RFI_ECS_DAY,
+  SATURDAY_RANGE_DAY,
+  atomicSlotsBetween,
   dayCapacity,
   dutyWindow,
   representativeWeek,
@@ -41,6 +43,8 @@ export default function PlanPage() {
   const loggedCap = dayCapacity(ZONE, loggedDate)
   const usable = usableCapacity(loggedDate, loggedCap.survivingMinutes)
   const flags = watchedFlags()
+  const satCap = dayCapacity(ZONE, SATURDAY_RANGE_DAY.date)
+  const ptSlots = atomicSlotsBetween(ZONE, '2026-08-06', '2026-11-11')
   const janTarget = '2027-01-15'
   const usableForJan = administrationsUsableBy(janTarget)
   const oct = LSAT_DATES.find((a) => a.key === 'oct_2026')!
@@ -124,6 +128,59 @@ export default function PlanPage() {
           <strong>{hoursBetween(TODAY, '2026-09-03')}h</strong> before you ship — real, but
           it lands October at {assessSitting(LSAT_DATES[0]!, TODAY).hoursAvailable}h, under the
           floor. <strong>November is the first sitting that clears it.</strong>
+        </p>
+      </div>
+
+      <div className="note">
+        <strong className="bad">
+          Range again on Saturday — and that is the expensive one.
+        </strong>{' '}
+        Yesterday this page said the weekends were the fragile part, carrying more than a
+        third of the study time across two days out of seven, and that one lost weekend
+        would cost more than a lost week of evenings. It went first.
+        <table style={{ marginTop: 8 }}>
+          <tbody>
+            <tr>
+              <td>Saturday block planned</td>
+              <td style={{ textAlign: 'right' }}>{satCap.plannedMinutes} min</td>
+            </tr>
+            <tr>
+              <td>Survives the range day</td>
+              <td style={{ textAlign: 'right' }} className="bad">
+                {satCap.survivingMinutes} min
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <strong>Week</strong>
+              </td>
+              <td style={{ textAlign: 'right' }}>
+                <strong>{week.actualHours} h</strong>{' '}
+                <span className="muted">of {week.plannedHours} planned</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p style={{ marginTop: 10 }}>
+          <strong>This is a lost capability, not lost hours.</strong> Four hours is the
+          only window in the week long enough for a full timed LSAT, and a timed
+          full-length is not something you assemble out of evenings — the point of it is
+          sustained performance under fatigue. Half a practice test is not half a
+          practice test, it is none. So it is reported separately from the hours total
+          rather than rolled into it, because {week.plannedHours - week.actualHours} hours
+          gone reads like something an extra evening could replace, and this is not.
+        </p>
+        <p style={{ marginTop: 10 }}>
+          <strong>
+            Practice-test windows before the November sitting: {ptSlots.available.length}{' '}
+            — every one of them an assumption.
+          </strong>{' '}
+          None of those Saturdays has a schedule yet, so they count as free only because
+          nothing says otherwise. Of the Saturdays actually known, <strong>one out of
+          one</strong> was a duty day. &ldquo;Weekends are free&rdquo; is now contradicted
+          by 100% of the evidence, so treat that count as a ceiling that will fall rather
+          than a plan. Send me each weekend as it is published and the number becomes
+          real.
         </p>
       </div>
 
