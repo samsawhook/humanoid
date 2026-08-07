@@ -13,14 +13,25 @@ import {
 import { TIMELINE } from '@/core/money/rates'
 import { localDaysBetween } from '@/core/time/localDay'
 import { Figure, TableView, Timeline, seriesColor } from '@/components/viz'
+import {
+  M4_RANGE_DAY,
+  dutyWindow,
+  representativeWeek,
+} from '@/core/schedule/dutyDay'
 
 export const dynamic = 'force-dynamic'
+
+const ZONE = 'America/Chicago'
+const fmtMin = (m: number) =>
+  `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
 
 const TODAY = '2026-08-05'
 /** Hours a week you can realistically hold down while deployed. A guess — correct it. */
 const STUDY_HOURS = 10
 
 export default function PlanPage() {
+  const dutyWin = dutyWindow(M4_RANGE_DAY)
+  const week = representativeWeek(ZONE, '2026-08-03')
   const janTarget = '2027-01-15'
   const usableForJan = administrationsUsableBy(janTarget)
   const oct = LSAT_DATES.find((a) => a.key === 'oct_2026')!
@@ -104,6 +115,95 @@ export default function PlanPage() {
           <strong>{hoursBetween(TODAY, '2026-09-03')}h</strong> before you ship — real, but
           it lands October at {assessSitting(LSAT_DATES[0]!, TODAY).hoursAvailable}h, under the
           floor. <strong>November is the first sitting that clears it.</strong>
+        </p>
+      </div>
+
+      <h2>The typical day, from a real schedule</h2>
+      <div className="note">
+        <strong>
+          {M4_RANGE_DAY.label}, {M4_RANGE_DAY.date} — {dutyWin.hours} hours, {' '}
+          {fmtMin(dutyWin.startMinute)} to {M4_RANGE_DAY.endsAt}
+          {M4_RANGE_DAY.endConfidence === 'unknown' ? '*' : ''}
+        </strong>
+        <table style={{ marginTop: 8 }}>
+          <tbody>
+            {M4_RANGE_DAY.events.map((e) => (
+              <tr key={e.at + e.label}>
+                <td style={{ width: 70 }}>{e.at}</td>
+                <td style={{ whiteSpace: 'normal' }} className={e.yours ? 'good' : ''}>
+                  {e.label}
+                  {e.note && (
+                    <div className="muted" style={{ fontSize: 12 }}>
+                      {e.note}
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+            <tr>
+              <td className="muted">{fmtMin(dutyWin.startMinute)}</td>
+              <td className="muted" style={{ whiteSpace: 'normal' }}>
+                Working backwards: {M4_RANGE_DAY.prepMinutes} minutes of PPE, kit and
+                movement before a {M4_RANGE_DAY.events[0]!.at} formation. Not on any
+                schedule, but it is the difference between up at 0440 and up at 0345.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p style={{ marginTop: 8 }} className="muted">
+          * The schedule stops at &ldquo;SP to range&rdquo; and never says when the day
+          ends. {M4_RANGE_DAY.endsAt} is a placeholder. You also draw a truck at 0645,
+          which means turning one in after the last shooter is released — so your day is
+          longer than the published one at both ends.
+        </p>
+      </div>
+
+      <div className="note">
+        <strong>
+          This deletes the morning study block. It does not shorten it — it deletes it.
+        </strong>{' '}
+        The template opens with 05:30–07:00 of LSAT work, justified as the hardest
+        thinking done before the day can take it. On a duty day the day has already taken
+        it, and that block was half the weekday plan.
+        <table style={{ marginTop: 8 }}>
+          <tbody>
+            <tr>
+              <td>Planned in the template</td>
+              <td style={{ textAlign: 'right' }}>{week.plannedHours} h/wk</td>
+            </tr>
+            <tr>
+              <td>
+                <strong>Actually survives</strong>
+              </td>
+              <td style={{ textAlign: 'right' }}>
+                <strong>{week.actualHours} h/wk</strong>
+              </td>
+            </tr>
+            <tr>
+              <td className="bad" style={{ whiteSpace: 'normal' }}>
+                Lost on every duty day: {week.alwaysLost.join(', ')}
+              </td>
+              <td className="bad" style={{ textAlign: 'right' }}>
+                −{Math.round((week.plannedHours - week.actualHours) * 10) / 10} h/wk
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p style={{ marginTop: 8 }}>
+          Pre-mob capacity was <strong>25 h/wk</strong> — a guess, and one this file
+          flagged as the most load-bearing assumption in the whole plan. The first real
+          schedule cuts it to <strong>{week.actualHours} h/wk</strong>. That is derived
+          rather than guessed, but it generalises one range day to every weekday, which
+          is a stretch — toward the <em>floor</em>, since a range day is a hard day.
+          Raise it with evidence, not with optimism.
+        </p>
+        <p style={{ marginTop: 8 }}>
+          <strong>
+            The weekends now carry more than a third of your study time across two days
+            out of seven.
+          </strong>{' '}
+          That is the fragile part: one lost weekend costs more than a lost week of
+          evenings.
         </p>
       </div>
 

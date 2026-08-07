@@ -344,11 +344,21 @@ export const STUDY_CAPACITY: CapacitySegment[] = [
     label: 'Pre-mob (stateside)',
     start: '2026-08-05',
     end: '2026-09-03',
-    hoursPerWeek: 25,
-    confidence: 'unknown',
+    /**
+     * DERIVED, not guessed — from the first real published schedule (M4 zero range,
+     * 2026-08-06) applied to every weekday. See dutyDay.ts.
+     */
+    hoursPerWeek: 13.3,
+    confidence: 'derived',
     note:
-      'A GUESS. Pre-mob is often packed with SRP and admin, so this could easily be 10. ' +
-      'It is the single most load-bearing assumption in the LSAT plan — correct it first.',
+      'Was 25, a guess flagged as the most load-bearing in the plan. The first real ' +
+      'schedule cut it almost in half. A 0440 formation means an 0345 start, which does ' +
+      'not shorten the 05:30 study block — it DELETES it, and that block was half the ' +
+      'weekday plan. What is left is 75 minutes each evening after a 13-hour day, plus ' +
+      'the weekends, which now carry 5.5 of the 13.3 hours. Generalising one range day ' +
+      'to every weekday is a stretch, but a stretch toward the FLOOR: a range day is a ' +
+      'hard day, so this is nearer the worst case than the middle. Raise it with ' +
+      'evidence, not with optimism.',
   },
   {
     key: 'rsoi',

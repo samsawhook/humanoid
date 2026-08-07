@@ -38,8 +38,12 @@ const hm = (h: number, m = 0) => h * 60 + m
  * A deployable default. Deliberately modest — a template you miss every day teaches
  * you to ignore the system, and the first thing this has to earn is trust.
  *
- * Weekday mornings before duty and evenings after are the two blocks that survive
- * both pre-mob and theatre. Weekends carry the long work that needs a run-up.
+ * It used to claim that weekday mornings and evenings "survive both pre-mob and
+ * theatre". The first real published schedule disproved half of that: a 0440 formation
+ * means an 0345 start, and the 05:30 morning block does not shrink, it disappears. It
+ * is kept here anyway rather than deleted, for two reasons — it is real on any day
+ * without a formation, and it should be visible as LOST on the days it dies rather than
+ * quietly absent from a template that never promised it. See dutyDay.ts.
  */
 export const DEFAULT_DAY_TEMPLATE: TemplateBlock[] = [
   {
@@ -49,7 +53,9 @@ export const DEFAULT_DAY_TEMPLATE: TemplateBlock[] = [
     startMinute: hm(5, 30),
     endMinute: hm(7, 0),
     nodeId: 'lsat',
-    purpose: 'Hardest cognitive work before the day can take it from you.',
+    purpose:
+      'Hardest cognitive work before the day can take it from you — on any day the ' +
+      'Army has not already taken it. Erased entirely by a pre-dawn formation.',
   },
   {
     key: 'pm_drill',
@@ -58,7 +64,10 @@ export const DEFAULT_DAY_TEMPLATE: TemplateBlock[] = [
     startMinute: hm(19, 30),
     endMinute: hm(20, 45),
     nodeId: 'lsat',
-    purpose: 'Second pass: drilling and the error log, when fresh thinking is gone.',
+    purpose:
+      'Second pass: drilling and the error log, when fresh thinking is gone. On a duty ' +
+      'day this is not the second block, it is the ONLY one — 75 minutes after a ' +
+      '13-hour day, which is the real weekday capacity rather than the planned one.',
   },
   {
     key: 'admin',

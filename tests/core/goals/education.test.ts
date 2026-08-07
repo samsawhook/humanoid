@@ -102,22 +102,31 @@ describe('capacity segments and the blitz', () => {
   })
 
   it('sums hours across segment boundaries rather than using one flat rate', () => {
-    // Pre-mob alone, 30 days at 25h/wk.
-    expect(hoursBetween('2026-08-05', '2026-09-03')).toBe(107)
+    // Pre-mob alone, 30 days at the DERIVED 13.3h/wk.
+    expect(hoursBetween('2026-08-05', '2026-09-03')).toBe(57)
     // Crossing into RSOI must be less than the same span at the pre-mob rate.
     const crossing = hoursBetween('2026-08-05', '2026-10-07')
-    expect(crossing).toBeGreaterThan(107)
-    expect(crossing).toBeLessThan(Math.round((64 / 7) * 25))
+    expect(crossing).toBeGreaterThan(57)
+    expect(crossing).toBeLessThan(Math.round((64 / 7) * 13.3))
   })
 
-  it('calls October thin and November a real attempt', () => {
+  /**
+   * The whole plan slipped one sitting when the pre-mob guess (25h/wk) was replaced by
+   * a figure derived from a real published schedule (13.3h/wk). A 0440 formation does
+   * not shorten the 05:30 study block, it deletes it — and that block was half the
+   * weekday plan. October is now out entirely and November is the diagnostic.
+   */
+  it('rules October out and makes November the diagnostic, not the attempt', () => {
     const oct = assessSitting(LSAT_DATES.find((a) => a.key === 'oct_2026')!, TODAY)
     const nov = assessSitting(LSAT_DATES.find((a) => a.key === 'nov_2026')!, TODAY)
+    const jan = assessSitting(LSAT_DATES.find((a) => a.key === 'jan_2027')!, TODAY)
 
-    expect(oct.hoursAvailable).toBeLessThan(LSAT_HOURS_FLOOR)
-    expect(oct.verdict).toBe('thin — treat as diagnostic')
-    expect(nov.hoursAvailable).toBeGreaterThanOrEqual(LSAT_HOURS_FLOOR)
-    expect(nov.verdict).toBe('real attempt')
+    expect(oct.verdict).toBe('not viable')
+    expect(nov.hoursAvailable).toBeLessThan(LSAT_HOURS_FLOOR)
+    expect(nov.verdict).toBe('thin — treat as diagnostic')
+    // January is the first sitting with the hours behind it to be worth a real score.
+    expect(jan.hoursAvailable).toBeGreaterThanOrEqual(LSAT_HOURS_FLOOR)
+    expect(jan.verdict).toBe('real attempt')
   })
 
   it('drops November under the floor too if pre-mob is really 10h/wk', () => {
