@@ -15,6 +15,7 @@
 
 import type { Commitment, IanaZone, Item, LocalDate } from '../types'
 import { parseLocalDate, startOfLocalDay } from '../time/localDay'
+import type { CognitiveDemand } from './dayLog'
 
 export interface TemplateBlock {
   key: string
@@ -29,6 +30,16 @@ export interface TemplateBlock {
    * default, because a template of all-null blocks is just a queue with times on it.
    */
   nodeId: string | null
+  /**
+   * How much thinking this block costs.
+   *
+   * Time and attention are different resources, and the first day of real data showed
+   * why it matters: 75 minutes survived the schedule and none became LSAT work, because
+   * after an 0400 start the reported cognitive state was "meh". A block graded `high`
+   * is not available on that day at any length; a `low` one is fine. Without this the
+   * template keeps offering the wrong work and calling the result a discipline problem.
+   */
+  demand: CognitiveDemand
   purpose: string
 }
 
@@ -53,6 +64,7 @@ export const DEFAULT_DAY_TEMPLATE: TemplateBlock[] = [
     startMinute: hm(5, 30),
     endMinute: hm(7, 0),
     nodeId: 'lsat',
+    demand: 'high',
     purpose:
       'Hardest cognitive work before the day can take it from you — on any day the ' +
       'Army has not already taken it. Erased entirely by a pre-dawn formation.',
@@ -64,6 +76,7 @@ export const DEFAULT_DAY_TEMPLATE: TemplateBlock[] = [
     startMinute: hm(19, 30),
     endMinute: hm(20, 45),
     nodeId: 'lsat',
+    demand: 'high',
     purpose:
       'Second pass: drilling and the error log, when fresh thinking is gone. On a duty ' +
       'day this is not the second block, it is the ONLY one — 75 minutes after a ' +
@@ -76,6 +89,12 @@ export const DEFAULT_DAY_TEMPLATE: TemplateBlock[] = [
     startMinute: hm(20, 45),
     endMinute: hm(21, 15),
     nodeId: 'money',
+    /**
+     * Medium, not low. Money admin is not hard thinking but it is unforgiving of
+     * mistakes, and you specifically named admin alongside LSAT as what a tired day
+     * cannot face.
+     */
+    demand: 'medium',
     purpose: 'Paperwork, allocations, the things that rot silently.',
   },
   {
@@ -85,6 +104,7 @@ export const DEFAULT_DAY_TEMPLATE: TemplateBlock[] = [
     startMinute: hm(8, 0),
     endMinute: hm(12, 0),
     nodeId: 'lsat',
+    demand: 'high',
     purpose: 'Full timed practice tests. The only slot long enough for one.',
   },
   {
@@ -94,6 +114,8 @@ export const DEFAULT_DAY_TEMPLATE: TemplateBlock[] = [
     startMinute: hm(9, 0),
     endMinute: hm(10, 30),
     nodeId: null,
+    /** Reviewing is lighter than doing, which is why it survives a bad Sunday. */
+    demand: 'low',
     purpose: 'Error log, week ahead, anything the week dropped.',
   },
 ]

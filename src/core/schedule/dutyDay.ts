@@ -81,7 +81,8 @@ function minutesOf(hhmm: string): number {
  * So the published day is 0440 to unknown, and your day is 0345 to later than that.
  */
 export const M4_RANGE_DAY: DutyDay = {
-  date: '2026-08-06',
+  /** "Tomorrow", sent on the 6th. It was briefly dated 08-06 and collided with RFI day. */
+  date: '2026-08-07',
   label: 'M4 zero range',
   prepMinutes: 55,
   events: [
@@ -116,7 +117,54 @@ export const M4_RANGE_DAY: DutyDay = {
     'a bonus rather than as capacity.',
 }
 
-export const DUTY_DAYS: DutyDay[] = [M4_RANGE_DAY]
+/**
+ * RFI, EST, ECS and DRC — 2026-08-06. Four parallel tracks off one warning order.
+ *
+ * Structurally unlike the range day, and the difference is the whole reason a second
+ * data point was worth having: this one FINISHES. Fielding and equipment set-up ended
+ * in the early afternoon, and the rest of the day was yours. A range day has no such
+ * shape — it ends when the last shooter is off the line.
+ *
+ * So "a pre-mob weekday" is not one thing. Generalising the range day to all five, as
+ * the first pass did, was the pessimistic end of a real spread rather than a fair
+ * average.
+ */
+export const RFI_ECS_DAY: DutyDay = {
+  date: '2026-08-06',
+  label: 'RFI, equipment set-up, DRC',
+  /** Wake was 0400 for an 0500 weapon turn-in: an hour, and you recorded it yourself. */
+  prepMinutes: 60,
+  events: [
+    { at: '05:00', label: 'Weapon turn-in at TOK' },
+    { at: '05:30', label: 'Breakfast chow', note: 'Eat with urgency — the bus line is first-come.' },
+    {
+      at: '06:00',
+      label: 'RFI: load at the bus outside the DFAC',
+      yours: true,
+      note: 'Summer PTs (no company shirts), CAC, water source, empty issued duffle.',
+    },
+    { at: '06:15', label: 'RFI bus departs / EST forms up in the arrival parking lot' },
+    { at: '06:30', label: 'DRC returnees load at the DFAC', note: 'Medical folders and a water source.' },
+    {
+      at: '08:00',
+      label: 'ECS party meets SFC Mortenson at the DFAC bus stop',
+      yours: true,
+      note: 'Assault pack: ACH, gloves, eye and ear pro.',
+    },
+  ],
+  /**
+   * OBSERVED, not published — you slept for an hour or two once RFI and equipment
+   * set-up were done. That puts release in the early afternoon, and it is the first
+   * end time in this file that is not a guess.
+   */
+  endsAt: '13:30',
+  endConfidence: 'estimated',
+  note:
+    'The only day so far with a real end, and it came from your own account rather than ' +
+    'from a schedule. A fielding day finishes; a range day does not.',
+}
+
+export const DUTY_DAYS: DutyDay[] = [RFI_ECS_DAY, M4_RANGE_DAY]
 
 export interface DutyWindow {
   /** Minutes from local midnight. Includes prep, so it is earlier than the formation. */
@@ -222,18 +270,23 @@ export interface WeekCapacity {
 }
 
 /**
- * A representative week, treating every weekday as a duty day of the observed shape.
+ * A representative week, built from every duty-day shape actually observed.
  *
- * That is an assumption and a deliberately blunt one: I have exactly ONE published
- * schedule, and generalising from a single range day to every weekday of pre-mob is a
- * stretch. It is a defensible stretch in one direction only — a range day is a hard
- * day, so this is nearer the floor than the middle. Better a floor you can raise with
- * evidence than a middle nobody measured.
+ * The first version used only the range day, which was the pessimistic end of a real
+ * spread rather than an average: a fielding day finished at 1330 and a range day has no
+ * published end at all. Cycling the observed shapes across the weekdays is still a
+ * generalisation from a tiny sample, but it is at least a generalisation from the
+ * variety rather than from the worst case.
+ *
+ * What it does NOT capture is the finding that mattered more than either shape: on the
+ * one day with an outcome recorded, all 75 surviving minutes were high-demand LSAT
+ * blocks and the day's cognitive ceiling was medium. Time existed; the attention it was
+ * reserved for did not. See dayLog.ts — these hours are a ceiling, not a forecast.
  */
 export function representativeWeek(
   zone: IanaZone,
   weekStart: LocalDate,
-  reference: DutyDay = M4_RANGE_DAY,
+  references: DutyDay[] = [RFI_ECS_DAY, M4_RANGE_DAY],
   template: TemplateBlock[] = DEFAULT_DAY_TEMPLATE,
 ): WeekCapacity {
   const days: DayCapacity[] = []
@@ -245,7 +298,9 @@ export function representativeWeek(
     const dow = new Date(`${date}T00:00:00Z`).getUTCDay()
     const isWeekday = dow >= 1 && dow <= 5
     // Same shape as the observed day, moved onto this date.
-    const asDuty: DutyDay[] = isWeekday ? [{ ...reference, date }] : []
+    // Cycle the observed shapes so the week reflects the spread, not the worst day.
+    const shape = references[i % references.length]!
+    const asDuty: DutyDay[] = isWeekday ? [{ ...shape, date }] : []
     const cap = dayCapacity(zone, date, template, asDuty)
     if (cap.isDutyDay) {
       dutyDayCount++

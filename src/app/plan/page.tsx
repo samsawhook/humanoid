@@ -15,9 +15,12 @@ import { localDaysBetween } from '@/core/time/localDay'
 import { Figure, TableView, Timeline, seriesColor } from '@/components/viz'
 import {
   M4_RANGE_DAY,
+  RFI_ECS_DAY,
+  dayCapacity,
   dutyWindow,
   representativeWeek,
 } from '@/core/schedule/dutyDay'
+import { logFor, usableCapacity, watchedFlags } from '@/core/schedule/dayLog'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,7 +34,13 @@ const STUDY_HOURS = 10
 
 export default function PlanPage() {
   const dutyWin = dutyWindow(M4_RANGE_DAY)
+  const rfiWin = dutyWindow(RFI_ECS_DAY)
   const week = representativeWeek(ZONE, '2026-08-03')
+  const loggedDate = RFI_ECS_DAY.date
+  const logged = logFor(loggedDate)
+  const loggedCap = dayCapacity(ZONE, loggedDate)
+  const usable = usableCapacity(loggedDate, loggedCap.survivingMinutes)
+  const flags = watchedFlags()
   const janTarget = '2027-01-15'
   const usableForJan = administrationsUsableBy(janTarget)
   const oct = LSAT_DATES.find((a) => a.key === 'oct_2026')!
@@ -117,6 +126,89 @@ export default function PlanPage() {
           floor. <strong>November is the first sitting that clears it.</strong>
         </p>
       </div>
+
+      <h2>What actually happened — {loggedDate}</h2>
+      {logged && usable && (
+        <div className="note">
+          <strong>
+            {RFI_ECS_DAY.label}. Up at {logged.wake}, released about{' '}
+            {RFI_ECS_DAY.endsAt} — {rfiWin.hours} hours.
+          </strong>{' '}
+          A fielding day <em>finishes</em>, which a range day does not. That is the first
+          evidence that &ldquo;a pre-mob weekday&rdquo; is not one thing, and it means the
+          earlier figure generalised from the hardest day rather than an average one.
+
+          <table style={{ marginTop: 10 }}>
+            <tbody>
+              <tr>
+                <td>Study time the schedule left free</td>
+                <td style={{ textAlign: 'right' }}>{usable.availableMinutes} min</td>
+              </tr>
+              <tr>
+                <td>What those minutes were reserved for</td>
+                <td style={{ textAlign: 'right' }}>high-demand LSAT</td>
+              </tr>
+              <tr>
+                <td>What the day could actually support</td>
+                <td style={{ textAlign: 'right' }} className="bad">
+                  {usable.ceiling}-demand
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <strong>Usable study time</strong>
+                </td>
+                <td style={{ textAlign: 'right' }} className="bad">
+                  <strong>{usable.supportsHighDemand ? usable.availableMinutes : 0} min</strong>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p style={{ marginTop: 10 }}>
+            <strong>Time available and time usable are different quantities.</strong> The
+            schedule left 75 minutes. You reported cognition as{' '}
+            <em>{logged.cognitive}</em>, low motivation for LSAT or admin — after an{' '}
+            {logged.wake} start. No amount of better arithmetic on those 75 minutes finds
+            that; it is the reason a plan built on clock hours keeps over-promising.
+            Blocks are now graded by how much thinking they cost, so a tired day gets
+            offered admin or review instead of an LSAT section it was never going to do.
+          </p>
+
+          <p style={{ marginTop: 10 }}>
+            <strong>And the time was not wasted.</strong> It went to{' '}
+            {logged.displacedBy.map((d) => d.label.replace(/ \(.*/, '')).join(', ')} — sleep
+            after an 0400 start, training, a run.{' '}
+            {usable.displacementWasChosen
+              ? 'Every one of those was worth doing, so this is not a discipline problem and nothing here treats it as one.'
+              : 'Some of that was not chosen.'}{' '}
+            BJJ at 20:00 sits exactly on the 19:30–20:45 study block, and BJJ is not the
+            thing to move: it is one of very few life-feel items surviving a 13-hour duty
+            day. The block should move instead.
+          </p>
+
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>
+            One day is not a rate. This is recorded to estimate what throughput is
+            realistic and for nothing else — there is deliberately no completion
+            percentage anywhere in this system, and there will not be one.
+          </p>
+        </div>
+      )}
+
+      {flags.length > 0 && (
+        <div className="note">
+          <strong>Flagged from the log</strong>
+          <ul className="tight" style={{ marginTop: 8 }}>
+            {flags.map((f) => (
+              <li key={f.flag.key} className={f.flag.urgent ? 'bad' : 'muted'}>
+                <strong>{f.flag.label}</strong>
+                {f.flag.urgent && ' — ACT THIS WEEK'}
+                <div style={{ fontSize: 12.5 }}>{f.flag.action}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <h2>The typical day, from a real schedule</h2>
       <div className="note">

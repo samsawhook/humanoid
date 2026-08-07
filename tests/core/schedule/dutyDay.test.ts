@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   M4_RANGE_DAY,
+  RFI_ECS_DAY,
   dutyWindow,
   dutyCommitments,
   dutyDayFor,
@@ -41,15 +42,28 @@ describe('a published duty day', () => {
    * One commitment, not seven. Seven with gaps between them would let the scheduler
    * offer the twenty-five minutes between chow and the parking lot as study time.
    */
-  it('occupies the day as a single span rather than as separate events', () => {
-    const c = dutyCommitments(ZONE)
+  it('occupies each day as a single span rather than as separate events', () => {
+    const c = dutyCommitments(ZONE, [M4_RANGE_DAY])
     expect(c).toHaveLength(1)
     expect(c[0]!.title).toMatch(/end unknown/)
+    // Two days recorded now, and only the range day has an unpublished end.
+    expect(dutyCommitments(ZONE)).toHaveLength(2)
   })
 
-  it('finds the day by date and returns null otherwise', () => {
-    expect(dutyDayFor('2026-08-06')).not.toBe(null)
-    expect(dutyDayFor('2026-08-07')).toBe(null)
+  it('finds a day by date and returns null otherwise', () => {
+    expect(dutyDayFor('2026-08-06')?.label).toMatch(/RFI/)
+    expect(dutyDayFor('2026-08-07')?.label).toMatch(/range/i)
+    expect(dutyDayFor('2026-08-08')).toBe(null)
+  })
+
+  /**
+   * A fielding day finishes and a range day does not. Generalising the range day to
+   * every weekday, as the first pass did, took the pessimistic end of a real spread.
+   */
+  it('records that not every duty day has the same shape', () => {
+    expect(dutyWindow(RFI_ECS_DAY).hours).toBeLessThan(dutyWindow(M4_RANGE_DAY).hours)
+    expect(RFI_ECS_DAY.endConfidence).toBe('estimated')
+    expect(M4_RANGE_DAY.endConfidence).toBe('unknown')
   })
 })
 
@@ -60,19 +74,21 @@ describe('what the duty day costs', () => {
    * safe from the Army by happening before the Army.
    */
   it('deletes the morning block outright rather than shortening it', () => {
-    const planned = templateIntervalsFor(ZONE, M4_RANGE_DAY.date, DEFAULT_DAY_TEMPLATE)
+    const planned = templateIntervalsFor(ZONE, RFI_ECS_DAY.date, DEFAULT_DAY_TEMPLATE)
     expect(planned.map((i) => i.block.key)).toContain('am_deep')
 
-    const cap = dayCapacity(ZONE, M4_RANGE_DAY.date)
-    expect(cap.isDutyDay).toBe(true)
-    expect(cap.lost).toContain('Morning deep work — LSAT')
-    // Only the evening drill survives, and only because the day is assumed to end at 17:00.
-    expect(cap.survivingMinutes).toBe(75)
-    expect(cap.survivingMinutes).toBeLessThan(cap.plannedMinutes / 2)
+    // Both shapes, short day and long day alike, lose the same block.
+    for (const day of [RFI_ECS_DAY, M4_RANGE_DAY]) {
+      const cap = dayCapacity(ZONE, day.date)
+      expect(cap.isDutyDay).toBe(true)
+      expect(cap.lost).toContain('Morning deep work — LSAT')
+      expect(cap.survivingMinutes).toBeLessThan(cap.plannedMinutes)
+    }
+    expect(dayCapacity(ZONE, RFI_ECS_DAY.date).survivingMinutes).toBe(75)
   })
 
   it('leaves a non-duty day untouched', () => {
-    const cap = dayCapacity(ZONE, '2026-08-07')
+    const cap = dayCapacity(ZONE, '2026-08-10')
     expect(cap.isDutyDay).toBe(false)
     expect(cap.lost).toEqual([])
     expect(cap.survivingMinutes).toBe(cap.plannedMinutes)

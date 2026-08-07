@@ -351,14 +351,18 @@ export const STUDY_CAPACITY: CapacitySegment[] = [
     hoursPerWeek: 13.3,
     confidence: 'derived',
     note:
-      'Was 25, a guess flagged as the most load-bearing in the plan. The first real ' +
-      'schedule cut it almost in half. A 0440 formation means an 0345 start, which does ' +
+      'Was 25, a guess flagged as the most load-bearing in the plan. Two real schedules ' +
+      'cut it almost in half. A pre-dawn formation means an 0345-0400 start, which does ' +
       'not shorten the 05:30 study block — it DELETES it, and that block was half the ' +
-      'weekday plan. What is left is 75 minutes each evening after a 13-hour day, plus ' +
-      'the weekends, which now carry 5.5 of the 13.3 hours. Generalising one range day ' +
-      'to every weekday is a stretch, but a stretch toward the FLOOR: a range day is a ' +
-      'hard day, so this is nearer the worst case than the middle. Raise it with ' +
-      'evidence, not with optimism.',
+      'weekday plan. What is left is the evening, plus weekends now carrying 5.5 of the ' +
+      '13.3 hours. ' +
+      'TREAT THIS AS A CEILING ON CLOCK HOURS, NOT A FORECAST OF USABLE ONES. On the ' +
+      'one day with an outcome recorded, all 75 surviving minutes were high-demand LSAT ' +
+      'blocks and the day could only support medium-demand work — so the honest count ' +
+      'of usable study time that day was zero, and the displacements (sleep after an ' +
+      '0400 start, BJJ, a run) were all worth making. One observation is not a rate. ' +
+      'See dayLog.ts; the gap between these hours and usable ones is the next thing ' +
+      'worth measuring, and it is more likely to shrink this figure than grow it.',
   },
   {
     key: 'rsoi',
