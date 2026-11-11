@@ -249,23 +249,23 @@ describe('the real plan', () => {
     }
   })
 
-  it('bills the car monthly, on the payday before it is actually due', () => {
-    // $355 a MONTH, due on the 25th — so it is funded from the 15th cheque. Ten days
-    // of margin, rather than paying it three weeks early out of the crowded 1st.
+  it('bills the car monthly, from the cheque that lands when Westlake drafts', () => {
+    // $355 a MONTH, drafted around the 1st (statements: 1 Nov) — the 1st cheque, which
+    // is also the larger of the two.
     for (const a of allocations) {
       const line = a.lines.find((l) => l.key === 'car_payoff')
-      if (line) expect(a.paycheck.scheduledDate.slice(8, 10)).toBe('15')
+      if (line) expect(a.paycheck.scheduledDate.slice(8, 10)).toBe('01')
     }
   })
 
   it('pays the car off to its balance and then stops billing', () => {
     expect(cleared.car_payoff?.paid).toBe(CAR_LOAN_BALANCE)
     // November's payment already drafted, so: December, January, and ~$140 in February.
-    expect(cleared.car_payoff?.clearedOn).toBe('2027-02-15')
+    expect(cleared.car_payoff?.clearedOn).toBe('2027-02-01')
     const nov = allocations.find((a) => a.paycheck.scheduledDate === '2026-11-15')!
     expect(nov.lines.some((l) => l.key === 'car_payoff')).toBe(false)
 
-    const after = allocations.filter((a) => a.paycheck.payDate > '2027-02-15')
+    const after = allocations.filter((a) => a.paycheck.payDate > '2027-02-01')
     expect(after.every((a) => !a.lines.some((l) => l.key === 'car_payoff'))).toBe(true)
   })
 
@@ -388,7 +388,7 @@ describe('the real plan', () => {
   it('runs the waterfall one balance at a time, in the order chosen', () => {
     // Arrears are a scheduled bill now, so the waterfall runs beside them, in order:
     // tolls, a $1,000 cash buffer, the open cards, then the SDP while its window is open.
-    expect(cleared.late_payments?.clearedOn).toBe('2026-11-13')
+    expect(cleared.late_payments?.clearedOn).toBe('2027-02-01')
     // Two assumed emergencies ($4,000) push the open cards a month and take most of the
     // SDP; the buffer is refilled to $1,000 after each draw.
     expect(cleared.open_cards?.clearedOn).toBe('2027-04-15')
@@ -494,8 +494,7 @@ describe('deductions', () => {
    * not forced to it. A drift beyond 2% means a rate or a deduction is wrong.
    */
   it('nets within 2% of the take-home you actually receive', () => {
-    const p = projectPaycheck('2026-12-01')
-    const modelled = p.net * 2
+    const modelled = projectPaycheck('2026-12-01').net + projectPaycheck('2026-12-15').net
     expect(Math.abs(modelled - OBSERVED_NET_MONTHLY) / OBSERVED_NET_MONTHLY).toBeLessThan(0.02)
   })
 
@@ -509,7 +508,10 @@ describe('deductions', () => {
 
   it('subtracts deductions from net, alongside tax', () => {
     const p = projectPaycheck('2026-10-01')
-    expect(p.net).toBeCloseTo(p.gross - p.federalTax - p.fica - p.deductionsTotal, 2)
+    expect(p.net).toBeCloseTo(
+      p.gross - p.federalTax - p.fica - p.deductionsTotal + p.splitAdjustment,
+      2,
+    )
   })
 
   it('takes SGLI in every paycheck, deployed or not', () => {

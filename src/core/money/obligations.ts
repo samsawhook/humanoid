@@ -118,10 +118,10 @@ export const PLAN_AS_OF = '2026-11-11' as const
 export const PLAN_START = '2026-11-15' as const
 
 /**
- * One monthly mortgage payment. $1,387.79 is the October draft to the servicer as
- * Monarch saw it — an observed figure, replacing the "roughly $1,300" estimate.
+ * One monthly mortgage payment: $1,381.79, from the checking statements — five of the
+ * six payments Aug–Nov were exactly this (one was $1,387.79). See statements.ts.
  */
-export const MORTGAGE_PAYMENT = 1387.79
+export const MORTGAGE_PAYMENT = 1381.79
 
 /**
  * Missed payments still to make good, as of PLAN_AS_OF.
@@ -279,17 +279,13 @@ export const OBLIGATIONS: Obligation[] = [
     key: 'car_payoff',
     label: 'Auto loan — payoff',
     /**
-     * $330 a MONTH, not per payday, and DUE ON THE 25th — so it is funded from the
-     * 15th cheque, which leaves ten days of margin instead of paying it three weeks
-     * early from the 1st. That also takes $330 off the 1st, which is the crowded
-     * payday: the mortgage falls there too.
+     * $355 a MONTH, drafted around the 1st — the statements show Westlake pulling on
+     * 1 Nov, after two September drafts covered September and October. Funded from the
+     * 1st cheque, which runs ~$480 larger than the 15th.
      */
     amountPerPaycheck: CAR_PAYMENT,
-    payDays: 'fifteenth',
-    /**
-     * November's $355 already drafted (Monarch, 2026-11), so the 15 November cheque
-     * does not pay it again. First payment from the plan is the 15 December cheque.
-     */
+    payDays: 'first',
+    /** November's $355 drafted on 1 Nov, so the first payment from the plan is 1 Dec. */
     activeFrom: '2026-11-16',
     activeTo: null,
     priority: 20,
@@ -298,7 +294,7 @@ export const OBLIGATIONS: Obligation[] = [
     execution: 'automatic',
     howTo: 'Autopay. On the final payment, confirm it closes the loan rather than leaving $2 behind.',
     note:
-      '$355/mo, due the 25th, paid from the 15th cheque. About $850 left as of ' +
+      '$355/mo, drafted around the 1st. About $850 left as of ' +
       '2026-11-11, capped at the balance, so it clears and then stops: December, ' +
       'January, and a ~$140 final payment in February. SCRA is active on this loan; ' +
       'verify the 6% cap on the statement.',
@@ -411,8 +407,14 @@ export const OBLIGATIONS: Obligation[] = [
   },
   {
     key: 'nth_investments',
-    label: 'Nth Investments',
-    amountPerPaycheck: 500,
+    label: 'Nth Investments (+ $30 wire fee)',
+    /**
+     * $500 sent by outgoing WIRE, and Wells Fargo charges $30 for each one — on the
+     * statements in September, October and November. So it costs $530 to invest $500:
+     * a 6% drag before the money does anything. An ACH transfer would be free; see the
+     * `wire_to_ach` move in briefing.ts.
+     */
+    amountPerPaycheck: 530,
     /** Confirmed 2026-11-11 to be the Bank of America transfer, which posts early in the month. */
     payDays: 'first',
     activeFrom: null,
@@ -544,7 +546,8 @@ export const OBLIGATIONS: Obligation[] = [
      * account, but nothing here forecloses.
      */
     amountPerPaycheck: AVANT_MONTHLY,
-    payDays: 'first',
+    /** Avant drafts around the 20th–23rd (statements), so it is the 15th cheque's bill. */
+    payDays: 'fifteenth',
     activeFrom: null,
     activeTo: null,
     priority: 37,

@@ -38,11 +38,16 @@ export function TrendChart({
   markers = [],
   height = 300,
   ariaLabel,
+  stepped = false,
+  tipTitle = 'Payday',
 }: {
   series: TrendSeries[]
   markers?: TrendMarker[]
   height?: number
   ariaLabel: string
+  /** Draw as a step line — right for a balance, which holds until the next posting. */
+  stepped?: boolean
+  tipTitle?: string
 }) {
   const ref = useRef<SVGSVGElement>(null)
   const [hover, setHover] = useState<number | null>(null)
@@ -62,11 +67,15 @@ export function TrendChart({
   const t1 = t(dates[dates.length - 1]!)
   const x = (d: string) => padL + ((t(d) - t0) / Math.max(1, t1 - t0)) * plotW
 
-  const max = Math.max(1, ...series.flatMap((s) => s.points.map((p) => p.value)))
-  const step = niceStep(max / 4)
+  const values = series.flatMap((s) => s.points.map((p) => p.value))
+  const max = Math.max(1, ...values)
+  const min = Math.min(0, ...values)
+  const step = niceStep((max - min) / 4)
   const top = Math.ceil(max / step) * step
-  const y = (v: number) => padT + plotH - (v / top) * plotH
-  const ticks = Array.from({ length: Math.round(top / step) + 1 }, (_, i) => i * step)
+  const bottom = Math.floor(min / step) * step
+  const y = (v: number) => padT + plotH - ((v - bottom) / (top - bottom)) * plotH
+  const ticks = Array.from({ length: Math.round((top - bottom) / step) + 1 }, (_, i) => bottom + i * step)
+  const below = bottom < 0
 
   const months: string[] = []
   {
@@ -122,12 +131,21 @@ export function TrendChart({
       >
         {ticks.map((v) => (
           <g key={v}>
-            <line x1={padL} x2={padL + plotW} y1={y(v)} y2={y(v)} stroke="var(--grid)" strokeWidth={v === 0 ? 1 : 0.6} />
+            <line x1={padL} x2={padL + plotW} y1={y(v)} y2={y(v)} stroke={v === 0 && below ? 'var(--muted)' : 'var(--grid)'} strokeWidth={v === 0 ? 1.2 : 0.6} />
             <text x={padL - 8} y={y(v) + 3.5} textAnchor="end">
-              {v >= 1000 ? `$${v / 1000}k` : `$${v}`}
+              {v < 0 ? '−' : ''}
+              {Math.abs(v) >= 1000 ? `$${Math.abs(v) / 1000}k` : `$${Math.abs(v)}`}
             </text>
           </g>
         ))}
+        {below && (
+          <g>
+            <rect x={padL} y={y(0)} width={plotW} height={y(bottom) - y(0)} fill="var(--status-crit)" opacity={0.07} />
+            <text x={padL + 6} y={y(bottom) - 6} style={{ fill: 'var(--status-crit)', fontWeight: 600 }}>
+              ⚠ below zero — no overdraft protection
+            </text>
+          </g>
+        )}
         {months.map((m) => (
           <text key={m} x={x(m)} y={height - 10} textAnchor="middle">
             {new Date(m + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })}
@@ -156,7 +174,15 @@ export function TrendChart({
           )}
 
         {series.map((s) => {
-          const d = s.points.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(p.date)},${y(p.value)}`).join(' ')
+          const d = s.points
+            .map((p, i) =>
+              i === 0
+                ? `M${x(p.date)},${y(p.value)}`
+                : stepped
+                  ? `H${x(p.date)} V${y(p.value)}`
+                  : `L${x(p.date)},${y(p.value)}`,
+            )
+            .join(' ')
           const lastP = s.points[s.points.length - 1]!
           return (
             <g key={s.key}>
@@ -186,7 +212,7 @@ export function TrendChart({
 
       {hover !== null && (
         <div className="tip" style={{ left: `${(hx / width) * 100}%`, top: 4 }}>
-          <div style={{ fontWeight: 650, marginBottom: 4 }}>Payday {shortDate(dates[hover]!)}</div>
+          <div style={{ fontWeight: 650, marginBottom: 4 }}>{tipTitle} {shortDate(dates[hover]!)}</div>
           {series.map((s) => (
             <div className="row" key={s.key}>
               <span>

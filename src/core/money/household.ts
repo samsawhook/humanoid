@@ -342,7 +342,7 @@ export const DEPLOYED_ACTUALS: ObservedCategory[] = [
     key: 'entertainment',
     label: 'Entertainment and travel',
     monthly: 70,
-    basis: 'Sep $11, Oct $133 (Amman, Dubai). Leave or R&R will move this.',
+    basis: 'Sep $11, Oct $133 (pass days). Leave or R&R will move this.',
   },
   {
     key: 'business',

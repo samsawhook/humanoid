@@ -15,7 +15,15 @@ import {
   formatLocalDate,
   parseLocalDate,
 } from '../time/localDay'
-import { DEDUCTIONS, ENTITLEMENTS, TAX, TIMELINE, type Deduction, type Entitlement } from './rates'
+import {
+  DEDUCTIONS,
+  ENTITLEMENTS,
+  FIRST_OF_MONTH_SHARE,
+  TAX,
+  TIMELINE,
+  type Deduction,
+  type Entitlement,
+} from './rates'
 
 export interface PaycheckLine {
   key: string
@@ -42,6 +50,8 @@ export interface Paycheck {
   taxableGross: number
   federalTax: number
   fica: number
+  /** Moves money between the 1st and the 15th to match DFAS's uneven split. Sums to zero over a month. */
+  splitAdjustment: number
   /** Money paid and then taken back — meal collection, and later SGLI, TSP and the rest. */
   deductions: PaycheckDeduction[]
   deductionsTotal: number
@@ -170,6 +180,12 @@ export function projectPaycheck(
   const federalTax = czte ? 0 : round2(taxableGross * TAX.effectiveFederalRate)
   const fica = round2(ficaBase * TAX.ficaRate)
 
+  // DFAS pays more on the 1st than the 15th (observed, see FIRST_OF_MONTH_SHARE). Shift
+  // the difference between the two halves of the month; the month's total is unchanged.
+  const evenNet = gross - federalTax - fica - deductionsTotal
+  const shift = czte ? evenNet * 2 * (FIRST_OF_MONTH_SHARE - 0.5) : 0
+  const splitAdjustment = round2(Number(scheduled.slice(8, 10)) === 1 ? shift : -shift)
+
   return {
     payDate: shiftToBusinessDay(scheduled),
     scheduledDate: scheduled,
@@ -182,7 +198,8 @@ export function projectPaycheck(
     fica,
     deductions,
     deductionsTotal,
-    net: round2(gross - federalTax - fica - deductionsTotal),
+    splitAdjustment,
+    net: round2(gross - federalTax - fica - deductionsTotal + splitAdjustment),
     czte,
   }
 }

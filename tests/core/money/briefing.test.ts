@@ -73,9 +73,10 @@ describe('moves', () => {
     }
   })
 
-  it('counts Nth as yours either way — pausing it is worth only the extra SDP interest', () => {
+  it('counts Nth as yours either way — pausing it gains the SDP interest and the wire fees', () => {
     const nth = impacts.find((i) => i.move.key === 'nth_to_sdp')!
-    expect(nth.delta).toBeCloseTo(nth.outcome.sdpInterest - base.sdpInterest, 0)
+    const wires = base.allocations.filter((a) => a.lines.some((l) => l.key === 'nth_investments')).length
+    expect(nth.delta).toBeCloseTo(nth.outcome.sdpInterest - base.sdpInterest + wires * 30, 0)
   })
 
   it('values all moves together by re-running, not by adding', () => {

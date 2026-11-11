@@ -220,6 +220,15 @@ export const DEDUCTIONS: Deduction[] = [
  */
 export const OBSERVED_NET_MONTHLY = 7500
 
+/**
+ * The 1st cheque is bigger than the 15th — about 53% of the month lands on the 1st
+ * (Oct: $3,958 / $3,491; Nov: $4,005 / $3,491, from the statements). The model splits
+ * a month's net evenly, so this shifts the difference from the 15th to the 1st once
+ * the deployed pay settled (CZTE onward). Monthly totals are unchanged. Checked against
+ * `observedFirstShare()` in statements.ts by a test.
+ */
+export const FIRST_OF_MONTH_SHARE = 0.532
+
 export const TAX = {
   /**
    * Effective federal income tax rate on taxable pay outside CZTE. A blunt instrument

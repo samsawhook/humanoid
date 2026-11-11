@@ -38,6 +38,9 @@ import { TIMELINE } from './rates'
 
 export const BRIEFING_END: LocalDate = '2027-08-01'
 
+/** What each Nth transfer actually invests; anything above it is a transfer fee. */
+const NTH_PRINCIPAL = 500
+
 /** Chase is paid on an agreement with no cap, so its balance is tracked here. */
 const CHASE_BALANCE = DEBTS.find((d) => d.key === 'chase')!.balance
 
@@ -114,7 +117,17 @@ export function runPlan(inputs: PlanInputs = BASE_INPUTS, end: LocalDate = BRIEF
   const emergencyFund = Math.max(0, cleared.emergency_fund?.paid ?? 0)
   const checking = allocations[allocations.length - 1]?.remainder ?? 0
   const lawFund = sumLines(allocations, (k) => k === 'future_fund')
-  const invested = sumLines(allocations, (k) => k === 'nth_investments')
+  // What actually reaches the investment — not the $30 wire fee that rides along with it.
+  const invested = round2(
+    allocations.reduce(
+      (t, a) =>
+        t +
+        a.lines
+          .filter((l) => l.key === 'nth_investments')
+          .reduce((u, l) => u + Math.min(l.allocated, NTH_PRINCIPAL), 0),
+      0,
+    ),
+  )
   const comingHomeCash = round2(emergencyFund + checking + lawFund + sdp.payout)
 
   return {
@@ -172,6 +185,15 @@ const trimSpending = (monthly: number) => (inputs: PlanInputs) =>
   }))
 
 export const MOVES: Move[] = [
+  {
+    key: 'wire_to_ach',
+    label: 'Send Nth by ACH, not wire',
+    action:
+      'Every Nth transfer goes out as a wire, and Wells Fargo charges $30 each time. Ask the ' +
+      'recipient for ACH details, or push it from the Bank of America side, and it is free.',
+    basis: 'computed',
+    apply: (i) => adjust(i, 'nth_investments', (o) => ({ ...o, amountPerPaycheck: 500 })),
+  },
   {
     key: 'tolls_paid',
     label: 'Tolls already paid',

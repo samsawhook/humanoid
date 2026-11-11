@@ -430,9 +430,35 @@ in. Debt interest is not modelled, and the page says so.
   from cash.
 - Spouse works: the EITC combat-pay election is not in play. Removed.
 
----
+## Round 6 — 2026-11-11, the checking statements
 
-# Seed context — as of 2026-08-05
+Four Wells Fargo checking statements (8 Jul – 6 Nov) were transcribed into
+`statements.ts`: daily balances and DFAS deposits only — no account numbers, no
+merchant locations.
+
+### D21. Calibrated from the statements
+
+| Fact | Was | Now |
+|---|---|---|
+| Mortgage payment | $1,387.79 (Monarch) | $1,381.79 — five of six payments |
+| Catch-up | 2 left | confirmed: 6 payments Aug–Nov against 4 due |
+| Car draft | the 15th | the 1st (Westlake, 1 Nov) |
+| Avant draft | the 1st | the 15th cheque (drafts ~20th–23rd); current since 1 Sep |
+| Nth | $500 | $530 — sent by wire, $30 fee each time |
+| Paycheck split | even | 1st ≈ 53% of the month (`FIRST_OF_MONTH_SHARE`) |
+
+### D22. Findings put in front of you, not modelled away
+
+- **Checking goes below zero before most paydays** — 8 dips Aug–Oct, worst −$2,715.61,
+  no overdraft protection. Timing, not money: transfers home and mortgage checks leave
+  1–4 days before the paycheck that funds them.
+- **No payments to Chase, Citi or Capital One** appear in four months. The plan still
+  assumes them; you confirm where they are paid.
+- **No toll payments** appear after the back pay landed; the $1,100 stays in the plan.
+- **VA compensation** was paid for days on active duty — an overpayment to head off.
+- Merchant locations scrubbed from the code (operational security).
+
+
 
 Facts to build the initial tree from. Not schema; input.
 
