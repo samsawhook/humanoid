@@ -29,6 +29,7 @@ import type { WindfallClaim } from './windfall'
 import { backPay, EXPECTED_BACK_PAY } from './drillPay'
 import { TIMELINE } from './rates'
 import { householdTotals, deployedActualsTotal, SENT_HOME } from './household'
+import { SDP_CAP, SDP_LAST_DEPOSIT } from './sdp'
 import { DEBTS, scheduledDebts, openDebts, totalBalance, totalMinimums } from './debts'
 
 /**
@@ -40,6 +41,12 @@ const HOME = householdTotals('home')
 
 /** One month of household running costs. Capped, so it completes rather than billing forever. */
 export const EMERGENCY_FUND_TARGET = 4500
+/**
+ * The first slice of it, ahead of the open cards. Last year's arrears started with no
+ * cash at all: one bad month had nowhere to land. $1,000 in cash is the cheapest
+ * insurance in this file, and it comes before anything that chases a return.
+ */
+export const STARTER_BUFFER = 1000
 
 /**
  * The three accounts that are genuinely still open — the only balances that carry a
@@ -646,6 +653,26 @@ export const OBLIGATIONS: Obligation[] = [
       'is a separate line at the top of the file; missing that adds a month back.',
   },
   {
+    key: 'emergency_starter',
+    label: 'Cash buffer — first $1,000',
+    amountPerPaycheck: 0,
+    sweep: true,
+    payDays: 'both',
+    activeFrom: null,
+    activeTo: null,
+    priority: 47,
+    kind: 'savings',
+    target: true,
+    balanceCap: STARTER_BUFFER,
+    /** The first slice of the emergency fund: one balance, filled in two stages. */
+    capGroup: 'emergency_fund',
+    execution: 'manual',
+    howTo: 'A savings account with no card attached. Not the SDP — this has to be reachable tonight.',
+    note:
+      'Liquidity before yield. Every other line below is worth more on paper; none of ' +
+      'them helps the night something breaks.',
+  },
+  {
     key: 'debt_paydown_open',
     label: 'Unsecured debt — open accounts',
     amountPerPaycheck: 0,
@@ -668,8 +695,32 @@ export const OBLIGATIONS: Obligation[] = [
       'emergency fund rather than behind it: it is over quickly.',
   },
   {
+    key: 'sdp',
+    label: 'Savings Deposit Program — 10%, deployed only',
+    amountPerPaycheck: 0,
+    sweep: true,
+    payDays: 'both',
+    activeFrom: null,
+    /** Deposits close when you leave theatre. A window, not a deadline. */
+    activeTo: SDP_LAST_DEPOSIT,
+    priority: 55,
+    kind: 'savings',
+    target: true,
+    balanceCap: SDP_CAP,
+    execution: 'manual',
+    howTo:
+      'Start an SDP allotment in myPay (or deposit at finance) and set it to whatever ' +
+      'this line shows. Confirm eligibility with finance before the first deposit.',
+    note:
+      '10% guaranteed, up to $10,000, compounded quarterly — only while deployed. Ahead ' +
+      'of the rest of the emergency fund and the closed cards because those can be done ' +
+      'any time and this cannot. It pays itself out within 120 days of leaving theatre, ' +
+      'which is when the deployment pay stops: the SDP becomes the cash for coming home. ' +
+      'See sdp.ts.',
+  },
+  {
     key: 'emergency_fund',
-    label: 'Emergency fund — rebuild to one month',
+    label: 'Emergency fund — rest of one month',
     amountPerPaycheck: 0,
     sweep: true,
     payDays: 'both',
@@ -680,6 +731,7 @@ export const OBLIGATIONS: Obligation[] = [
     /** Still a figure I picked rather than a balance anyone is owed. */
     target: true,
     balanceCap: EMERGENCY_FUND_TARGET,
+    capGroup: 'emergency_fund',
     execution: 'manual',
     howTo: 'Move to a separate account you do not carry a card for.',
     note:

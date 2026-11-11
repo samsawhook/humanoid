@@ -28,6 +28,7 @@ import {
 } from '@/core/money/obligations'
 import { DEPLOYED_ACTUALS, deployedActualsTotal, SENT_HOME } from '@/core/money/household'
 import { OBSERVED_NET_MONTHLY } from '@/core/money/rates'
+import { projectSdp, SDP_CAP } from '@/core/money/sdp'
 import { RETIREMENT_ACCOUNTS } from '@/core/money/lawschool'
 import { ENTITLEMENTS, TAX, TIMELINE } from '@/core/money/rates'
 import { SCRA_INTEREST_CAP, SCRA_TARGETS, SCRA_EXCLUDED } from '@/core/money/debts'
@@ -72,6 +73,8 @@ const COLOR: Record<string, string> = {
   avant_past_due: seriesColor(10),
   late_payments: seriesColor(11),
   emergency_fund: seriesColor(8),
+  emergency_starter: seriesColor(8),
+  sdp: seriesColor(1),
   mortgage_arrears: 'var(--accent)',
   arrears_catchup_payment: 'var(--accent)',
   future_fund: 'var(--series-rest)',
@@ -88,6 +91,13 @@ export default function MoneyPage() {
     0,
   )
   const closingBuffer = allocations[allocations.length - 1]?.remainder ?? 0
+  const sdp = projectSdp(
+    allocations.flatMap((a) =>
+      a.lines
+        .filter((l) => l.key === 'sdp' && l.allocated > 0)
+        .map((l) => ({ date: a.paycheck.payDate, amount: l.allocated })),
+    ),
+  )
   /**
    * Not the fifteen individual transfers — the four dates the delinquency count drops.
    * The balance is a means; the count of missed payments is what the servicer acts on.
@@ -204,6 +214,12 @@ export default function MoneyPage() {
           sub={`${usd0(CAR_LOAN_BALANCE)} balance`}
         />
         <Card
+          k="SDP at 10%"
+          v={usd0(sdp.payout)}
+          tone="good"
+          sub={`${usd0(sdp.deposited)} in, ${usd0(sdp.interest)} interest — paid out after you leave`}
+        />
+        <Card
           k="Arrears cured"
           v={cleared.mortgage_arrears?.clearedOn ?? 'not within horizon'}
           tone={cleared.mortgage_arrears?.clearedOn ? 'good' : 'bad'}
@@ -248,8 +264,9 @@ export default function MoneyPage() {
         <strong>Below the bills, nothing asks for an amount — each line takes everything.</strong>{' '}
         Steady-state slack after every committed bill is about{' '}
         <strong>{usd0(steadySlack)} a month</strong>, and all of it goes to one balance at
-        a time, in this order: tolls and late fees, then the three open cards, then the
-        emergency fund, then the closed balances, then the law-school fund. The mortgage
+        a time, in this order: tolls and late fees, a $1,000 cash buffer, the three open
+        cards, the SDP while you are deployed, the rest of the emergency fund, the closed
+        balances, then the law-school fund. The mortgage
         catch-up is not in this queue — it is a scheduled bill above it. A line clears and vanishes, and
         the whole flow moves to the next.
       </div>
@@ -322,21 +339,44 @@ export default function MoneyPage() {
         </p>
       </div>
 
-      <h2>Still open</h2>
+      <h2>The moves, ranked by what they are worth</h2>
       <div className="note">
-        <strong>1. Roth TSP while the pay is tax-free.</strong>{' '}
-        {RETIREMENT_ACCOUNTS.map((a) => `${a.label}: ${usd0(a.amount)}`).join('; ')}. Pay
-        earned under CZTE is excluded from federal income tax, and Roth TSP contributions
-        made from it come out tax-free in retirement too — the only money that is never
-        taxed at either end. CZTE also lifts the cap: the ordinary elective-deferral
-        limit no longer binds, only the much higher annual-additions limit. The
-        You contribute 5% for the full match, and the paycheck model deducts it. Check that
-        it is going to <em>Roth</em> TSP while you are in the zone; anything you can put in
-        above 5% before you come home is the cheapest retirement money you will ever have.
+        Two rules decide the order. <strong>The deployment is a window</strong>: anything
+        that can only be done inside it outranks anything that can be done later.{' '}
+        <strong>Liquidity before yield</strong>: last year&rsquo;s arrears began with no
+        cash at all, so the first $1,000 sits in cash before any line chases a return.
       </div>
 
       <div className="note">
-        <strong>2. SCRA interest-cap requests — confirm they were filed.</strong> Caps
+        <strong>1. Open an SDP allotment — this month.</strong> The Savings Deposit
+        Program pays a guaranteed <strong>10%</strong>, compounded quarterly, on up to{' '}
+        {usd0(SDP_CAP)}, and only while you are deployed. Nothing else risk-free comes
+        close — a high-yield savings account pays well under half of it. The waterfall sends it everything after the tolls, the
+        cash buffer and the open cards: {usd0(sdp.deposited)} by the time you leave,
+        worth about <strong>{usd0(sdp.payout)}</strong> when DFAS pays it out — within
+        120 days of leaving theatre, interest running until {sdp.accrualEnds}. That
+        timing is the point: it lands exactly when the deployment pay stops, so the SDP
+        is the cushion for coming home, earning 10% while it waits. Set it up in myPay
+        or at finance, and confirm eligibility with them first.
+      </div>
+
+      <div className="note">
+        <strong>2. Point your 5% TSP at Roth — costs nothing.</strong>{' '}
+        {RETIREMENT_ACCOUNTS.map((a) => `${a.label}: ${usd0(a.amount)}`).join('; ')}. Pay
+        earned under CZTE is never federally taxed. Contributed to <em>Roth</em> TSP, the
+        growth comes out tax-free too; contributed to traditional, the contribution is
+        tax-free but the growth is taxed on the way out. Same paycheck, same match, and
+        the only change is which side it lands on — a permanent tax saving for one
+        setting in myPay. The match itself always goes to traditional; that is normal.
+        <p style={{ marginTop: 8 }} className="muted">
+          Not more than 5% yet. Above the match, TSP money is locked up until retirement,
+          and you have law school ahead and no reserve behind you. Fill the buffer and the
+          SDP first; revisit it once those are full.
+        </p>
+      </div>
+
+      <div className="note">
+        <strong>3. Confirm the SCRA letters went out — it decides the order below.</strong> Caps
         interest at {Math.round(SCRA_INTEREST_CAP * 100)}% on every debt incurred before
         active duty began. Three things make this worth an afternoon:{' '}
         <strong>it is retroactive to 2026-07-31</strong>, so filing late still recovers
@@ -373,6 +413,48 @@ export default function MoneyPage() {
           Mortgage and auto already have SCRA active — verify the cap actually appears on
           a statement rather than assuming the request was processed. Not legal advice.
         </p>
+        <p style={{ marginTop: 8 }}>
+          <strong>Why it sets the order.</strong> The SDP pays 10%. A closed card capped
+          at 6% costs less to carry than the SDP pays, so the SDP comes first and Citi and
+          Capital One wait — only their minimums go out — until it pays out. A card still
+          at a subprime 25% is the other way round. If a letter was never sent, send it;
+          if a creditor refuses the cap, that card moves ahead of the SDP in
+          obligations.ts.
+        </p>
+      </div>
+
+      <div className="note">
+        <strong>4. Tax season: you get extra time, and one choice to make.</strong> CZTE
+        extends your filing deadline until 180 days after you leave the zone, so there is
+        no April rush. The choice: you may <em>elect</em> to count tax-free combat pay as
+        earned income for the Earned Income Tax Credit. With nearly all of 2027&rsquo;s
+        pay excluded, that election can be worth a lot to a family — or nothing — so run
+        the return both ways and keep the better one. MilTax (Military OneSource) does
+        this free. The same rule makes combat pay count as compensation for an IRA, so a
+        Roth IRA is open to you even in a year with almost no taxable income.
+      </div>
+
+      <div className="note">
+        <strong>5. Subscriptions: {usd0(225)}/mo and climbing.</strong> September $117,
+        October $226, November $255 by the 10th. Hugedomains alone is $99.79 a month —
+        about $1,200 a year. If that is a payment plan on a domain you want, find the
+        balance and the end date; if not, it is the biggest saving available in your own
+        spending. Every $100/mo cut is $100/mo more into the SDP at 10%.
+      </div>
+
+      <div className="note">
+        <strong>6. Phone: {usd0(173)}/mo.</strong> SCRA lets you suspend or end a phone
+        contract on deployment orders of 90 days or more, and T-Mobile has a military
+        suspension. If your own line sits idle in theatre, suspend that line; leave the
+        family lines alone.
+      </div>
+
+      <div className="note muted">
+        <strong>What I would not do.</strong> Do not prepay the mortgage once it is
+        current — at a mortgage rate it is the cheapest debt you have. Do not touch
+        Goldman or PSECU; a payment can restart the limitations clock. Do not raise TSP
+        above 5% until the buffer and the SDP are full. And do not let a payday&rsquo;s
+        sweep sit in checking: if it does not move the day it lands, it gets spent.
       </div>
 
       <h2>Sources of funds</h2>

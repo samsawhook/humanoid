@@ -374,6 +374,33 @@ two drift more than 2% apart — declared vs demonstrated, as in D1.
 The arrears sweep is gated off until after the scheduled catch-up: you pay in whole
 payments, and letting it send partials turned January's payment into $50.
 
+## Round 4 — 2026-11-11, optimisation pass
+
+### D15. Two rules order the waterfall: windows first, liquidity before yield
+
+The deployment is a window (CZTE, IDP, the SDP), so anything that can only be done
+inside it outranks anything that can be done at home. But last year's arrears began
+with zero cash, so a small cash buffer precedes every line that chases a return.
+
+New order: tolls → **$1,000 cash buffer** → open cards → **SDP to $10,000** →
+rest of the emergency fund → closed cards → law school.
+
+### D16. The Savings Deposit Program is in the plan
+
+10% guaranteed, compounded quarterly, up to $10,000, deposits only while in theatre,
+interest for 90 days after leaving, paid out within 120 days (`sdp.ts`). It sits
+ahead of the closed cards **on the assumption that SCRA caps them at 6%** — a 10%
+return beats a 6% debt. If a creditor refused the cap, that card moves ahead of the
+SDP. Projected: ~$7,050 deposited by departure, ~$7,360 paid out — landing as the
+deployment pay stops, which makes it the cushion for coming home.
+
+### D17. Recommendations made, not modelled
+
+Roth TSP for the existing 5% (no cash cost); no TSP above 5% until buffer and SDP are
+full; combat-pay EITC election run both ways at tax time; subscriptions audit
+(Hugedomains $99.79/mo); suspend an idle phone line under SCRA. None changes a figure
+in the plan until you act on it.
+
 ---
 
 # Seed context — as of 2026-08-05

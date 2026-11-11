@@ -387,11 +387,13 @@ describe('the real plan', () => {
    */
   it('runs the waterfall one balance at a time, in the order chosen', () => {
     // Arrears are a scheduled bill now, so the waterfall runs beside them, in order:
-    // tolls, then the open cards, then the reserve, then the closed balances.
+    // tolls, a $1,000 cash buffer, the open cards, then the SDP while its window is open.
     expect(cleared.late_payments?.clearedOn).toBe('2026-11-13')
     expect(cleared.open_cards?.clearedOn).toBe('2027-03-15')
-    expect(cleared.emergency_fund?.clearedOn).toBe('2027-05-14')
-    // The closed balances are reached by the sweep before you come home, not cleared.
+    expect(cleared.emergency_fund?.paid).toBe(1000)
+    expect(cleared.sdp!.paid).toBeGreaterThan(7000)
+    // The rest of the reserve and the closed balances wait until you are home — the SDP
+    // payout funds them then. Closed-card minimums are still paid as bills throughout.
     expect(cleared.closed_cards?.clearedOn).toBe(null)
     expect(cleared.closed_cards!.paid).toBeGreaterThan(0)
   })
@@ -430,6 +432,7 @@ describe('the real plan', () => {
     const ORDER: { line: string; pool: string }[] = [
       { line: 'mortgage_arrears', pool: 'mortgage_arrears' },
       { line: 'debt_paydown_open', pool: 'open_cards' },
+      { line: 'sdp', pool: 'sdp' },
       { line: 'emergency_fund', pool: 'emergency_fund' },
       { line: 'debt_paydown_closed', pool: 'closed_cards' },
     ]
