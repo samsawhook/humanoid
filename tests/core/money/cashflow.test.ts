@@ -394,7 +394,10 @@ describe('the real plan', () => {
     // SDP; the buffer is refilled to $1,000 after each draw.
     expect(cleared.open_cards?.clearedOn).toBe('2027-04-30')
     expect(cleared.emergency_fund?.paid).toBe(1000)
-    expect(cleared.sdp!.paid).toBeGreaterThan(1000) // ~$1,450 after Christmas and two emergencies
+    // The boat ($2,250) sits between the open cards and the SDP, so it is funded first;
+    // after Christmas and two emergencies it reaches ~$1,200, and the SDP gets the rest.
+    expect(cleared.boat!.paid).toBeGreaterThan(1000)
+    expect(cleared.sdp!.paid).toBeGreaterThan(0)
     // The rest of the reserve and the closed balances wait until you are home — the SDP
     // payout funds them then. Closed-card minimums are still paid as bills throughout.
     expect(cleared.closed_cards?.clearedOn).toBe(null)

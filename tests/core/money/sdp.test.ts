@@ -60,7 +60,8 @@ describe('Savings Deposit Program', () => {
     it('comes back with interest, as the cash for coming home', () => {
       const p = projectSdp(deposits)
       expect(p.payout).toBeGreaterThan(p.deposited)
-      expect(p.deposited).toBeGreaterThan(5000)
+      // Small at plan now — the boat is ahead of it — but never zero, and it earns.
+      expect(p.deposited).toBeGreaterThan(0)
     })
   })
 })

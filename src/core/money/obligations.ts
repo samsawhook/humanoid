@@ -52,6 +52,12 @@ export const STARTER_BUFFER = 1000
 export const CHRISTMAS_BUDGET = 500
 
 /**
+ * Boat restoration still to pay. "$3k total including the $750" (your estimate,
+ * 2026-11-11; engine $2,000) — $750 already went to Lee in August and September.
+ */
+export const BOAT_PROJECT = 3000 - 750
+
+/**
  * The three accounts that are genuinely still open — the only balances that carry a
  * credit line and therefore the only ones where paying down moves utilisation.
  */
@@ -756,6 +762,35 @@ export const OBLIGATIONS: Obligation[] = [
       'Capped at the real balance of the open accounts, so it clears and stops. ' +
       'Smaller than it looks — which is the argument for putting it ahead of the ' +
       'emergency fund rather than behind it: it is over quickly.',
+  },
+  {
+    key: 'boat',
+    label: 'Boat — ready for when you are home',
+    amountPerPaycheck: 0,
+    sweep: true,
+    payDays: 'both',
+    /**
+     * Starts after the catch-up: December and January carry two mortgage payments and
+     * Christmas, and there is nothing to spare. Stops at departure — the point is that
+     * it is done when you land.
+     */
+    activeFrom: '2027-01-16',
+    activeTo: '2027-07-31',
+    /**
+     * After the open cards, before the SDP. Your priority: a friend is rebuilding it
+     * "here and there", and it should be ready when you are home. Swap this below the
+     * SDP (55) if the 10% matters more to you than the timing.
+     */
+    priority: 52,
+    kind: 'living',
+    /** A project you chose, not a debt — underfunding it moves a date, misses nothing. */
+    target: true,
+    balanceCap: BOAT_PROJECT,
+    execution: 'manual',
+    howTo: 'Pay Lee as the work is done — the engine ($2,000) first. Not ahead of the work.',
+    note:
+      '$3,000 all in, your estimate 2026-11-11 (engine $2,000), of which $750 is already ' +
+      'paid (Aug $500, Sep $250) — so $2,250 to go, paid as the work happens.',
   },
   {
     key: 'sdp',

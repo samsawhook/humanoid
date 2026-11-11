@@ -447,6 +447,15 @@ export function Briefing() {
             { key: 'catchup', label: 'Mortgage catch-up', start: PLAN_AS_OF, end: base.mortgageCurrent ?? HORIZON.end, color: BUCKET_COLOR.housing },
             { key: 'car', label: 'Car loan', start: PLAN_AS_OF, end: base.carPaidOff ?? HORIZON.end, color: BUCKET_COLOR.debt },
             { key: 'cards', label: 'Open cards', start: PLAN_AS_OF, end: base.openCardsClear ?? HORIZON.end, color: BUCKET_COLOR.debt },
+            {
+              key: 'boat',
+              label: base.boatDone ? 'Boat ready' : `Boat ($${Math.round(base.boatFunded)} of $2,250)`,
+              start: '2027-01-16',
+              end: base.boatDone ?? HORIZON.end,
+              color: BUCKET_COLOR.you,
+              estimated: !base.boatDone,
+              note: base.boatDone ? undefined : 'Not fully funded by homecoming at plan; the easy savings finish it.',
+            },
             { key: 'sdp', label: 'SDP deposits', start: PLAN_AS_OF, end: SDP_LAST_DEPOSIT, color: BUCKET_COLOR.save },
             {
               key: 'sdp_tail',

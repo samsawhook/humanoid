@@ -72,7 +72,16 @@ export interface Outcome {
   comingHomeCash: number
   /** Payable debts left at the end — not Goldman/PSECU, not mortgage principal. */
   debtLeft: number
-  /** comingHomeCash + invested − debtLeft. The one number moves are scored on. */
+  /** Paid toward the boat project. Money into something you keep, not consumption. */
+  boatFunded: number
+  /** When the boat project is fully paid, if it is. */
+  boatDone: LocalDate | null
+  /**
+   * comingHomeCash + invested + boatFunded − debtLeft. The one number moves are scored on.
+   *
+   * The boat counts because a move's freed money now lands there first: scoring it as
+   * spending made every saving look worthless the moment the boat existed.
+   */
   netPosition: number
 }
 
@@ -129,6 +138,7 @@ export function runPlan(inputs: PlanInputs = BASE_INPUTS, end: LocalDate = BRIEF
     ),
   )
   const comingHomeCash = round2(emergencyFund + checking + lawFund + sdp.payout)
+  const boatFunded = sumLines(allocations, (k) => k === 'boat')
 
   return {
     allocations,
@@ -146,7 +156,9 @@ export function runPlan(inputs: PlanInputs = BASE_INPUTS, end: LocalDate = BRIEF
     invested,
     comingHomeCash,
     debtLeft,
-    netPosition: round2(comingHomeCash + invested - debtLeft),
+    boatFunded,
+    boatDone: cleared.boat?.clearedOn ?? null,
+    netPosition: round2(comingHomeCash + invested + boatFunded - debtLeft),
   }
 }
 
@@ -321,7 +333,7 @@ export function stressTest(cases: StressCase[] = STRESS_CASES) {
 export const BUCKETS = [
   { key: 'housing', label: 'Mortgage', keys: ['mortgage_current', 'arrears_catchup_payment', 'mortgage_arrears'] },
   { key: 'home', label: 'Sent home', keys: ['support_home_deployed', 'support_home_extras', 'childcare', 'christmas'] },
-  { key: 'you', label: 'Your spending', keys: ['living_deployed'] },
+  { key: 'you', label: 'Your spending', keys: ['living_deployed', 'boat'] },
   {
     key: 'debt',
     label: 'Debt payments',

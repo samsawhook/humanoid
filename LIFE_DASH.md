@@ -467,6 +467,16 @@ the Chase agreement, so a short December cuts Christmas before anything owed. Co
 ~$520 at homecoming, open cards 15 → 30 April, tolls February → March, and the
 February emergency now lands on checking because the buffer is not yet funded.
 
+### D24. The boat: $2,250 left, after the catch-up, ahead of the SDP
+
+A friend (Lee Jones) is rebuilding it "here and there": $3,000 all in including the
+$750 already paid, so $2,250 to go — engine $2,000. Modelled as a capped waterfall
+line from 16 Jan (after the catch-up and Christmas), after the open cards and before
+the SDP, so it is ready when you land. At plan it reaches ~$1,200 by homecoming; the
+easy savings (extras home to $200/mo, or ACH + Hugedomains + phone) finish it.
+Money into the boat counts toward net position — it is an asset you keep, and scoring
+it as spending made every saving look worthless. You hold a 50% interest.
+
 ---
 
 # Seed context — as of 2026-08-05

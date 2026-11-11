@@ -121,3 +121,25 @@ describe('Christmas', () => {
     expect(base.billsUnpaid).toBe(0)
   })
 })
+
+describe('the boat', () => {
+  const base = runPlan()
+  it('is capped at what is left — $3,000 all in, less the $750 already paid', () => {
+    const boat = OBLIGATIONS.find((o) => o.key === 'boat')!
+    expect(boat.balanceCap).toBe(2250)
+    expect(base.boatFunded).toBeLessThanOrEqual(2250)
+  })
+
+  it('waits until the catch-up is over', () => {
+    for (const a of base.allocations) {
+      if (a.paycheck.scheduledDate <= '2027-01-15') {
+        expect(a.lines.find((l) => l.key === 'boat')?.allocated ?? 0).toBe(0)
+      }
+    }
+  })
+
+  it('finishes before homecoming if the easy savings are taken', () => {
+    const extras = moveImpacts(base).find((i) => i.move.key === 'extras_200')!
+    expect(extras.outcome.boatDone).not.toBe(null)
+  })
+})
