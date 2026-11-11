@@ -28,7 +28,7 @@ import type { Obligation, OneOff } from './allocation'
 import type { WindfallClaim } from './windfall'
 import { backPay, EXPECTED_BACK_PAY } from './drillPay'
 import { TIMELINE } from './rates'
-import { householdTotals } from './household'
+import { householdTotals, deployedActualsTotal, SENT_HOME } from './household'
 import { DEBTS, scheduledDebts, openDebts, totalBalance, totalMinimums } from './debts'
 
 /**
@@ -37,7 +37,6 @@ import { DEBTS, scheduledDebts, openDebts, totalBalance, totalMinimums } from '.
  * raises what is sent home; see household.ts for the per-category multipliers.
  */
 const HOME = householdTotals('home')
-const DEPLOYED = householdTotals('deployed')
 
 /** One month of household running costs. Capped, so it completes rather than billing forever. */
 export const EMERGENCY_FUND_TARGET = 4500
@@ -120,12 +119,14 @@ export const MORTGAGE_PAYMENT = 1387.79
 /**
  * Missed payments still to make good, as of PLAN_AS_OF.
  *
- * You are paying two full payments a month and expect to be current in December. That
- * reads as two to go: one extra on the 15 November cheque, one on the 15 December
- * cheque. If the November extra already went out, change this to 1 — nothing else in
- * the file needs to move.
+ * "Nearly complete, ending January" (2026-11-11). Monarch shows two payments in
+ * September and one in October, so the catch-up is paid in whole extra payments rather
+ * than every month. Modelled as two to go, on the 15 December and 15 January cheques;
+ * if the count is different, change it here — the end date is MORTGAGE_CATCHUP_LAST.
  */
 export const MORTGAGE_ARREARS_PAYMENTS_LEFT = 2
+/** Your call, 2026-11-11: the catch-up finishes in January. The last extra payment is the 15 January cheque. */
+export const MORTGAGE_CATCHUP_LAST = '2027-01-15' as const
 export const MORTGAGE_ARREARS_BALANCE =
   Math.round(MORTGAGE_ARREARS_PAYMENTS_LEFT * MORTGAGE_PAYMENT * 100) / 100
 
@@ -267,31 +268,20 @@ export const OBLIGATIONS: Obligation[] = [
   },
   {
     key: 'childcare',
-    label: 'Nannies',
+    label: 'Nannies (paid directly)',
     amountPerPaycheck: 750,
     payDays: 'both',
     activeFrom: '2026-08-07',
-    activeTo: null,
-    /*
-     * The August plan had `firstPeriodAmount: 375` here for the half-week the nannies
-     * started on. Removed at the 2026-11-11 re-base: the plan now starts in November,
-     * and the allocator would otherwise bill that half-week on 15 November.
-     */
     /**
-     * Above household spend, below the secured lines. The house forecloses and the
-     * truck gets repossessed; nannies quit, and childcare failing while you are
-     * deployed cascades into everything else.
+     * Ended at the 2026-11-11 re-base. The nannies are paid at home out of the $1,000
+     * you send every payday (`support_home_deployed`), so a separate line here would
+     * pay them twice.
      */
+    activeTo: PLAN_AS_OF,
     priority: 25,
     kind: 'living',
     execution: 'manual',
-    howTo: 'Send to the nannies on the day the pay lands.',
-    note:
-      '$750 on each of your paydays from 2026-08-07; the first charge lands 2026-08-14 ' +
-      'at $375, being one week rather than two. Not day-prorated after that — paid on ' +
-      'your pay dates. ' +
-      'Confirmed new spend: nothing resembling childcare appears anywhere in the ' +
-      'Monarch history, so this is additive to the household line, not inside it.',
+    note: 'Folded into the $1,000-per-payday transfer home from 2026-11-11.',
   },
   {
     key: 'living_home',
@@ -310,8 +300,15 @@ export const OBLIGATIONS: Obligation[] = [
   },
   {
     key: 'living_deployed',
-    label: 'Household running costs (deployed)',
-    amountPerPaycheck: DEPLOYED.categoryTotal / 2,
+    label: 'Your own spending (deployed)',
+    /**
+     * OBSERVED, not modelled: what actually left your accounts Sep–Nov 2026, by
+     * category. See DEPLOYED_ACTUALS in household.ts. The August version of this line
+     * was the at-home household scaled by guessed multipliers — about $1,733/mo against
+     * roughly $1,000 actual — and most of what it was estimating (groceries, utilities,
+     * pets) is now paid at home out of the money you send.
+     */
+    amountPerPaycheck: deployedActualsTotal() / 2,
     payDays: 'both',
     activeFrom: TIMELINE.premobStart,
     activeTo: null,
@@ -319,9 +316,8 @@ export const OBLIGATIONS: Obligation[] = [
     kind: 'living',
     execution: 'automatic',
     note:
-      'Personal consumption collapses once you leave; the household’s does not. Runs ' +
-      'from PRE-MOB (2026-07-31) rather than the deployment date — you are already away, ' +
-      'so the deployed profile is the live one now, not a future state.',
+      'Observed Sep–Nov 2026 — subscriptions, phone, PX, food, the odd trip. Two months ' +
+      'of data, so re-read it after a third.',
   },
   {
     key: 'support_home',
@@ -343,30 +339,51 @@ export const OBLIGATIONS: Obligation[] = [
   },
   {
     key: 'support_home_deployed',
-    label: 'Support sent home (deployed)',
-    amountPerPaycheck: DEPLOYED.support / 2,
+    label: 'Sent home — nannies and household',
+    amountPerPaycheck: SENT_HOME.perPaycheck,
     payDays: 'both',
     activeFrom: TIMELINE.premobStart,
     activeTo: null,
-    priority: 28,
+    /**
+     * Where the nannies used to sit, and for the same reason: childcare failing while
+     * you are deployed cascades into everything else. Above your own spending, below
+     * the house and the truck.
+     */
+    priority: 25,
     kind: 'living',
     execution: 'manual',
-    howTo: 'Transfer to the joint account. Set a standing order before you ship — this is the one that hurts if it slips.',
+    howTo: 'Transfer $1,000 home the day the pay lands. Covers the nannies and the household.',
     note:
-      'Modelled 40% higher: while away this becomes the funding channel, not a top-up. ' +
-      'Runs from pre-mob, since you are already gone.',
+      'Your figure, 2026-11-11: $1,000 every payday, and it covers the nannies. Replaces ' +
+      'the August model of $750 nannies plus a 1.4× support estimate — together about ' +
+      '$2,560/mo against the $2,000 you actually send.',
+  },
+  {
+    key: 'support_home_extras',
+    label: 'Sent home — extras',
+    amountPerPaycheck: SENT_HOME.extrasMonthly / 2,
+    payDays: 'both',
+    activeFrom: PLAN_AS_OF,
+    activeTo: null,
+    /** Below your own spending: this is the line that flexes when a payday is tight. */
+    priority: 31,
+    kind: 'living',
+    execution: 'manual',
+    howTo: 'Christmas, a trip, a specific problem. Not a standing transfer.',
+    note: SENT_HOME.extrasBasis,
   },
   {
     key: 'nth_investments',
     label: 'Nth Investments',
-    amountPerPaycheck: 461,
-    payDays: 'fifteenth',
+    amountPerPaycheck: 500,
+    /** Confirmed 2026-11-11 to be the Bank of America transfer, which posts early in the month. */
+    payDays: 'first',
     activeFrom: null,
     activeTo: null,
     priority: 35,
     kind: 'secured_recurring',
     execution: 'automatic',
-    note: '$461/mo, billed on the 15th.',
+    note: '$500/mo to Bank of America — Oct and Nov in Monarch. Was modelled at $461 on the 15th.',
   },
   {
     key: 'card_minimums_open',
@@ -544,8 +561,8 @@ export const OBLIGATIONS: Obligation[] = [
     key: 'arrears_catchup_payment',
     label: 'Mortgage — second full payment (catch-up)',
     /**
-     * What you are actually doing: a second FULL payment each month on top of the
-     * current one, until you are current in December. A bill on a date, not a sweep —
+     * What you are actually doing: whole extra payments on top of the current one,
+     * finishing in January. A bill on a date, not a sweep —
      * the August plan swept partials at the arrears and projected May 2027; paying in
      * whole months beat it by five.
      *
@@ -554,8 +571,9 @@ export const OBLIGATIONS: Obligation[] = [
      */
     amountPerPaycheck: MORTGAGE_PAYMENT,
     payDays: 'fifteenth',
-    activeFrom: PLAN_AS_OF,
-    activeTo: null,
+    /** Starts with the 15 December cheque; the 15 November one is left to rebuild the buffer. */
+    activeFrom: '2026-11-16',
+    activeTo: MORTGAGE_CATCHUP_LAST,
     priority: 38,
     /** A bill, not the gauge: if it cannot be paid in full the page should say so. */
     kind: 'secured_recurring',
@@ -566,7 +584,7 @@ export const OBLIGATIONS: Obligation[] = [
       'Send the full payment marked "for arrears — apply to the oldest outstanding ' +
       'payment", not as a principal prepayment. Confirm it left suspense.',
     note:
-      'Second full payment on the 15th. Two left as of 2026-11-11 (15 Nov, 15 Dec), ' +
+      'Extra full payment on the 15th. Two left as of 2026-11-11 (15 Dec, 15 Jan), ' +
       'then current and the line disappears.',
   },
   /**
@@ -606,7 +624,11 @@ export const OBLIGATIONS: Obligation[] = [
      * Backstop only. The fixed catch-up bill above is what cures the arrears; this
      * takes spare money at them only if that bill ever comes up short.
      */
-    activeFrom: PLAN_AS_OF,
+    /**
+     * Off until the scheduled catch-up is over. You pay in WHOLE payments; letting the
+     * sweep send spare partials in November turned January's payment into $50.
+     */
+    activeFrom: '2027-01-16',
     activeTo: null,
     priority: 40,
     kind: 'arrears_catchup',

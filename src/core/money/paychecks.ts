@@ -161,7 +161,7 @@ export function projectPaycheck(
   )
 
   const deductions: PaycheckDeduction[] = deductionList
-    .filter((d) => isActiveRange(d.activeFrom, d.activeTo, period.end))
+    .filter((d) => d.applied !== false && isActiveRange(d.activeFrom, d.activeTo, period.end))
     .map((d) => ({ key: d.key, label: d.label, amount: round2(d.monthlyAmount / 2) }))
   const deductionsTotal = round2(deductions.reduce((sum, d) => sum + d.amount, 0))
 

@@ -343,6 +343,37 @@ the payments, so something is overstated: most likely the deployed household lin
 support sent home, or the nannies, all August estimates. Correct those and the gap
 should close; until then the page says so.
 
+## Round 3 — 2026-11-11, reconciled with actuals
+
+The Round 2 open finding is resolved — by correcting the inputs, not the arithmetic.
+Every bill now fits, the catch-up included.
+
+### D13. Projected spending is replaced by observed spending where it exists
+
+The deployed profile was the at-home household scaled by guessed multipliers.
+It is superseded for the live budget by `DEPLOYED_ACTUALS` (household.ts): what
+actually left your accounts Sep–Nov 2026, per category, each row stating what it is
+built from and naming the one-offs it excludes. About $1,000/mo against the $1,733
+estimate. Two months of data — below D1's four-period bar — so re-read it after a
+third. The multipliers stay for the post-deployment (law school) projection.
+
+### D14. Facts that changed the plan
+
+| Fact | Round 2 | Now | Source |
+|---|---|---|---|
+| Take-home | modelled $7,190 | $7,500 actual, after all deductions | you; Monarch Sep $7,603 |
+| TSP | absent | 5% of base, full match, deducted in the model | you |
+| Meal collection | taken | on file, **not applied** — take-home only reconciles without it | inference; confirm on an LES |
+| Sent home | $750 nannies + $1,056 support | $1,000 every payday, covers nannies; extras ~$400/mo observed | you; Monarch |
+| Nth Investments | $461 on the 15th | $500 on the 1st, = the Bank of America transfer | you; Monarch |
+| Mortgage catch-up | 2 left, current December | 2 whole payments, 15 Dec and 15 Jan; **ends January** | you |
+
+The model now nets ~$7,424/mo against the $7,500 observed, and a test fails if the
+two drift more than 2% apart — declared vs demonstrated, as in D1.
+
+The arrears sweep is gated off until after the scheduled catch-up: you pay in whole
+payments, and letting it send partials turned January's payment into $50.
+
 ---
 
 # Seed context — as of 2026-08-05

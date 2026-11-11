@@ -146,6 +146,11 @@ export interface Deduction {
   key: string
   label: string
   monthlyAmount: number
+  /**
+   * False keeps a deduction on file without taking it — for one the evidence says is
+   * not happening but which nobody has confirmed against an LES. Defaults to true.
+   */
+  applied?: boolean
   activeFrom: LocalDate | null
   activeTo: LocalDate | null
   confidence: Confidence
@@ -166,13 +171,33 @@ export const DEDUCTIONS: Deduction[] = [
       'Unlike the meal collection this never switches off, so it is in every paycheck.',
   },
   {
+    key: 'tsp',
+    label: 'TSP — 5% of base pay',
+    /** 5% of $4,759.50. Your rate, 2026-11-11 — the most that earns the full match. */
+    monthlyAmount: 237.98,
+    activeFrom: null,
+    activeTo: null,
+    confidence: 'high',
+    note:
+      'Your figure: 5%, to take the full match. Roth vs traditional is not recorded. Under ' +
+      'CZTE, Roth is the better side — the pay going in is already tax-free, and Roth ' +
+      'keeps it tax-free coming out.',
+  },
+  {
     key: 'meal_collection',
     label: 'Meal collection (DFAC)',
     /** Collected at the BAS rate, so the two cancel while you are being fed. */
     monthlyAmount: 475,
     activeFrom: TIMELINE.deploymentStart,
     activeTo: TIMELINE.expectedReturn,
-    confidence: 'high',
+    /**
+     * DOUBTFUL since 2026-11-11. Actual take-home is about $7,500/mo after every
+     * deduction including TSP. With this collection the model nets about $6,950; without
+     * it, about $7,425 — within 1% of what lands. So the evidence says it is not being
+     * taken. Kept, switched off by `applied: false`, until an LES settles it.
+     */
+    confidence: 'low',
+    applied: false,
     note:
       'You said BAS is deducted for DFAC. Modelled as a collection at the BAS rate, ' +
       'so BAS still shows as an entitlement and nets to zero — which is how the LES ' +
@@ -187,6 +212,14 @@ export const DEDUCTIONS: Deduction[] = [
  * tax — it does not raise gross, it raises net, which is why it shows up here rather
  * than as an entitlement row. FICA is NOT excluded and keeps coming out of base pay.
  */
+/**
+ * Take-home as it actually lands, per month, after every deduction. Your figure,
+ * 2026-11-11, and Monarch agrees (September: $7,603). The model is checked against it
+ * rather than forced to it: if the two drift apart by more than a few percent, a rate
+ * or a deduction above is wrong, and the test that compares them says so.
+ */
+export const OBSERVED_NET_MONTHLY = 7500
+
 export const TAX = {
   /**
    * Effective federal income tax rate on taxable pay outside CZTE. A blunt instrument

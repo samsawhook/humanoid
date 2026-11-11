@@ -24,7 +24,10 @@ import {
   MORTGAGE_ARREARS_PAYMENTS_LEFT,
   PLAN_AS_OF,
   PLAN_START,
+  MORTGAGE_CATCHUP_LAST,
 } from '@/core/money/obligations'
+import { DEPLOYED_ACTUALS, deployedActualsTotal, SENT_HOME } from '@/core/money/household'
+import { OBSERVED_NET_MONTHLY } from '@/core/money/rates'
 import { RETIREMENT_ACCOUNTS } from '@/core/money/lawschool'
 import { ENTITLEMENTS, TAX, TIMELINE } from '@/core/money/rates'
 import { SCRA_INTEREST_CAP, SCRA_TARGETS, SCRA_EXCLUDED } from '@/core/money/debts'
@@ -57,7 +60,8 @@ const COLOR: Record<string, string> = {
   living_home: seriesColor(3),
   living_deployed: seriesColor(3),
   support_home: seriesColor(4),
-  support_home_deployed: seriesColor(4),
+  support_home_deployed: seriesColor(2),
+  support_home_extras: seriesColor(4),
   nth_investments: seriesColor(5),
   debt_agreements: seriesColor(9),
   card_minimums_open: seriesColor(6),
@@ -208,11 +212,45 @@ export default function MoneyPage() {
       </div>
 
       <div className="note">
+        <strong>Reconciled with Monarch, {PLAN_AS_OF}.</strong> Take-home modelled at{' '}
+        {usd0((allocations[1]?.paycheck.net ?? 0) * 2)}/mo against the {usd0(OBSERVED_NET_MONTHLY)}{' '}
+        that actually lands, after 5% TSP. {usd0(SENT_HOME.perPaycheck)} goes home every
+        payday and covers the nannies and the household; extras (Christmas, trips) run
+        about {usd0(SENT_HOME.extrasMonthly)}/mo. Your own spending, observed Sep–Nov:
+        <table style={{ marginTop: 8 }}>
+          <tbody>
+            {DEPLOYED_ACTUALS.map((r) => (
+              <tr key={r.key}>
+                <td>{r.label}</td>
+                <td style={{ textAlign: 'right' }}>{usd0(r.monthly)}</td>
+                <td className="muted" style={{ whiteSpace: 'normal', fontSize: 12.5 }}>
+                  {r.basis}
+                </td>
+              </tr>
+            ))}
+            <tr>
+              <td>
+                <strong>Total</strong>
+              </td>
+              <td style={{ textAlign: 'right' }}>
+                <strong>{usd0(deployedActualsTotal())}</strong>
+              </td>
+              <td className="muted" style={{ fontSize: 12.5 }}>
+                The August estimate was about $1,733 — and paid for groceries and utilities
+                that are now covered at home.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div className="note">
         <strong>Below the bills, nothing asks for an amount — each line takes everything.</strong>{' '}
         Steady-state slack after every committed bill is about{' '}
         <strong>{usd0(steadySlack)} a month</strong>, and all of it goes to one balance at
-        a time, in this order: arrears, then the three open cards, then the emergency fund,
-        then the closed balances, then the law-school fund. A line clears and vanishes, and
+        a time, in this order: tolls and late fees, then the three open cards, then the
+        emergency fund, then the closed balances, then the law-school fund. The mortgage
+        catch-up is not in this queue — it is a scheduled bill above it. A line clears and vanishes, and
         the whole flow moves to the next.
       </div>
 
@@ -222,10 +260,12 @@ export default function MoneyPage() {
         The open cards — {usd0(OPEN_DEBT_BALANCE)}, the only balances with a live credit
         line and so the only ones that move a score — clear{' '}
         <strong>{cleared.open_cards?.clearedOn ?? 'not within the horizon'}</strong>.
-        The emergency fund then reaches {usd0(cleared.emergency_fund?.paid ?? 0)} of its{' '}
-        {usd0(cleared.emergency_fund?.cap ?? 0)} target by the time you come home. The{' '}
-        {usd0(CLOSED_DEBT_BALANCE)} on the remaining closed accounts is queued behind all
-        of that and is not reached — worth clearing eventually, but there is no credit line to free up, so
+        The emergency fund reaches {usd0(cleared.emergency_fund?.paid ?? 0)} of its{' '}
+        {usd0(cleared.emergency_fund?.cap ?? 0)} target
+        {cleared.emergency_fund?.clearedOn ? ` on ${cleared.emergency_fund.clearedOn}` : ' by the time you come home'}.
+        The {usd0(CLOSED_DEBT_BALANCE)} on the remaining closed accounts comes after that,
+        and the sweep gets {usd0(cleared.closed_cards?.paid ?? 0)} into it before you are
+        home — worth clearing, but there is no credit line to free up, so
         it does not outrank a cash reserve — though their <em>minimums</em> are bills and
         are paid from day one, because a closed account still bills one. Chase is not in
         that figure — it is under a{' '}
@@ -238,26 +278,25 @@ export default function MoneyPage() {
 
       <div className="note">
         <strong>The arrears clock, not the arrears balance.</strong> The servicer acts on
-        the count of missed payments, not the dollars. As of {PLAN_AS_OF} you are paying{' '}
-        <strong>two full payments a month</strong> — the current one on the 1st and a
-        second full {usd0(MORTGAGE_PAYMENT)} on the 15th — with{' '}
-        {MORTGAGE_ARREARS_PAYMENTS_LEFT} left to make good, so you are current after the
-        15 December cheque. That beats the August plan, which swept partials at the
-        arrears and did not get there until May 2027.
+        the count of missed payments, not the dollars. As of {PLAN_AS_OF} the catch-up is
+        nearly done: {MORTGAGE_ARREARS_PAYMENTS_LEFT} whole extra payments of{' '}
+        {usd0(MORTGAGE_PAYMENT)} on the 15th, the last on{' '}
+        <strong>{MORTGAGE_CATCHUP_LAST}</strong>, alongside the regular payment on each 1st.
+        That beats the August plan, which swept partials at the arrears and did not get
+        there until May 2027.
         <p style={{ marginTop: 8 }} className={summary.bindingShortfall > 0 ? 'bad' : 'good'}>
-          <strong>What the model says about that.</strong>{' '}
           {summary.bindingShortfall > 0 ? (
             <>
-              On the household figures in this file, the second payment does not fit: the
-              plan comes up {usd0(summary.bindingShortfall)} short across{' '}
-              {summary.bindingShortPaydays.length} paydays and only cures the arrears{' '}
-              {cleared.mortgage_arrears?.clearedOn ?? 'outside the horizon'}. You are
-              doing it anyway, which means something below is overstated — most likely
-              the household, support-home or nanny lines, which are August estimates.
-              The gap is stated rather than smoothed over until those are corrected.
+              <strong>It does not fit as modelled:</strong> {usd0(summary.bindingShortfall)}{' '}
+              short across {summary.bindingShortPaydays.length} paydays. Something below is
+              overstated or the catch-up needs another month.
             </>
           ) : (
-            <>Every bill is covered, the catch-up included.</>
+            <>
+              <strong>It fits.</strong> Every bill is covered on every payday, the catch-up
+              included, with the house current{' '}
+              {cleared.mortgage_arrears?.clearedOn ?? 'outside the horizon'}.
+            </>
           )}
         </p>
         <table style={{ marginTop: 8 }}>
@@ -291,8 +330,9 @@ export default function MoneyPage() {
         made from it come out tax-free in retirement too — the only money that is never
         taxed at either end. CZTE also lifts the cap: the ordinary elective-deferral
         limit no longer binds, only the much higher annual-additions limit. The
-        contribution rate is not in this file yet, so nothing here plans it; set it in
-        myPay, and tell me the rate so the paycheck model deducts it.
+        You contribute 5% for the full match, and the paycheck model deducts it. Check that
+        it is going to <em>Roth</em> TSP while you are in the zone; anything you can put in
+        above 5% before you come home is the cheapest retirement money you will ever have.
       </div>
 
       <div className="note">

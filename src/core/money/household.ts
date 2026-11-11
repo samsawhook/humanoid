@@ -274,3 +274,114 @@ export function householdTotals(
 function round2(n: number): number {
   return Math.round(n * 100) / 100
 }
+
+// ── Deployed actuals ────────────────────────────────────────────────────────
+
+/**
+ * What actually leaves YOUR accounts while deployed, by category — observed, not
+ * modelled. Supersedes the deployed multipliers above for the live budget; those stay
+ * because the law-school projection still needs a home-profile estimate.
+ *
+ * Source: Monarch cash flow, September–October 2026 (two full deployed months) plus
+ * 1–10 November, read 2026-11-11. Two months is thin — below the four periods D1 asks
+ * for before trusting demonstrated over declared — so every row says what it is built
+ * from, and one-offs are named rather than averaged in.
+ *
+ * Not in here, because each is its own obligation: mortgage, car, Avant, Chase, card
+ * minimums, Nth Investments, and money sent home. Groceries, utilities, pets and the
+ * nannies are paid at home out of the $1,000 you send every payday, so they are not
+ * your categories any more.
+ */
+export interface ObservedCategory {
+  key: string
+  label: string
+  monthly: number
+  basis: string
+}
+
+export const DEPLOYED_ACTUALS: ObservedCategory[] = [
+  {
+    key: 'subscriptions',
+    label: 'Digital subscriptions',
+    monthly: 225,
+    basis:
+      'Sep $117, Oct $226, Nov $255 by the 10th. Hugedomains $99.79/mo, Anthropic $106.60, ' +
+      'Squarespace $26.65, Google Workspace, Apple. Rising — worth an audit.',
+  },
+  {
+    key: 'personal',
+    label: 'Personal (PX, local purchases)',
+    monthly: 220,
+    basis: 'Sep $264, Oct $173. Mostly in-theatre purchases.',
+  },
+  {
+    key: 'phone',
+    label: 'Phone (T-Mobile)',
+    monthly: 173,
+    basis: '$345.78 in September covering two months; nothing posted in October.',
+  },
+  {
+    key: 'restaurants',
+    label: 'Restaurants, coffee, delivery',
+    monthly: 100,
+    basis: 'Sep $132, Oct $63, Nov $25 so far.',
+  },
+  {
+    key: 'clothing',
+    label: 'Clothing and shopping',
+    monthly: 90,
+    basis: 'Nothing in Sep–Oct, $267 in early November (Adidas, Levi’s). Averaged across the three.',
+  },
+  {
+    key: 'home_improvement',
+    label: 'Home services',
+    monthly: 20,
+    basis: 'CCAC heating and cooling plan, $19.95/mo. A $120 one-off in September is excluded.',
+  },
+  {
+    key: 'entertainment',
+    label: 'Entertainment and travel',
+    monthly: 70,
+    basis: 'Sep $11, Oct $133 (Amman, Dubai). Leave or R&R will move this.',
+  },
+  {
+    key: 'business',
+    label: 'Business expenses',
+    monthly: 50,
+    basis: 'Oct $54, Nov $48.',
+  },
+  {
+    key: 'financial_fees',
+    label: 'Fees and services',
+    monthly: 40,
+    basis:
+      'Oct: $67 fee and the $106 Monarch annual. A $185 September charge (US Patriot) is ' +
+      'excluded as gear, not a fee. Fees should fall toward zero once the mortgage is current.',
+  },
+  {
+    key: 'gas',
+    label: 'Fuel',
+    monthly: 10,
+    basis: 'About $10 a month.',
+  },
+]
+
+export function deployedActualsTotal(rows: ObservedCategory[] = DEPLOYED_ACTUALS): number {
+  return round2(rows.reduce((s, r) => s + r.monthly, 0))
+}
+
+/**
+ * Money sent home. Your figures, 2026-11-11, and they replace both the nanny line and
+ * the 1.4× "support home" estimate: one $1,000 transfer every payday covers the
+ * nannies and the household.
+ *
+ * Extras are sporadic — Christmas, a trip, a specific problem — and you do not budget
+ * them, but they happen: $365 in September, $425 in October, $500 so far in November
+ * ($150 + $150 for Christmas, $200 for the trip). A plan that leaves them out is a plan
+ * that is short every month, so they get an observed allowance rather than zero.
+ */
+export const SENT_HOME = {
+  perPaycheck: 1000,
+  extrasMonthly: 400,
+  extrasBasis: 'Observed: Sep $365, Oct $425, Nov $500 by the 11th. Not budgeted by you; modelled so it is not a surprise.',
+}

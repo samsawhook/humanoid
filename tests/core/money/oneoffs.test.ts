@@ -91,10 +91,10 @@ describe('one-off inflows', () => {
     expect(totalNet + oneOffIn).toBeCloseTo(allocated + closing, 2)
   })
 
-  it('spends a one-off in priority order, closing a real gap rather than vanishing', () => {
-    expect(summarize(withOneOffs).bindingShortfall).toBeLessThan(
-      summarize(without).bindingShortfall,
-    )
+  it('puts a one-off to work in the waterfall rather than leaving it idle', () => {
+    const swept = (all: typeof without) =>
+      all.reduce((t, a) => t + a.lines.filter((l) => l.swept).reduce((u, l) => u + l.allocated, 0), 0)
+    expect(swept(withOneOffs)).toBeGreaterThan(swept(without))
   })
 
   it('clears the tolls eventually, behind the mortgage rather than ahead of it', () => {

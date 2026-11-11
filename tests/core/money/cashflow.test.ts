@@ -14,10 +14,12 @@ import {
   LATE_PAYMENTS_BALANCE,
   MORTGAGE_ARREARS_BALANCE,
   MORTGAGE_PAYMENT,
+  MORTGAGE_CATCHUP_LAST,
   OBLIGATIONS,
   ONE_OFFS,
   PLAN_START,
 } from '@/core/money/obligations'
+import { OBSERVED_NET_MONTHLY } from '@/core/money/rates'
 
 describe('pay dates', () => {
   it('lands on the 1st and the 15th', () => {
@@ -268,19 +270,30 @@ describe('the real plan', () => {
   })
 
   /**
-   * You are paying a second full mortgage payment every month and expect to be current
-   * in December. On the household figures in this file that does not fit, and the plan
-   * must SAY so — line by line, as unpaid bills — rather than quietly finding the money.
-   * When the household lines are corrected this gap should close, and these assertions
-   * are the ones to update.
+   * Your call, 2026-11-11: the catch-up ends in January. Whole payments — the servicer
+   * counts missed payments, so two full ones beat the same money spread as partials.
    */
-  it('states the cost of the catch-up as unpaid bills rather than hiding it', () => {
-    expect(summary.bindingShortfall).toBeGreaterThan(0)
-    expect(summary.firstBindingShortPayday).toBe('2026-11-13')
-    const nov = allocations.find((a) => a.paycheck.scheduledDate === '2026-11-15')!
-    const line = nov.lines.find((l) => l.key === 'arrears_catchup_payment')!
-    expect(line.requested).toBe(MORTGAGE_PAYMENT)
-    expect(line.allocated + line.shortfall).toBeCloseTo(MORTGAGE_PAYMENT, 2)
+  it('finishes the mortgage catch-up with whole payments in January', () => {
+    expect(cleared.mortgage_arrears?.clearedOn).toBe(MORTGAGE_CATCHUP_LAST)
+    const catchups = allocations.flatMap((a) =>
+      a.lines
+        .filter((l) => (l.capGroup ?? l.key) === 'mortgage_arrears' && l.allocated > 0)
+        .map((l) => ({ on: a.paycheck.scheduledDate, amount: l.allocated })),
+    )
+    expect(catchups).toEqual([
+      { on: '2026-12-15', amount: MORTGAGE_PAYMENT },
+      { on: '2027-01-15', amount: MORTGAGE_PAYMENT },
+    ])
+  })
+
+  /**
+   * At the first re-base, on the August household estimates, this plan was ~$4,090 short.
+   * Reconciled against Monarch actuals and the $1,000-per-payday transfer home, every
+   * bill is covered. If that ever stops being true the page must say so line by line.
+   */
+  it('covers every bill, the catch-up included', () => {
+    expect(summary.bindingShortfall).toBe(0)
+    expect(summary.bindingShortPaydays).toEqual([])
   })
 
   it('asks for a second FULL mortgage payment on the 15th, and only until current', () => {
@@ -362,11 +375,9 @@ describe('the real plan', () => {
 
   it('measures the pot the waterfall competes for, excluding the waterfall itself', () => {
     const slack = steadyMonthlySlack(allocations)
-    // NEGATIVE at the 2026-11-11 re-base: the committed bills, catch-up included, ask
-    // for more than the modelled pay. That is the finding, not a bug — see the catch-up
-    // test above. It must at least be small next to the balances behind it.
-    expect(slack).toBeLessThan(0)
-    expect(Math.abs(slack)).toBeLessThan(MORTGAGE_ARREARS_BALANCE)
+    // Real, positive, and far smaller than the balances queued behind it.
+    expect(slack).toBeGreaterThan(0)
+    expect(slack).toBeLessThan(OBSERVED_NET_MONTHLY)
   })
 
   /**
@@ -375,29 +386,14 @@ describe('the real plan', () => {
    * out of the plan and move whenever anything upstream does.
    */
   it('runs the waterfall one balance at a time, in the order chosen', () => {
-    expect(cleared.mortgage_arrears?.paid).toBeCloseTo(MORTGAGE_ARREARS_BALANCE, 2)
-    // March on the modelled figures, against your December in reality — the gap is the
-    // overstatement the catch-up test describes.
-    expect(cleared.mortgage_arrears?.clearedOn).toBe('2027-03-15')
-
-    // The open cards no longer clear inside the deployment at all. Avant's $210/mo
-    // takes about a third of the slack, and the arrears are ahead of them in the queue.
-    expect(cleared.open_cards?.clearedOn).toBe(null)
-    expect(cleared.open_cards!.paid).toBeGreaterThan(0)
-
-    // And the reserve only starts once those are gone. It does not finish before you
-    // come home, which is information about the horizon rather than about the target.
-    // The reserve is not reached at all now — an honest statement about the horizon.
-    expect(cleared.emergency_fund?.clearedOn).toBe(null)
-    expect(cleared.emergency_fund?.paid).toBe(0)
-
-    // The closed balances are never reached BY THE SWEEP inside the deployment — but
-    // they are not untouched, because their minimums are bills and run from day one.
+    // Arrears are a scheduled bill now, so the waterfall runs beside them, in order:
+    // tolls, then the open cards, then the reserve, then the closed balances.
+    expect(cleared.late_payments?.clearedOn).toBe('2026-11-13')
+    expect(cleared.open_cards?.clearedOn).toBe('2027-03-15')
+    expect(cleared.emergency_fund?.clearedOn).toBe('2027-05-14')
+    // The closed balances are reached by the sweep before you come home, not cleared.
     expect(cleared.closed_cards?.clearedOn).toBe(null)
-    expect(cleared.closed_cards?.paid).toBeGreaterThan(0)
-    for (const a of allocations) {
-      expect(a.lines.find((l) => l.key === 'debt_paydown_closed')?.allocated ?? 0).toBe(0)
-    }
+    expect(cleared.closed_cards!.paid).toBeGreaterThan(0)
   })
 
   it('pays a full mortgage payment as a bill on every 1st', () => {
@@ -421,17 +417,10 @@ describe('the real plan', () => {
     expect(cleared.mortgage_arrears?.paid).toBeCloseTo(MORTGAGE_ARREARS_BALANCE, 2)
   })
 
-  it('keeps the arrears ahead of everything else in the waterfall until they are cured', () => {
-    let running = 0
+  it('never lets the waterfall cost a scheduled catch-up payment', () => {
     for (const a of allocations) {
-      running += a.lines
-        .filter((l) => (l.capGroup ?? l.key) === 'mortgage_arrears')
-        .reduce((t, l) => t + l.allocated, 0)
-      if (running >= MORTGAGE_ARREARS_BALANCE - 0.005) break
-      // Still behind on the house, so nothing below it took anything.
-      for (const key of ['late_payments', 'debt_paydown_open', 'debt_paydown_closed']) {
-        expect(a.lines.find((l) => l.key === key)?.allocated ?? 0).toBe(0)
-      }
+      const line = a.lines.find((l) => l.key === 'arrears_catchup_payment')
+      if (line) expect(line.shortfall).toBe(0)
     }
   })
 
@@ -481,16 +470,28 @@ describe('the real plan', () => {
 })
 
 describe('deductions', () => {
-  it('collects BAS back once you are eating at the DFAC', () => {
-    const before = projectPaycheck('2026-09-01')
+  it('keeps the meal collection on file but does not take it', () => {
+    // Your actual take-home only reconciles without it. Switched off, not deleted, until
+    // an LES settles it — see rates.ts.
     const during = projectPaycheck('2026-10-01')
+    expect(during.deductions.map((d) => d.key)).toEqual(['sglv', 'tsp'])
+  })
 
-    expect(before.deductions.map((d) => d.key)).toEqual(['sglv'])
-    expect(during.deductions.map((d) => d.key)).toEqual(['sglv', 'meal_collection'])
-    // Collected at the BAS rate, so the pair cancels.
-    const bas = ENTITLEMENTS.find((e) => e.key === 'bas')!
-    const meal = during.deductions.find((d) => d.key === 'meal_collection')!
-    expect(meal.amount).toBe(bas.monthlyAmount / 2)
+  it('takes 5% of base pay for TSP, the rate that earns the full match', () => {
+    const p = projectPaycheck('2026-12-01')
+    const base = ENTITLEMENTS.find((e) => e.key === 'base_pay')!.monthlyAmount
+    const tsp = p.deductions.find((d) => d.key === 'tsp')!
+    expect(tsp.amount).toBeCloseTo((base * 0.05) / 2, 1)
+  })
+
+  /**
+   * Declared vs demonstrated (D1): the model is checked against what actually lands,
+   * not forced to it. A drift beyond 2% means a rate or a deduction is wrong.
+   */
+  it('nets within 2% of the take-home you actually receive', () => {
+    const p = projectPaycheck('2026-12-01')
+    const modelled = p.net * 2
+    expect(Math.abs(modelled - OBSERVED_NET_MONTHLY) / OBSERVED_NET_MONTHLY).toBeLessThan(0.02)
   })
 
   it('keeps BAS in gross rather than netting it away', () => {
