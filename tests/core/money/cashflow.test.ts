@@ -389,9 +389,11 @@ describe('the real plan', () => {
     // Arrears are a scheduled bill now, so the waterfall runs beside them, in order:
     // tolls, a $1,000 cash buffer, the open cards, then the SDP while its window is open.
     expect(cleared.late_payments?.clearedOn).toBe('2026-11-13')
-    expect(cleared.open_cards?.clearedOn).toBe('2027-03-15')
+    // Two assumed emergencies ($4,000) push the open cards a month and take most of the
+    // SDP; the buffer is refilled to $1,000 after each draw.
+    expect(cleared.open_cards?.clearedOn).toBe('2027-04-15')
     expect(cleared.emergency_fund?.paid).toBe(1000)
-    expect(cleared.sdp!.paid).toBeGreaterThan(7000)
+    expect(cleared.sdp!.paid).toBeGreaterThan(1500)
     // The rest of the reserve and the closed balances wait until you are home — the SDP
     // payout funds them then. Closed-card minimums are still paid as bills throughout.
     expect(cleared.closed_cards?.clearedOn).toBe(null)

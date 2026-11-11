@@ -125,6 +125,11 @@ export interface Allocation {
   /** One-off money that arrived since the last payday. Part of `openingBuffer`. */
   oneOffs?: OneOff[]
   /**
+   * Money taken back OUT of a saved balance since the last payday — an emergency paid
+   * from the emergency fund. The balance drops, so its line reopens and refills.
+   */
+  draws?: { key: string; group: string; amount: number }[]
+  /**
    * Money left after everything that could be paid, was — and therefore carried
    * forward to the next payday. Not "spare": it is what funds the 1st, which is
    * front-loaded with the mortgage and the truck while the 15th is comparatively light.
@@ -307,7 +312,16 @@ export interface OneOff {
   key: string
   label: string
   date: LocalDate
+  /** Positive arrives (back pay, a refund). Negative leaves (an emergency). */
   amount: number
+  /**
+   * For an outflow: the saved balance it is paid from first, by `capGroup`.
+   *
+   * An emergency is what the emergency fund is for. Whatever the fund holds pays it, the
+   * fund's balance drops and its line reopens to refill; only the part the fund cannot
+   * cover lands on checking, where it competes with the bills.
+   */
+  drawsFrom?: string
   note?: string
 }
 
@@ -330,7 +344,20 @@ function walk(
     while (pending.length > 0 && compareLocalDates(pending[0]!.date, p.payDate) <= 0) {
       arrived.push(pending.shift()!)
     }
-    buffer = round2(buffer + arrived.reduce((s, o) => s + o.amount, 0))
+    const draws: { key: string; group: string; amount: number }[] = []
+    for (const o of arrived) {
+      let hitsChecking = o.amount
+      if (o.amount < 0 && o.drawsFrom) {
+        const held = Math.max(0, paidSoFar[o.drawsFrom] ?? 0)
+        const cover = round2(Math.min(-o.amount, held))
+        if (cover > 0) {
+          paidSoFar[o.drawsFrom] = round2(held - cover)
+          draws.push({ key: o.key, group: o.drawsFrom, amount: cover })
+          hitsChecking = round2(o.amount + cover)
+        }
+      }
+      buffer = round2(buffer + hitsChecking)
+    }
 
     const a = allocate(p, obligations, {
       paidSoFar,
@@ -339,6 +366,7 @@ function walk(
       drainCeiling: ceilingAt(i),
     })
     if (arrived.length > 0) a.oneOffs = arrived
+    if (draws.length > 0) a.draws = draws
     for (const line of a.lines) {
       const capKey = line.capGroup ?? line.key
       paidSoFar[capKey] = round2((paidSoFar[capKey] ?? 0) + line.allocated)
@@ -433,11 +461,16 @@ export function balanceClearedOn(
     let paid = 0
     let clearedOn: LocalDate | null = null
     for (const a of allocations) {
+      // A draw takes the balance back down — an emergency fund that paid for a
+      // transmission is not still full.
+      const drawn = (a.draws ?? [])
+        .filter((d) => d.group === capKey)
+        .reduce((s, d) => s + d.amount, 0)
       const contributed = a.lines
         .filter((l) => (l.capGroup ?? l.key) === capKey)
         .reduce((s, l) => s + l.allocated, 0)
-      if (contributed === 0) continue
-      paid = round2(paid + contributed)
+      if (contributed === 0 && drawn === 0) continue
+      paid = round2(paid + contributed - drawn)
       if (clearedOn === null && paid >= cap - 0.005) clearedOn = a.paycheck.payDate
     }
     out[capKey] = { cap, paid, clearedOn }

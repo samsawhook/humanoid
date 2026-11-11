@@ -174,7 +174,37 @@ export const ALL_ONE_OFFS: OneOff[] = [
  * been spent already or is not coming; feeding it to the allocator would inject money
  * into the first payday that is not in the account.
  */
-export const ONE_OFFS: OneOff[] = ALL_ONE_OFFS.filter((o) => o.date >= PLAN_AS_OF)
+/**
+ * Assume things go wrong — your instruction, 2026-11-11: "assume a couple emergencies
+ * happen". Neither is predicted; both are planned for. Amounts are typical of the two
+ * things most likely to break while you are away — a vehicle and the house — and the
+ * dates are placeholders spaced through the deployment. What matters is not when they
+ * land but that the plan absorbs them without a missed bill.
+ *
+ * Each is paid from the emergency fund first; the fund refills through the waterfall.
+ * Only what the fund cannot cover lands on checking.
+ */
+export const EMERGENCIES: OneOff[] = [
+  {
+    key: 'emergency_vehicle',
+    label: 'Emergency — vehicle repair (assumed)',
+    date: '2027-02-20',
+    amount: -1500,
+    drawsFrom: 'emergency_fund',
+  },
+  {
+    key: 'emergency_house',
+    label: 'Emergency — house or HVAC (assumed)',
+    date: '2027-06-10',
+    amount: -2500,
+    drawsFrom: 'emergency_fund',
+  },
+]
+
+export const ONE_OFFS: OneOff[] = [
+  ...ALL_ONE_OFFS.filter((o) => o.date >= PLAN_AS_OF),
+  ...EMERGENCIES,
+]
 
 /**
  * What the drill back pay buys, in order, whenever it turns up.

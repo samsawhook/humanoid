@@ -29,6 +29,7 @@ import {
 import { DEPLOYED_ACTUALS, deployedActualsTotal, SENT_HOME } from '@/core/money/household'
 import { OBSERVED_NET_MONTHLY } from '@/core/money/rates'
 import { projectSdp, SDP_CAP } from '@/core/money/sdp'
+import { Briefing } from './Briefing'
 import { RETIREMENT_ACCOUNTS } from '@/core/money/lawschool'
 import { ENTITLEMENTS, TAX, TIMELINE } from '@/core/money/rates'
 import { SCRA_INTEREST_CAP, SCRA_TARGETS, SCRA_EXCLUDED } from '@/core/money/debts'
@@ -188,44 +189,10 @@ export default function MoneyPage() {
   return (
     <>
       <h1>Money</h1>
-      <p className="sub">
-        {HORIZON_START} → {HORIZON_END}. Deploy {TIMELINE.deploymentStart}, CZTE from{' '}
-        {TIMELINE.czteStart}, expected return {TIMELINE.expectedReturn}.
-      </p>
+      <Briefing />
 
-      <div className="cards">
-        <Card k="Net income" v={usd0(summary.totalNet)} />
-        <Card
-          k="Bills unpaid"
-          v={usd0(summary.bindingShortfall)}
-          tone={summary.bindingShortfall > 0 ? 'bad' : 'good'}
-          sub={`${summary.bindingShortPaydays.length} of ${summary.paychecks} paydays`}
-        />
-        <Card
-          k="Open cards cleared"
-          v={cleared.open_cards?.clearedOn ?? 'not within horizon'}
-          tone={cleared.open_cards?.clearedOn ? 'good' : 'bad'}
-          sub={`${usd0(OPEN_DEBT_BALANCE)} across 3 live accounts`}
-        />
-        <Card
-          k="Car paid off"
-          v={cleared.car_payoff?.clearedOn ?? '—'}
-          tone="good"
-          sub={`${usd0(CAR_LOAN_BALANCE)} balance`}
-        />
-        <Card
-          k="SDP at 10%"
-          v={usd0(sdp.payout)}
-          tone="good"
-          sub={`${usd0(sdp.deposited)} in, ${usd0(sdp.interest)} interest — paid out after you leave`}
-        />
-        <Card
-          k="Arrears cured"
-          v={cleared.mortgage_arrears?.clearedOn ?? 'not within horizon'}
-          tone={cleared.mortgage_arrears?.clearedOn ? 'good' : 'bad'}
-          sub={`${usd0(MORTGAGE_ARREARS_BALANCE)} behind`}
-        />
-      </div>
+      <details className="detail">
+        <summary>Working detail — every payday, every line</summary>
 
       <div className="note">
         <strong>Reconciled with Monarch, {PLAN_AS_OF}.</strong> Take-home modelled at{' '}
@@ -337,124 +304,6 @@ export default function MoneyPage() {
           And paying the CURRENT mortgage on time is a separate line at the top of the
           stack: missing one adds a month back and undoes this.
         </p>
-      </div>
-
-      <h2>The moves, ranked by what they are worth</h2>
-      <div className="note">
-        Two rules decide the order. <strong>The deployment is a window</strong>: anything
-        that can only be done inside it outranks anything that can be done later.{' '}
-        <strong>Liquidity before yield</strong>: last year&rsquo;s arrears began with no
-        cash at all, so the first $1,000 sits in cash before any line chases a return.
-      </div>
-
-      <div className="note">
-        <strong>1. Open an SDP allotment — this month.</strong> The Savings Deposit
-        Program pays a guaranteed <strong>10%</strong>, compounded quarterly, on up to{' '}
-        {usd0(SDP_CAP)}, and only while you are deployed. Nothing else risk-free comes
-        close — a high-yield savings account pays well under half of it. The waterfall sends it everything after the tolls, the
-        cash buffer and the open cards: {usd0(sdp.deposited)} by the time you leave,
-        worth about <strong>{usd0(sdp.payout)}</strong> when DFAS pays it out — within
-        120 days of leaving theatre, interest running until {sdp.accrualEnds}. That
-        timing is the point: it lands exactly when the deployment pay stops, so the SDP
-        is the cushion for coming home, earning 10% while it waits. Set it up in myPay
-        or at finance, and confirm eligibility with them first.
-      </div>
-
-      <div className="note">
-        <strong>2. Point your 5% TSP at Roth — costs nothing.</strong>{' '}
-        {RETIREMENT_ACCOUNTS.map((a) => `${a.label}: ${usd0(a.amount)}`).join('; ')}. Pay
-        earned under CZTE is never federally taxed. Contributed to <em>Roth</em> TSP, the
-        growth comes out tax-free too; contributed to traditional, the contribution is
-        tax-free but the growth is taxed on the way out. Same paycheck, same match, and
-        the only change is which side it lands on — a permanent tax saving for one
-        setting in myPay. The match itself always goes to traditional; that is normal.
-        <p style={{ marginTop: 8 }} className="muted">
-          Not more than 5% yet. Above the match, TSP money is locked up until retirement,
-          and you have law school ahead and no reserve behind you. Fill the buffer and the
-          SDP first; revisit it once those are full.
-        </p>
-      </div>
-
-      <div className="note">
-        <strong>3. Confirm the SCRA letters went out — it decides the order below.</strong> Caps
-        interest at {Math.round(SCRA_INTEREST_CAP * 100)}% on every debt incurred before
-        active duty began. Three things make this worth an afternoon:{' '}
-        <strong>it is retroactive to 2026-07-31</strong>, so filing late still recovers
-        the months in between; the excess above {Math.round(SCRA_INTEREST_CAP * 100)}% is{' '}
-        <strong>forgiven, not deferred</strong> — the rare case where the creditor does
-        not get it back later; and <strong>it is not automatic</strong>, so nothing
-        happens until you write to them with a copy of the orders.
-        <ul className="tight" style={{ marginTop: 8 }}>
-          {SCRA_TARGETS.map((t) => (
-            <li key={t.creditor}>
-              <strong>{t.creditor}</strong> — {t.reason}
-            </li>
-          ))}
-        </ul>
-        <p style={{ marginTop: 8 }}>Deliberately not on that list:</p>
-        <ul className="tight">
-          {SCRA_EXCLUDED.map((t) => (
-            <li key={t.creditor} className="muted">
-              <strong>{t.creditor}</strong> — {t.reason}
-            </li>
-          ))}
-        </ul>
-        <p style={{ marginTop: 8 }}>
-          <strong>Avant is the one that pays for the afternoon.</strong> A{' '}
-          {usd0(AVANT_BALANCE)} instalment balance at a personal-loan rate, where every
-          point above {Math.round(SCRA_INTEREST_CAP * 100)}% is about{' '}
-          {usd0(AVANT_BALANCE * 0.01)} a year. Avant publishes roughly 10%–36%, so the cap
-          is worth somewhere around {usd0(200)}–{usd0(1500)} a year — more than every card
-          on this list put together, and unlike a card the balance does not shrink on its
-          own. <strong>Find the actual rate;</strong> it is the most valuable unknown left
-          in this file.
-        </p>
-        <p className="muted" style={{ fontSize: 12.5 }}>
-          Mortgage and auto already have SCRA active — verify the cap actually appears on
-          a statement rather than assuming the request was processed. Not legal advice.
-        </p>
-        <p style={{ marginTop: 8 }}>
-          <strong>Why it sets the order.</strong> The SDP pays 10%. A closed card capped
-          at 6% costs less to carry than the SDP pays, so the SDP comes first and Citi and
-          Capital One wait — only their minimums go out — until it pays out. A card still
-          at a subprime 25% is the other way round. If a letter was never sent, send it;
-          if a creditor refuses the cap, that card moves ahead of the SDP in
-          obligations.ts.
-        </p>
-      </div>
-
-      <div className="note">
-        <strong>4. Tax season: you get extra time, and one choice to make.</strong> CZTE
-        extends your filing deadline until 180 days after you leave the zone, so there is
-        no April rush. The choice: you may <em>elect</em> to count tax-free combat pay as
-        earned income for the Earned Income Tax Credit. With nearly all of 2027&rsquo;s
-        pay excluded, that election can be worth a lot to a family — or nothing — so run
-        the return both ways and keep the better one. MilTax (Military OneSource) does
-        this free. The same rule makes combat pay count as compensation for an IRA, so a
-        Roth IRA is open to you even in a year with almost no taxable income.
-      </div>
-
-      <div className="note">
-        <strong>5. Subscriptions: {usd0(225)}/mo and climbing.</strong> September $117,
-        October $226, November $255 by the 10th. Hugedomains alone is $99.79 a month —
-        about $1,200 a year. If that is a payment plan on a domain you want, find the
-        balance and the end date; if not, it is the biggest saving available in your own
-        spending. Every $100/mo cut is $100/mo more into the SDP at 10%.
-      </div>
-
-      <div className="note">
-        <strong>6. Phone: {usd0(173)}/mo.</strong> SCRA lets you suspend or end a phone
-        contract on deployment orders of 90 days or more, and T-Mobile has a military
-        suspension. If your own line sits idle in theatre, suspend that line; leave the
-        family lines alone.
-      </div>
-
-      <div className="note muted">
-        <strong>What I would not do.</strong> Do not prepay the mortgage once it is
-        current — at a mortgage rate it is the cheapest debt you have. Do not touch
-        Goldman or PSECU; a payment can restart the limitations clock. Do not raise TSP
-        above 5% until the buffer and the SDP are full. And do not let a payday&rsquo;s
-        sweep sit in checking: if it does not move the day it lands, it gets spent.
       </div>
 
       <h2>Sources of funds</h2>
@@ -892,6 +741,7 @@ export default function MoneyPage() {
         live in <code>src/core/money/rates.ts</code>, obligations in{' '}
         <code>src/core/money/obligations.ts</code>.
       </p>
+      </details>
     </>
   )
 }

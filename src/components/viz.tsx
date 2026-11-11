@@ -46,8 +46,8 @@ export function Figure({
 export function Legend({ items }: { items: { label: string; color: string }[] }) {
   return (
     <div className="legend">
-      {items.map((i) => (
-        <span key={i.label}>
+      {items.map((i, n) => (
+        <span key={`${i.label}-${n}`}>
           <span className="swatch" style={{ background: i.color }} />
           {i.label}
         </span>

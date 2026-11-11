@@ -401,6 +401,35 @@ full; combat-pay EITC election run both ways at tax time; subscriptions audit
 (Hugedomains $99.79/mo); suspend an idle phone line under SCRA. None changes a figure
 in the plan until you act on it.
 
+## Round 5 — 2026-11-11, the briefing
+
+### D18. Plan for emergencies rather than hope against them
+
+Two emergencies are assumed in the live plan ($1,500 in February, $2,500 in June —
+placeholders, `EMERGENCIES` in obligations.ts). An emergency is paid from the
+emergency fund first (`OneOff.drawsFrom`); the fund's balance drops and its line
+refills through the waterfall; only what the fund cannot cover lands on checking.
+Result: every bill still paid, open cards a month later, most of the SDP spent.
+
+The stress test found the real weak point: an emergency **during the catch-up**
+(December–January) leaves ~$695 of bills unpaid, because the buffer does not exist
+yet. Funding the buffer ahead of the tolls does not fix it. The answer is a playbook —
+buffer, skip a month of Nth, move a catch-up payment back a month, SDP emergency
+withdrawal; never new credit — and it is on the page.
+
+### D19. Every suggestion carries its price, computed by re-running the plan
+
+`briefing.ts` runs the real allocator under each suggestion and reports the change
+in position at homecoming (cash held + investments − debt left). Nothing is typed
+in. Debt interest is not modelled, and the page says so.
+
+### D20. Facts this round
+
+- TSP contributions are already **Roth**. The traditional balance is the agency
+  match; converting it is a 2027 decision (lowest taxable year), in slices, tax paid
+  from cash.
+- Spouse works: the EITC combat-pay election is not in play. Removed.
+
 ---
 
 # Seed context — as of 2026-08-05
