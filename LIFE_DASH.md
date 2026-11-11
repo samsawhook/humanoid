@@ -458,7 +458,18 @@ merchant locations.
 - **VA compensation** was paid for days on active duty — an overpayment to head off.
 - Merchant locations scrubbed from the code (operational security).
 
+### D23. Christmas: $500, 1 December
 
+Sized against the plan before it was chosen: up to $1,000 fits with every bill paid;
+$1,500 leaves ~$450 of bills unpaid through the catch-up. You chose $500, on top of
+the $300 already sent in November. It is the lowest-priority bill in December, below
+the Chase agreement, so a short December cuts Christmas before anything owed. Cost:
+~$520 at homecoming, open cards 15 → 30 April, tolls February → March, and the
+February emergency now lands on checking because the buffer is not yet funded.
+
+---
+
+# Seed context — as of 2026-08-05
 
 Facts to build the initial tree from. Not schema; input.
 
