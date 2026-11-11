@@ -676,6 +676,24 @@ export const CASH_ACCOUNTS: { label: string; amount: number }[] = [
   { label: 'Joint Checking', amount: 2.2 },
 ]
 
+/**
+ * Retirement accounts. Real net worth, but NOT spendable: not a law-school funding
+ * source and not an emergency fund — an early withdrawal costs tax plus a 10% penalty.
+ *
+ * TSP added 2026-11-11, your figure. It does not reach Monarch: the brokerage side of
+ * the household connects through a provider whose data Monarch will not share.
+ */
+export const RETIREMENT_ACCOUNTS: { label: string; amount: number; note: string }[] = [
+  {
+    label: 'TSP — L 2050',
+    amount: 9500,
+    note:
+      'Your figure, "about $9.5k", 2026-11-11. Contribution rate unknown — see the ' +
+      'Roth TSP note on the money page: deployed pay is the cheapest money that will ever ' +
+      'go into it.',
+  },
+]
+
 /** Valuations you rejected. Carried at zero; the disputed figure is kept for the sensitivity. */
 export const PERSONAL_PROPERTY: BalanceLine[] = [
   {
@@ -711,6 +729,7 @@ export function openingBalanceSheetLines(): BalanceLine[] {
     },
     ...PERSONAL_PROPERTY,
     ...CASH_ACCOUNTS.map((a): BalanceLine => ({ ...a, kind: 'asset' })),
+    ...RETIREMENT_ACCOUNTS.map((a): BalanceLine => ({ ...a, kind: 'asset' })),
     { label: 'Mortgage', amount: HOUSE.mortgageBalance, kind: 'liability' },
     ...DEBTS.map(
       (d): BalanceLine => ({

@@ -18,15 +18,15 @@ import {
   OPEN_CARD_MINIMUMS,
   CLOSED_CARD_MINIMUMS,
   MORTGAGE_PAYMENT,
-  EXPECTED_BACK_PAY_NET,
-  BACK_PAY_CLAIMS,
   AVANT_BALANCE,
   AVANT_MONTHLY,
-  AVANT_PAST_DUE,
+  CAR_PAYMENT,
+  MORTGAGE_ARREARS_PAYMENTS_LEFT,
+  PLAN_AS_OF,
+  PLAN_START,
 } from '@/core/money/obligations'
+import { RETIREMENT_ACCOUNTS } from '@/core/money/lawschool'
 import { ENTITLEMENTS, TAX, TIMELINE } from '@/core/money/rates'
-import { backPay, EXPECTED_BACK_PAY } from '@/core/money/drillPay'
-import { windfallPlan, windfallSensitivity } from '@/core/money/windfall'
 import { SCRA_INTEREST_CAP, SCRA_TARGETS, SCRA_EXCLUDED } from '@/core/money/debts'
 import {
   Figure,
@@ -46,7 +46,7 @@ const usd0 = (n: number) =>
 const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
 const round0 = (n: number) => Math.round(n)
 
-const HORIZON_START = '2026-08-15'
+const HORIZON_START = PLAN_START
 const HORIZON_END = '2027-08-01'
 
 /** Fixed colour per obligation — by entity, never by rank, so a filter never repaints. */
@@ -69,6 +69,7 @@ const COLOR: Record<string, string> = {
   late_payments: seriesColor(11),
   emergency_fund: seriesColor(8),
   mortgage_arrears: 'var(--accent)',
+  arrears_catchup_payment: 'var(--accent)',
   future_fund: 'var(--series-rest)',
 }
 
@@ -78,10 +79,6 @@ export default function MoneyPage() {
   const summary = summarize(allocations)
   const cleared = balanceClearedOn(allocations, OBLIGATIONS)
   const steadySlack = steadyMonthlySlack(allocations)
-  const bp = backPay(EXPECTED_BACK_PAY)
-  const bpAlt = backPay({ ...EXPECTED_BACK_PAY, basis: 'idt_two_mutas' })
-  const backPayPlan = windfallPlan(bp.net, BACK_PAY_CLAIMS)
-  const backPayRange = windfallSensitivity([800, bp.net, bpAlt.net], BACK_PAY_CLAIMS)
   const oneOffIn = allocations.reduce(
     (t, a) => t + (a.oneOffs ?? []).reduce((u, o) => u + o.amount, 0),
     0,
@@ -111,25 +108,6 @@ export default function MoneyPage() {
     return { months, cured, firstPayment }
   })()
 
-  /**
-   * The back pay as its own bar, sitting between the paydays it falls between.
-   *
-   * Starred because the date is a guess — it is drawn as a column so it is visible in
-   * the same shape as everything else, not because it is scheduled. Its segments come
-   * from the ordered claim list, so the bar shows the plan rather than a total.
-   */
-  const backPayColumn = {
-    label: '8/21*',
-    sublabel: `${usd0(bp.net)} back pay`,
-    segments: backPayPlan.lines.map((l) => ({
-      key: `bp-${l.key}`,
-      label: `${l.label} — ${usd0(l.amount)}${l.partial ? ` (${usd0(l.remaining)} still owed)` : ''}`,
-      value: round0(l.amount),
-      color:
-        l.key === 'tolls' ? COLOR.late_payments! : COLOR.mortgage_arrears!,
-    })),
-  }
-
   const paydayColumns = allocations.slice(0, 12).map((a) => ({
     label: a.paycheck.payDate.slice(5),
     sublabel: a.paycheck.czte ? 'CZTE' : '',
@@ -145,15 +123,12 @@ export default function MoneyPage() {
       })),
   }))
 
-  /** Slot the starred bar in after the cheque it follows. */
-  const columns = [
-    ...paydayColumns.slice(0, 1),
-    backPayColumn,
-    ...paydayColumns.slice(1),
-  ]
+  const columns = paydayColumns
 
   const arrearsCurve = allocations.reduce<{ label: string; value: number }[]>((acc, a) => {
-    const paid = a.lines.find((l) => l.key === 'mortgage_arrears')?.allocated ?? 0
+    const paid = a.lines
+      .filter((l) => (l.capGroup ?? l.key) === 'mortgage_arrears')
+      .reduce((t, l) => t + l.allocated, 0)
     const prev = acc[acc.length - 1]?.value ?? MORTGAGE_ARREARS_BALANCE
     acc.push({ label: a.paycheck.payDate, value: Math.max(0, Math.round(prev - paid)) })
     return acc
@@ -262,37 +237,28 @@ export default function MoneyPage() {
       </div>
 
       <div className="note">
-        <strong>The arrears clock, not the arrears balance.</strong> Around four payments
-        behind is where a servicer may make its first foreclosure filing, so the number
-        that matters is the count of missed payments, not the dollars. The arrears sit
-        first in the waterfall and take everything free from the very first cheque.
-        <p style={{ marginTop: 8 }}>
-          <strong>
-            One FULL payment of {usd0(MORTGAGE_PAYMENT)} on the 15 August cheque
-          </strong>{' '}
-          — one transfer, not two, and not contingent on anything arriving. A full
-          payment on each 1st stays a separate bill at the top of the stack, and from the
-          next payday on everything free goes at the arrears as partials. It shares the
-          arrears balance, so it buys back a missed month rather than being a fifth
-          payment on a four-payment debt.
-        </p>
-        <p style={{ marginTop: 8 }} className="bad">
-          <strong>What it costs, stated plainly.</strong> That cheque frees about{' '}
-          {usd0(510)} after every other bill, so {usd0(790)} of the {usd0(MORTGAGE_PAYMENT)}{' '}
-          has no funding on the day — the model reports it as an unpaid bill rather than
-          absorbing it quietly, and it is the only such gap in the whole horizon. It also
-          spends the cheque to the last dollar, so nothing carries into 1 September.
-        </p>
-        <p style={{ marginTop: 8 }}>
-          <strong>
-            The back pay closes both, and it only has to land before 1 September — not
-            before the 15th.
-          </strong>{' '}
-          A much softer dependency than the date suggests. If it slips past the 1st, what
-          gives is the {usd0(AGREEMENT_MONTHLY)} Chase payment — a closed account on an
-          old arrangement, ranked last among the bills precisely so that it is the thing
-          that yields. Missing one is survivable, which is why nothing here reshuffles to
-          protect it.
+        <strong>The arrears clock, not the arrears balance.</strong> The servicer acts on
+        the count of missed payments, not the dollars. As of {PLAN_AS_OF} you are paying{' '}
+        <strong>two full payments a month</strong> — the current one on the 1st and a
+        second full {usd0(MORTGAGE_PAYMENT)} on the 15th — with{' '}
+        {MORTGAGE_ARREARS_PAYMENTS_LEFT} left to make good, so you are current after the
+        15 December cheque. That beats the August plan, which swept partials at the
+        arrears and did not get there until May 2027.
+        <p style={{ marginTop: 8 }} className={summary.bindingShortfall > 0 ? 'bad' : 'good'}>
+          <strong>What the model says about that.</strong>{' '}
+          {summary.bindingShortfall > 0 ? (
+            <>
+              On the household figures in this file, the second payment does not fit: the
+              plan comes up {usd0(summary.bindingShortfall)} short across{' '}
+              {summary.bindingShortPaydays.length} paydays and only cures the arrears{' '}
+              {cleared.mortgage_arrears?.clearedOn ?? 'outside the horizon'}. You are
+              doing it anyway, which means something below is overstated — most likely
+              the household, support-home or nanny lines, which are August estimates.
+              The gap is stated rather than smoothed over until those are corrected.
+            </>
+          ) : (
+            <>Every bill is covered, the catch-up included.</>
+          )}
         </p>
         <table style={{ marginTop: 8 }}>
           <tbody>
@@ -317,51 +283,20 @@ export default function MoneyPage() {
         </p>
       </div>
 
-      <h2>Two things to do now</h2>
+      <h2>Still open</h2>
       <div className="note">
-        <strong>1. Drill back pay — 7 MUTAs plus 3 days on a 1380.</strong> A drill period
-        pays <strong>one thirtieth of MONTHLY basic pay</strong> and carries no allowances
-        at all — no BAH, no BAS. So this is worth more than it feels like and none of it
-        is the tax-free part.
-        <table style={{ marginTop: 8 }}>
-          <tbody>
-            {bp.lines.map((l) => (
-              <tr key={l.key}>
-                <td>{l.label}</td>
-                <td style={{ textAlign: 'right' }}>{usd(l.amount)}</td>
-              </tr>
-            ))}
-            <tr>
-              <td className="muted">Federal tax and FICA</td>
-              <td className="muted" style={{ textAlign: 'right' }}>
-                − {usd(bp.federalTax + bp.fica)}
-              </td>
-            </tr>
-            <tr>
-              <td>
-                <strong>Net to you</strong>
-              </td>
-              <td style={{ textAlign: 'right' }}>
-                <strong>{usd(bp.net)}</strong>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <p style={{ marginTop: 8 }} className="muted">
-          Where it goes is on its own card below — the date and the amount are both
-          guesses, so it gets a plan rather than a slot in the schedule.
-        </p>
-        <p className="muted" style={{ fontSize: 12.5 }}>
-          The three 1380 days are read conservatively, as active-duty days at 1/30th of
-          basic pay plus BAS. If they were inactive duty in day status they pay two drill
-          periods each and the whole batch is worth {usd(bpAlt.net)} net —{' '}
-          {usd(bpAlt.net - bp.net)} more. Check which the orders say. Not CZTE either way:
-          drills performed at home station before you shipped are ordinary taxable wages.
-        </p>
+        <strong>1. Roth TSP while the pay is tax-free.</strong>{' '}
+        {RETIREMENT_ACCOUNTS.map((a) => `${a.label}: ${usd0(a.amount)}`).join('; ')}. Pay
+        earned under CZTE is excluded from federal income tax, and Roth TSP contributions
+        made from it come out tax-free in retirement too — the only money that is never
+        taxed at either end. CZTE also lifts the cap: the ordinary elective-deferral
+        limit no longer binds, only the much higher annual-additions limit. The
+        contribution rate is not in this file yet, so nothing here plans it; set it in
+        myPay, and tell me the rate so the paycheck model deducts it.
       </div>
 
       <div className="note">
-        <strong>2. File SCRA interest-cap requests — before you ship.</strong> Caps
+        <strong>2. SCRA interest-cap requests — confirm they were filed.</strong> Caps
         interest at {Math.round(SCRA_INTEREST_CAP * 100)}% on every debt incurred before
         active duty began. Three things make this worth an afternoon:{' '}
         <strong>it is retroactive to 2026-07-31</strong>, so filing late still recovers
@@ -400,102 +335,6 @@ export default function MoneyPage() {
         </p>
       </div>
 
-      <h2>8/21* — whenever the back pay actually hits</h2>
-      <div className="note">
-        <strong>
-          The asterisk is the point: {ONE_OFFS[0]?.date} is a placeholder, not a date.
-        </strong>{' '}
-        &ldquo;Sometime this month&rdquo; is all anyone knows, and the amount is a range
-        too. So nothing with a deadline is funded out of this — the 14 August cheque pays
-        what it can pay on its own, and this money gets an ordered list instead of a slot
-        in the schedule. Order is by <em>consequence of delay</em>, not by size: something
-        that escalates on a date beats something that escalates over months, which beats
-        something that merely accrues interest.
-        <table style={{ marginTop: 8 }}>
-          <thead>
-            <tr>
-              <th>Pay in this order</th>
-              <th>At {usd0(bp.net)}</th>
-              <th>Why here</th>
-            </tr>
-          </thead>
-          <tbody>
-            {BACK_PAY_CLAIMS.map((c) => {
-              const line = backPayPlan.lines.find((l) => l.key === c.key)
-              return (
-                <tr key={c.key}>
-                  <td style={{ whiteSpace: 'normal' }}>
-                    {c.label}
-                    {line?.howTo && (
-                      <div className="muted" style={{ fontSize: 12 }}>
-                        {line.howTo}
-                      </div>
-                    )}
-                  </td>
-                  <td className={line ? 'good' : 'muted'}>
-                    {line ? usd(line.amount) : '—'}
-                    {line?.partial && (
-                      <div className="muted" style={{ fontSize: 12 }}>
-                        {usd(line.remaining)} still owed
-                      </div>
-                    )}
-                  </td>
-                  <td className="muted" style={{ whiteSpace: 'normal', fontSize: 12.5 }}>
-                    {c.because}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-
-        <p style={{ marginTop: 12 }}>
-          <strong>You guessed car and tolls. Tolls yes, car no</strong> — the car is due
-          on the 25th and the 14 August cheque already funds it in full, so putting it on
-          this list would pay it twice and push something genuinely exposed further down.
-          What is actually exposed is August&rsquo;s mortgage payment: that cheque frees
-          about {usd0(510)} on its own, which is not a full month, and completing the
-          month is what moves the delinquency count.
-        </p>
-
-        <p style={{ marginTop: 12 }}>
-          <strong>The order does not change with the amount</strong> — only how far down
-          the list you get. Which is why the order is the decision and the forecast is not:
-        </p>
-        <table style={{ marginTop: 8 }}>
-          <thead>
-            <tr>
-              <th>If this arrives</th>
-              {BACK_PAY_CLAIMS.map((c) => (
-                <th key={c.key} style={{ whiteSpace: 'normal' }}>
-                  {c.label.split(' —')[0]}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {backPayRange.map(({ amount, plan }) => (
-              <tr key={amount}>
-                <td>
-                  {usd0(amount)}
-                  <span className="muted">
-                    {amount === bp.net ? ' — expected' : amount === bpAlt.net ? ' — if IDT' : ' — if low'}
-                  </span>
-                </td>
-                {BACK_PAY_CLAIMS.map((c) => {
-                  const line = plan.lines.find((l) => l.key === c.key)
-                  return (
-                    <td key={c.key} className={line ? 'good' : 'muted'}>
-                      {line ? usd0(line.amount) : 'nothing'}
-                    </td>
-                  )
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
       <h2>Sources of funds</h2>
       <div className="note">
         <strong>Where the money comes from, so the uses below have something to add up to.</strong>
@@ -506,7 +345,7 @@ export default function MoneyPage() {
               <td style={{ textAlign: 'right' }}>{usd(summary.totalNet)}</td>
             </tr>
             <tr>
-              <td>One-off money (drill back pay)</td>
+              <td>One-off money</td>
               <td style={{ textAlign: 'right' }}>+ {usd(oneOffIn)}</td>
             </tr>
             <tr>
@@ -541,7 +380,7 @@ export default function MoneyPage() {
 
       <h2>Uses of funds — every dollar has a job</h2>
       <Figure
-        title={`Where all ${usd0(usesOfFunds.assigned)} goes — net pay plus the back pay, ${HORIZON_START} → ${HORIZON_END}`}
+        title={`Where all ${usd0(usesOfFunds.assigned)} goes — net pay plus any one-offs, ${HORIZON_START} → ${HORIZON_END}`}
         caption={
           <>
             One bar, sliced by destination. There is deliberately no{' '}
@@ -766,7 +605,7 @@ export default function MoneyPage() {
 
       <h2>Where each paycheck goes</h2>
       <Figure
-        title="Allocation per payday — first 12, plus the starred back pay"
+        title="Allocation per payday — first 12"
         caption={
           <>
             Stacked by obligation in payment order, bottom to top. A dashed, faded block
@@ -875,7 +714,7 @@ export default function MoneyPage() {
       <h2>Arrears burn-down</h2>
       <Figure
         title="Mortgage arrears remaining"
-        caption={`Starts at ${usd0(MORTGAGE_ARREARS_BALANCE)} — four months behind. Falls only as fast as the paydays allow, because this line is paid last.`}
+        caption={`Starts at ${usd0(MORTGAGE_ARREARS_BALANCE)} — ${MORTGAGE_ARREARS_PAYMENTS_LEFT} payments behind as of ${PLAN_AS_OF}. Paid down in whole payments on the 15th.`}
       >
         <Sparkline points={arrearsCurve} format={(n) => usd0(n)} color="var(--accent)" />
       </Figure>
@@ -888,7 +727,7 @@ export default function MoneyPage() {
         <Timeline
           from="2026-07-31"
           to={TIMELINE.expectedReturn}
-          today="2026-08-05"
+          today={PLAN_AS_OF}
           bars={ENTITLEMENTS.map((e, i) => ({
             key: e.key,
             label: e.label.split(' — ')[0] ?? e.key,

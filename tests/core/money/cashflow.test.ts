@@ -16,6 +16,7 @@ import {
   MORTGAGE_PAYMENT,
   OBLIGATIONS,
   ONE_OFFS,
+  PLAN_START,
 } from '@/core/money/obligations'
 
 describe('pay dates', () => {
@@ -230,8 +231,9 @@ describe('allocation', () => {
 })
 
 describe('the real plan', () => {
+  // Re-based 2026-11-11. The August scenario these tests used to pin is in git history.
   const allocations = allocateAll(
-    projectPaychecks('2026-08-15', '2027-08-01'),
+    projectPaychecks(PLAN_START, '2027-08-01'),
     OBLIGATIONS,
     ONE_OFFS,
   )
@@ -246,7 +248,7 @@ describe('the real plan', () => {
   })
 
   it('bills the car monthly, on the payday before it is actually due', () => {
-    // $330 a MONTH, due on the 25th — so it is funded from the 15th cheque. Ten days
+    // $355 a MONTH, due on the 25th — so it is funded from the 15th cheque. Ten days
     // of margin, rather than paying it three weeks early out of the crowded 1st.
     for (const a of allocations) {
       const line = a.lines.find((l) => l.key === 'car_payoff')
@@ -256,51 +258,41 @@ describe('the real plan', () => {
 
   it('pays the car off to its balance and then stops billing', () => {
     expect(cleared.car_payoff?.paid).toBe(CAR_LOAN_BALANCE)
-    // Six monthly payments rather than the eleven paydays a twice-monthly bill took.
-    expect(cleared.car_payoff?.clearedOn).toBe('2027-01-15')
+    // November's payment already drafted, so: December, January, and ~$140 in February.
+    expect(cleared.car_payoff?.clearedOn).toBe('2027-02-15')
+    const nov = allocations.find((a) => a.paycheck.scheduledDate === '2026-11-15')!
+    expect(nov.lines.some((l) => l.key === 'car_payoff')).toBe(false)
 
-    const after = allocations.filter((a) => a.paycheck.payDate > '2027-01-15')
+    const after = allocations.filter((a) => a.paycheck.payDate > '2027-02-15')
     expect(after.every((a) => !a.lines.some((l) => l.key === 'car_payoff'))).toBe(true)
   })
 
   /**
-   * Nothing below the bills is owed a particular amount, so nothing below the bills can
-   * report a shortfall. That is the whole point of the waterfall: the fixed monthly
-   * savings targets it replaced were figures I invented, and their permanent "unmet ask"
-   * made a solvent plan read like a crisis while telling nobody anything.
+   * You are paying a second full mortgage payment every month and expect to be current
+   * in December. On the household figures in this file that does not fit, and the plan
+   * must SAY so — line by line, as unpaid bills — rather than quietly finding the money.
+   * When the household lines are corrected this gap should close, and these assertions
+   * are the ones to update.
    */
-  it('covers every bill except the deliberate 15 August stretch', () => {
-    // One gap, and it is intentional: a FULL $1,300 arrears payment goes on the first
-    // cheque, which frees about $510 on its own. The rest is a real unpaid bill and is
-    // reported as one rather than hidden — closing it is the back pay's first job.
-    expect(summary.bindingShortPaydays).toEqual(['2026-08-14'])
-    expect(summary.bindingShortfall).toBeCloseTo(790.48, 2)
-
-    const gap = allocations
-      .find((a) => a.paycheck.payDate === '2026-08-14')!
-      .lines.find((l) => l.key === 'arrears_first_payment')!
-    expect(gap.requested).toBe(MORTGAGE_PAYMENT)
-    expect(gap.shortfall).toBeCloseTo(summary.bindingShortfall, 2)
+  it('states the cost of the catch-up as unpaid bills rather than hiding it', () => {
+    expect(summary.bindingShortfall).toBeGreaterThan(0)
+    expect(summary.firstBindingShortPayday).toBe('2026-11-13')
+    const nov = allocations.find((a) => a.paycheck.scheduledDate === '2026-11-15')!
+    const line = nov.lines.find((l) => l.key === 'arrears_catchup_payment')!
+    expect(line.requested).toBe(MORTGAGE_PAYMENT)
+    expect(line.allocated + line.shortfall).toBeCloseTo(MORTGAGE_PAYMENT, 2)
   })
 
-  /**
-   * You asked for this three times and I kept re-deciding it. It is a fixed bill on a
-   * fixed date now — not a sweep, not a partial, not contingent on the back pay
-   * arriving. This test exists so it cannot quietly become any of those again.
-   */
-  it('sends ONE FULL mortgage payment on the 15 August cheque', () => {
-    const first = allocations.find((a) => a.paycheck.scheduledDate === '2026-08-15')!
-    const line = first.lines.find((l) => l.key === 'arrears_first_payment')!
-    expect(line.requested).toBe(MORTGAGE_PAYMENT)
-    expect(line.capGroup).toBe('mortgage_arrears')
-    expect(line.swept).toBeUndefined()
-
-    // One transfer that day, not a payment plus a chaser.
-    expect(first.lines.filter((l) => (l.capGroup ?? l.key) === 'mortgage_arrears')).toHaveLength(1)
-    // And it fires exactly once.
-    expect(
-      allocations.filter((a) => a.lines.some((l) => l.key === 'arrears_first_payment')),
-    ).toHaveLength(1)
+  it('asks for a second FULL mortgage payment on the 15th, and only until current', () => {
+    for (const a of allocations) {
+      const line = a.lines.find((l) => l.key === 'arrears_catchup_payment')
+      if (!line) continue
+      expect(a.paycheck.scheduledDate.endsWith('-15')).toBe(true)
+      expect(line.capGroup).toBe('mortgage_arrears')
+      expect(line.swept).toBeUndefined()
+    }
+    // Never more than the missed payments, however many paydays it takes.
+    expect(cleared.mortgage_arrears!.paid).toBeLessThanOrEqual(MORTGAGE_ARREARS_BALANCE + 0.005)
   })
 
   /**
@@ -356,24 +348,25 @@ describe('the real plan', () => {
    * at all — the plan looked like it was answering a question it was quietly ignoring.
    */
   it('lets the order between the waterfall lines actually decide who gets the slack', () => {
-    const pays = projectPaychecks('2026-08-15', '2027-08-01')
-    // Demote the arrears from the top of the waterfall to the bottom of it.
-    const arrearsLast = OBLIGATIONS.map((o) =>
-      o.key === 'mortgage_arrears' ? { ...o, priority: 80 } : o,
+    const pays = projectPaychecks(PLAN_START, '2027-08-01')
+    // Demote the tolls from just under the arrears to the bottom of the waterfall.
+    const tollsLast = OBLIGATIONS.map((o) =>
+      o.key === 'late_payments' ? { ...o, priority: 80 } : o,
     )
-    const demoted = balanceClearedOn(allocateAll(pays, arrearsLast), arrearsLast)
+    const demoted = balanceClearedOn(allocateAll(pays, tollsLast), tollsLast)
 
-    expect(cleared.mortgage_arrears?.clearedOn).not.toBe(null)
-    expect(demoted.mortgage_arrears?.clearedOn).toBe(null)
-    expect(demoted.mortgage_arrears?.paid).toBeLessThan(cleared.mortgage_arrears?.paid ?? 0)
+    expect(cleared.late_payments?.clearedOn).not.toBe(null)
+    expect(demoted.late_payments?.clearedOn).toBe(null)
+    expect(demoted.late_payments?.paid ?? 0).toBeLessThan(cleared.late_payments?.paid ?? 0)
   })
 
   it('measures the pot the waterfall competes for, excluding the waterfall itself', () => {
     const slack = steadyMonthlySlack(allocations)
-    // The exact figure moves with every upstream correction; what must hold is that it
-    // is real, positive, and far smaller than the balances queued behind it.
-    expect(slack).toBeGreaterThan(0)
-    expect(slack).toBeLessThan(MORTGAGE_ARREARS_BALANCE)
+    // NEGATIVE at the 2026-11-11 re-base: the committed bills, catch-up included, ask
+    // for more than the modelled pay. That is the finding, not a bug — see the catch-up
+    // test above. It must at least be small next to the balances behind it.
+    expect(slack).toBeLessThan(0)
+    expect(Math.abs(slack)).toBeLessThan(MORTGAGE_ARREARS_BALANCE)
   })
 
   /**
@@ -382,10 +375,10 @@ describe('the real plan', () => {
    * out of the plan and move whenever anything upstream does.
    */
   it('runs the waterfall one balance at a time, in the order chosen', () => {
-    expect(cleared.mortgage_arrears?.paid).toBe(MORTGAGE_ARREARS_BALANCE)
-    // Later than it was: $211/mo of estimated card minimums now comes off the top as a
-    // bill, and the gauge is what absorbs anything added above it.
-    expect(cleared.mortgage_arrears?.clearedOn).toBe('2027-05-14')
+    expect(cleared.mortgage_arrears?.paid).toBeCloseTo(MORTGAGE_ARREARS_BALANCE, 2)
+    // March on the modelled figures, against your December in reality — the gap is the
+    // overstatement the catch-up test describes.
+    expect(cleared.mortgage_arrears?.clearedOn).toBe('2027-03-15')
 
     // The open cards no longer clear inside the deployment at all. Avant's $210/mo
     // takes about a third of the slack, and the arrears are ahead of them in the queue.
@@ -481,7 +474,7 @@ describe('the real plan', () => {
   })
 
   it('starts the debt paydown and emergency fund with the deployment pay', () => {
-    const early = allocations.find((a) => a.paycheck.scheduledDate === '2026-08-15')!
+    const early = allocations.find((a) => a.paycheck.scheduledDate === PLAN_START)!
     expect(early.lines.map((l) => l.key)).not.toContain('debt_paydown')
     expect(TIMELINE.czteStart).toBe('2026-09-04')
   })

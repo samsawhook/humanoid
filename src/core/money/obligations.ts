@@ -98,12 +98,41 @@ export const LATE_PAYMENTS_BALANCE = 1100
 /** What the drill back pay is actually worth after tax. Computed, never typed in. */
 export const EXPECTED_BACK_PAY_NET = backPay(EXPECTED_BACK_PAY).net
 
-/** Four months behind at roughly $1,300 a month. */
-export const MORTGAGE_PAYMENT = 1300
+/**
+ * The date the plan below was last re-based to reality. Every balance in this file is
+ * "as of" this day, and the plan starts at the first payday after it.
+ *
+ * Re-based 2026-11-11 from a Monarch read plus your corrections. The August plan this
+ * replaces is in git history and in the decision log (LIFE_DASH.md, Round 2) — it is
+ * not kept alive here, because a plan that starts in the past re-pays bills that have
+ * already been paid.
+ */
+export const PLAN_AS_OF = '2026-11-11' as const
+/** First payday the plan allocates. 2026-11-15 is a Sunday, so it lands 2026-11-13. */
+export const PLAN_START = '2026-11-15' as const
 
-export const MORTGAGE_ARREARS_BALANCE = 4 * MORTGAGE_PAYMENT
-/** What is actually left on the auto loan — it pays off and the line disappears. */
-export const CAR_LOAN_BALANCE = 1800
+/**
+ * One monthly mortgage payment. $1,387.79 is the October draft to the servicer as
+ * Monarch saw it — an observed figure, replacing the "roughly $1,300" estimate.
+ */
+export const MORTGAGE_PAYMENT = 1387.79
+
+/**
+ * Missed payments still to make good, as of PLAN_AS_OF.
+ *
+ * You are paying two full payments a month and expect to be current in December. That
+ * reads as two to go: one extra on the 15 November cheque, one on the 15 December
+ * cheque. If the November extra already went out, change this to 1 — nothing else in
+ * the file needs to move.
+ */
+export const MORTGAGE_ARREARS_PAYMENTS_LEFT = 2
+export const MORTGAGE_ARREARS_BALANCE =
+  Math.round(MORTGAGE_ARREARS_PAYMENTS_LEFT * MORTGAGE_PAYMENT * 100) / 100
+
+/** Your figure, 2026-11-11: "roughly $850 left". It pays off and the line disappears. */
+export const CAR_LOAN_BALANCE = 850
+/** Monthly instalment as Monarch saw it drafting in November. Was $330 in the August plan. */
+export const CAR_PAYMENT = 355
 
 /**
  * Money arriving outside the semi-monthly cycle.
@@ -112,7 +141,7 @@ export const CAR_LOAN_BALANCE = 1800
  * anything lumpy — back pay, a refund, a bonus — has to be stated here or it simply
  * does not exist to the plan.
  */
-export const ONE_OFFS: OneOff[] = [
+export const ALL_ONE_OFFS: OneOff[] = [
   {
     key: 'drill_back_pay',
     label: '7 MUTAs + 3 duty days — back pay',
@@ -133,7 +162,18 @@ export const ONE_OFFS: OneOff[] = [
 ]
 
 /**
+ * One-offs still to come. Anything dated before the plan starts has either landed and
+ * been spent already or is not coming; feeding it to the allocator would inject money
+ * into the first payday that is not in the account.
+ */
+export const ONE_OFFS: OneOff[] = ALL_ONE_OFFS.filter((o) => o.date >= PLAN_AS_OF)
+
+/**
  * What the drill back pay buys, in order, whenever it turns up.
+ *
+ * HISTORY as of 2026-11-11: this was the August plan for the back pay. Kept because
+ * the windfall model and its tests use it as a worked example; the live plan no longer
+ * schedules the back pay (see ONE_OFFS).
  *
  * Ordered by consequence-of-delay rather than by size — see windfall.ts. The car is
  * deliberately NOT here despite being the obvious candidate: it is due on the 25th and
@@ -183,7 +223,7 @@ export const OBLIGATIONS: Obligation[] = [
   {
     key: 'mortgage_current',
     label: 'Mortgage — current month',
-    amountPerPaycheck: 1300,
+    amountPerPaycheck: MORTGAGE_PAYMENT,
     payDays: 'first',
     activeFrom: null,
     activeTo: null,
@@ -206,9 +246,13 @@ export const OBLIGATIONS: Obligation[] = [
      * early from the 1st. That also takes $330 off the 1st, which is the crowded
      * payday: the mortgage falls there too.
      */
-    amountPerPaycheck: 330,
+    amountPerPaycheck: CAR_PAYMENT,
     payDays: 'fifteenth',
-    activeFrom: null,
+    /**
+     * November's $355 already drafted (Monarch, 2026-11), so the 15 November cheque
+     * does not pay it again. First payment from the plan is the 15 December cheque.
+     */
+    activeFrom: '2026-11-16',
     activeTo: null,
     priority: 20,
     kind: 'secured_recurring',
@@ -216,9 +260,10 @@ export const OBLIGATIONS: Obligation[] = [
     execution: 'automatic',
     howTo: 'Autopay. On the final payment, confirm it closes the loan rather than leaving $2 behind.',
     note:
-      '$330/mo, due the 25th, paid from the 15th cheque. $1,800 left, capped at the ' +
-      'balance, so it clears and then stops — roughly six payments. SCRA is active on ' +
-      'this loan; the 6% cap should already be applied — verify it on the statement.',
+      '$355/mo, due the 25th, paid from the 15th cheque. About $850 left as of ' +
+      '2026-11-11, capped at the balance, so it clears and then stops: December, ' +
+      'January, and a ~$140 final payment in February. SCRA is active on this loan; ' +
+      'verify the 6% cap on the statement.',
   },
   {
     key: 'childcare',
@@ -227,8 +272,11 @@ export const OBLIGATIONS: Obligation[] = [
     payDays: 'both',
     activeFrom: '2026-08-07',
     activeTo: null,
-    /** First payday covers one week, not two — the nannies start on the 7th. */
-    firstPeriodAmount: 375,
+    /*
+     * The August plan had `firstPeriodAmount: 375` here for the half-week the nannies
+     * started on. Removed at the 2026-11-11 re-base: the plan now starts in November,
+     * and the allocator would otherwise bill that half-week on 15 November.
+     */
     /**
      * Above household spend, below the secured lines. The house forecloses and the
      * truck gets repossessed; nannies quit, and childcare failing while you are
@@ -493,46 +541,33 @@ export const OBLIGATIONS: Obligation[] = [
       'up; just not above the roof, the nannies, or a live credit line.',
   },
   {
-    key: 'arrears_first_payment',
-    label: 'Mortgage — one FULL arrears payment, 15 August',
+    key: 'arrears_catchup_payment',
+    label: 'Mortgage — second full payment (catch-up)',
     /**
-     * A whole monthly payment on the first cheque. Not a sweep, not a partial, not
-     * contingent on anything arriving: a fixed bill on a fixed date, because that is
-     * what was asked for three times and it is the right call. Around four payments
-     * behind is where a servicer may make its first foreclosure filing, and one whole
-     * payment buys a month back off that count.
+     * What you are actually doing: a second FULL payment each month on top of the
+     * current one, until you are current in December. A bill on a date, not a sweep —
+     * the August plan swept partials at the arrears and projected May 2027; paying in
+     * whole months beat it by five.
      *
-     * Shares the arrears balance via `capGroup`, so it draws down the same $5,200 as
-     * the sweep rather than being a fifth payment on a four-payment debt.
-     *
-     * The cheque alone frees about $510 of this, so the model reports the rest as a
-     * genuine unpaid bill rather than hiding it. Closing that gap is the drill back
-     * pay's first job — see BACK_PAY_CLAIMS.
+     * Shares the arrears balance via `capGroup`, so it stops by itself once the missed
+     * payments are made good rather than becoming a prepayment.
      */
     amountPerPaycheck: MORTGAGE_PAYMENT,
     payDays: 'fifteenth',
-    activeFrom: null,
-    /** Fires once: the 15 August cheque, which lands on the 14th. */
-    activeTo: '2026-08-31',
+    activeFrom: PLAN_AS_OF,
+    activeTo: null,
     priority: 38,
-    /**
-     * A BILL, not a gauge line — deliberately not `arrears_catchup`. The gauge kind
-     * means the forward reserve may throttle it AND its unmet ask is excluded from the
-     * shortfall headline, because asking for more than it can get is how a gauge
-     * measures slack. Neither is true here. This has to happen, and if it cannot be
-     * paid in full that is a real gap the page should shout about.
-     */
+    /** A bill, not the gauge: if it cannot be paid in full the page should say so. */
     kind: 'secured_recurring',
     balanceCap: MORTGAGE_ARREARS_BALANCE,
     capGroup: 'mortgage_arrears',
     execution: 'manual',
     howTo:
-      'Send the full $1,300 marked "for arrears — apply to the oldest outstanding ' +
-      'payment", not as a principal prepayment. If the back pay has not landed, send ' +
-      'the cheque\'s share now and the balance the day it does.',
+      'Send the full payment marked "for arrears — apply to the oldest outstanding ' +
+      'payment", not as a principal prepayment. Confirm it left suspense.',
     note:
-      'One transfer, one whole payment, on the first money you receive. Everything ' +
-      'after this goes at the arrears as partials.',
+      'Second full payment on the 15th. Two left as of 2026-11-11 (15 Nov, 15 Dec), ' +
+      'then current and the line disappears.',
   },
   /**
    * ────────────────────────────────────────────────────────────────────────────
@@ -568,11 +603,10 @@ export const OBLIGATIONS: Obligation[] = [
     sweep: true,
     payDays: 'both',
     /**
-     * Skips the 15 August cheque. That payday sends ONE full payment via
-     * `arrears_first_payment`; a partial chaser to the same servicer the same day is
-     * just a confusing pair of entries.
+     * Backstop only. The fixed catch-up bill above is what cures the arrears; this
+     * takes spare money at them only if that bill ever comes up short.
      */
-    activeFrom: '2026-08-16',
+    activeFrom: PLAN_AS_OF,
     activeTo: null,
     priority: 40,
     kind: 'arrears_catchup',

@@ -86,16 +86,16 @@ describe('balance sheet', () => {
     // Monarch auto-valuations were disputed. Both moves make the number worse and
     // both are deliberate: a net worth propped up by figures nobody believes is
     // worse than useless.
-    // -27,860 rather than -27,660: composing from CAR_LOAN_BALANCE picks up the $1,800
-    // you told me, where the old hand-written sheet still carried Monarch's $1,600.
-    // That difference IS the point of composing.
-    expect(Math.round(opening.netWorth)).toBe(-32789)
+    // Re-based 2026-11-11: the car loan is down to $850 (from $1,800) and the TSP's
+    // $9,500 is on the sheet. Both arrive by composition — CAR_LOAN_BALANCE and
+    // RETIREMENT_ACCOUNTS — which is the point of composing.
+    expect(Math.round(opening.netWorth)).toBe(-22339)
     expect(opening.liquid).toBeLessThan(100)
   })
 
   it('keeps disputed values visible as a sensitivity rather than deleting them', () => {
     expect(opening.disputedTotal).toBeCloseTo(16898.59, 2)
-    expect(Math.round(opening.netWorthIfDisputedAccepted)).toBe(-15890)
+    expect(Math.round(opening.netWorthIfDisputedAccepted)).toBe(-5440)
     // The gap between the two IS the disputed total — nothing else moved.
     expect(opening.netWorthIfDisputedAccepted - opening.netWorth).toBeCloseTo(
       opening.disputedTotal,

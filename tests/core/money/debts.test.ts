@@ -127,7 +127,8 @@ describe('paydown simulation', () => {
   it('treats Avant as a bill, not a paydown target, since it is already being paid', () => {
     const avant = DEBTS.find((d) => d.key === 'avant')!
     expect(avant.scheduledMonthly).toBe(210)
-    expect(avant.pastDue).toBeCloseTo(250.02, 2)
+    // $250.02 in August; treated as cured at the 2026-11-11 re-base.
+    expect(avant.pastDue).toBe(0)
     // Same rule as Chase: in the queue AND on a schedule would fund it twice.
     expect(activeDebts().map((d) => d.key)).not.toContain('avant')
     expect(minimumPayment(avant)).toBe(210)

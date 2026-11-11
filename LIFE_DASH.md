@@ -293,6 +293,56 @@ lives at `/api/ics/<token>.ics` where the token is a long random secret, held in
 separate env var from the cron/webhook secret so it can be rotated independently.
 Documented in `.env.example` as: **anyone with this URL can read your plan.**
 
+## Round 2 — 2026-11-11
+
+### D11. Humanoid is the source of truth for the budget; Monarch is evidence
+
+> "update Monarch budget to match humanoid and the source of truth is humanoid"
+
+Monarch is now readable through its MCP connector. That does **not** change the
+Phase 1 scope rule — nothing in the app integrates with it. It changes how the
+money files get corrected: Monarch is read for *observed* figures (a payment that
+actually drafted, a balance) and those are written into `src/core/money/` by hand,
+with their source stated. The plan lives here. Monarch's budget is made to match it,
+never the reverse.
+
+Limits found on the first read, recorded so they are not rediscovered:
+
+- The connector **cannot write budget amounts** or delete recurring streams. Those
+  are manual edits in the Monarch app.
+- Schwab and Wells Fargo accounts (7) are hidden from it — they connect through a
+  provider whose data Monarch will not share. Their transactions, the Wells Fargo
+  Platinum card and the brokerage side are invisible until reconnected.
+
+### D12. The money plan is re-based, not extended
+
+The August plan started at the 15 August cheque. By November it was re-paying bills
+already paid and still waiting on a back pay from August. `PLAN_AS_OF` /
+`PLAN_START` in `obligations.ts` now date the plan, one-offs dated before it are
+dropped, and the August scenario lives in git history rather than in live code.
+Re-base again whenever a balance moves materially; do not stack corrections on a
+plan that starts in the past.
+
+Facts taken at this re-base (2026-11-11):
+
+| Fact | Was (Aug) | Now | Source |
+|---|---|---|---|
+| Net pay | modelled ~$7,190/mo | ~$7,500/mo, 1st & 15th | you; model unchanged — see open question |
+| Mortgage payment | ~$1,300 | $1,387.79 | Monarch, October draft |
+| Mortgage arrears | 4 payments | 2 left; 2× full payments/month; current in December | you |
+| Car loan | $1,800 at $330/mo | ~$850 at $355/mo; November already paid | you; Monarch |
+| Avant past due | $250.02 | cured (assumed) | Monarch shows a normal October payment |
+| TSP | absent | ~$9,500, L 2050 | you |
+| Emergency fund | $0 | $0 | you |
+| CZTE | from 2026-09-04 | confirmed, E-6 / 10 yrs | you |
+
+**Open finding, stated rather than smoothed:** on the household figures in this
+file the second mortgage payment does not fit — the plan shows ~$4,090 of unpaid
+bills across 8 paydays and cures the arrears in March, not December. You are making
+the payments, so something is overstated: most likely the deployed household line,
+support sent home, or the nannies, all August estimates. Correct those and the gap
+should close; until then the page says so.
+
 ---
 
 # Seed context — as of 2026-08-05

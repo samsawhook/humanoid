@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { projectPaychecks } from '@/core/money/paychecks'
-import { allocateAll, summarize } from '@/core/money/allocation'
+import { allocateAll, summarize, type OneOff } from '@/core/money/allocation'
 import {
   OBLIGATIONS,
   ONE_OFFS,
+  ALL_ONE_OFFS,
+  PLAN_AS_OF,
+  PLAN_START,
   LATE_PAYMENTS_BALANCE,
   EXPECTED_BACK_PAY_NET,
   BACK_PAY_CLAIMS,
@@ -55,15 +58,26 @@ describe('drill back pay', () => {
 })
 
 describe('one-off inflows', () => {
-  const pays = projectPaychecks('2026-08-15', '2027-08-01')
-  const withOneOffs = allocateAll(pays, OBLIGATIONS, ONE_OFFS)
+  const pays = projectPaychecks(PLAN_START, '2027-08-01')
+  const windfall: OneOff = { key: 'refund', label: 'Test refund', date: '2026-12-20', amount: 1000 }
+  const withOneOffs = allocateAll(pays, OBLIGATIONS, [windfall])
   const without = allocateAll(pays, OBLIGATIONS)
 
-  it('lands the back pay on the first payday on or after its date', () => {
-    const landed = withOneOffs.find((a) => a.oneOffs?.some((o) => o.key === 'drill_back_pay'))!
-    // Dated 2026-08-21 — a placeholder, not a plan. It lands on the next cheque.
-    expect(landed.paycheck.scheduledDate).toBe('2026-09-01')
-    expect(landed.openingBuffer).toBeGreaterThanOrEqual(EXPECTED_BACK_PAY_NET)
+  /**
+   * The August back pay is dated 2026-08-21. A plan that starts in November must not
+   * see it — the allocator lands any one-off on the first payday on or after its date,
+   * so a stale one would quietly inject $1,354 into the 15 November cheque.
+   */
+  it('drops one-offs dated before the plan starts', () => {
+    expect(ALL_ONE_OFFS.some((o) => o.key === 'drill_back_pay')).toBe(true)
+    expect(ONE_OFFS.some((o) => o.key === 'drill_back_pay')).toBe(false)
+    for (const o of ONE_OFFS) expect(o.date >= PLAN_AS_OF).toBe(true)
+  })
+
+  it('lands a one-off on the first payday on or after its date', () => {
+    const landed = withOneOffs.find((a) => a.oneOffs?.some((o) => o.key === 'refund'))!
+    expect(landed.paycheck.scheduledDate).toBe('2027-01-01')
+    expect(landed.openingBuffer).toBeGreaterThanOrEqual(1000)
   })
 
   it('reconciles: every dollar in is either allocated or still in hand', () => {
@@ -77,45 +91,22 @@ describe('one-off inflows', () => {
     expect(totalNet + oneOffIn).toBeCloseTo(allocated + closing, 2)
   })
 
-  /**
-   * The one gap in the plan is the 15 August full mortgage payment, and the back pay's
-   * first claim is exactly the size of it. That is the design: the payment happens on
-   * the date it was asked for, and the windfall closes the stretch whenever it lands.
-   */
-  it('is sized to close the 15 August gap, whenever it arrives', () => {
-    const gap = summarize(withOneOffs).bindingShortfall
-    expect(gap).toBeCloseTo(790.48, 2)
-
-    const topup = BACK_PAY_CLAIMS.find((c) => c.key === 'august_mortgage_topup')!
-    expect(topup.cap).toBeGreaterThanOrEqual(Math.floor(gap))
-    // And it is first, so it is funded at every plausible amount.
-    expect(BACK_PAY_CLAIMS[0]!.key).toBe('august_mortgage_topup')
-  })
-
-  /**
-   * The real cost of insisting on a FULL payment on 15 August: it spends the cheque to
-   * the last dollar, so nothing carries into 1 September. The back pay refills that.
-   *
-   * Without it a second payday goes short and Chase is what yields — which is the
-   * intended behaviour rather than a problem. It is a closed account on an old
-   * arrangement, ranked LAST among the bills for exactly this reason, so the squeeze
-   * lands there instead of on the nannies or a live credit line.
-   */
-  it('lets Chase be the line that yields when it arrives late', () => {
-    expect(summarize(withOneOffs).bindingShortPaydays).toEqual(['2026-08-14'])
-
-    const lateShort = summarize(without).bindingShortPaydays
-    expect(lateShort).toContain('2026-09-01')
-
-    const sept = without.find((a) => a.paycheck.scheduledDate === '2026-09-01')!
-    expect(sept.lines.find((l) => l.key === 'debt_agreements')!.shortfall).toBe(110)
+  it('spends a one-off in priority order, closing a real gap rather than vanishing', () => {
+    expect(summarize(withOneOffs).bindingShortfall).toBeLessThan(
+      summarize(without).bindingShortfall,
+    )
   })
 
   it('clears the tolls eventually, behind the mortgage rather than ahead of it', () => {
-    const cleanup = withOneOffs
+    const cleanup = without
       .flatMap((a) => a.lines.filter((l) => l.key === 'late_payments'))
       .reduce((t, l) => t + l.allocated, 0)
     expect(cleanup).toBeCloseTo(LATE_PAYMENTS_BALANCE, 2)
+  })
+
+  it('keeps the August back-pay claim list intact as a worked example', () => {
+    expect(BACK_PAY_CLAIMS[0]!.key).toBe('august_mortgage_topup')
+    expect(EXPECTED_BACK_PAY_NET).toBeGreaterThan(0)
   })
 })
 

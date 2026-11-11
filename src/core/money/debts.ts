@@ -203,8 +203,12 @@ export const DEBTS: Debt[] = [
     priority: 5,
     /** Contractual payment, so this is a bill rather than a paydown target. */
     scheduledMonthly: 210,
-    /** One missed payment, owed on top of the next one. Cure this first. */
-    pastDue: 250.02,
+    /**
+     * $250.02 in August. Treated as CURED at the 2026-11-11 re-base: Monarch shows the
+     * regular $210.02 going out in October with nothing extra owed alongside it. If the
+     * Avant statement still shows a past-due amount, put it back here.
+     */
+    pastDue: 0,
     /**
      * UNKNOWN, and left unknown rather than guessed. You said only that it is high.
      * Avant's published range runs roughly 10% to 36%; at this balance every point is
@@ -214,7 +218,8 @@ export const DEBTS: Debt[] = [
      */
     apr: undefined,
     note:
-      'Live instalment loan: $4,928.97 principal, $210/mo contractual, $250.02 past due. ' +
+      'Live instalment loan: $4,928.97 principal as of August (not re-read since), ' +
+      '$210/mo contractual, past due cured. ' +
       'High rate, exact figure unknown. The highest-value SCRA target you have — a rate ' +
       'cap on a five-figure-ish balance at a personal-loan rate beats a cap on any of ' +
       'the cards, and unlike the cards the balance does not fall on its own.',
