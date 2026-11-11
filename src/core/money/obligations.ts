@@ -48,6 +48,9 @@ export const EMERGENCY_FUND_TARGET = 4500
  */
 export const STARTER_BUFFER = 1000
 
+/** Your figure, 2026-11-11, after seeing what December can carry. */
+export const CHRISTMAS_BUDGET = 500
+
 /**
  * The three accounts that are genuinely still open — the only balances that carry a
  * credit line and therefore the only ones where paying down moves utilisation.
@@ -404,6 +407,33 @@ export const OBLIGATIONS: Obligation[] = [
     execution: 'manual',
     howTo: 'Christmas, a trip, a specific problem. Not a standing transfer.',
     note: SENT_HOME.extrasBasis,
+  },
+  {
+    key: 'christmas',
+    label: 'Christmas',
+    /**
+     * Your call, 2026-11-11: $500, on top of the $300 already sent home for Christmas in
+     * November. From the 1 December cheque — the larger one — so it is in hand with
+     * three weeks to spare.
+     *
+     * Sized against the plan, not guessed: up to $1,000 fits with every bill paid;
+     * $1,500 left ~$450 of bills unpaid through the catch-up. $500 costs ~$520 at
+     * homecoming and moves the open cards from 15 to 30 April.
+     */
+    amountPerPaycheck: CHRISTMAS_BUDGET,
+    payDays: 'first',
+    activeFrom: '2026-12-01',
+    activeTo: '2026-12-01',
+    /**
+     * LAST of all the bills — below the Chase agreement, the designated give — so a
+     * tight December cuts Christmas before it cuts anything owed. Not a target: it is
+     * a promise to your family, and if it cannot be paid the page should say so.
+     */
+    priority: 39.5,
+    kind: 'living',
+    execution: 'manual',
+    howTo: 'Send home on 1 December, or spend it directly. One amount, then it is done.',
+    note: '$500 for Christmas, 1 December. $300 already went home in November.',
   },
   {
     key: 'nth_investments',
