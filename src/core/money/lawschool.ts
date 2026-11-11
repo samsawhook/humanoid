@@ -694,6 +694,23 @@ export const RETIREMENT_ACCOUNTS: { label: string; amount: number; note: string 
   },
 ]
 
+/**
+ * The boat goes on the balance sheet once — and only once — the repower is finished.
+ * Your call, 2026-11-11: "hardly worth putting on the balance sheet because it's hard to
+ * sell and will lose value over time, but once the repower is complete then add it."
+ *
+ * Set this to `true` when the engine is in and it runs. Nothing else needs to change.
+ */
+export const BOAT_REPOWERED = false
+
+/**
+ * Your 50% of a repowered 1999 Monterey 196 BR, at the LOW end of the range. Comparable
+ * listings put a clean repowered one at ~$7,000–9,500 asking (one 1999 196 BR listed at
+ * $9,950, Nov 2026); asking is not selling, and a half-share of a boat is harder to sell
+ * than a whole one. So: half of $7,000, and expect it to fall a little every year.
+ */
+export const BOAT_SHARE_REPOWERED = 3500
+
 /** Valuations you rejected. Carried at zero; the disputed figure is kept for the sensitivity. */
 export const PERSONAL_PROPERTY: BalanceLine[] = [
   {
@@ -704,11 +721,14 @@ export const PERSONAL_PROPERTY: BalanceLine[] = [
     note: 'Monarch auto-valuation, which you do not accept. Carried at zero. A 2013 vehicle with a lien against it is a net negative until that clears.',
   },
   {
-    label: 'Boat',
-    amount: 0,
+    label: 'Boat (50% share)',
+    amount: BOAT_REPOWERED ? BOAT_SHARE_REPOWERED : 0,
     kind: 'asset',
     disputedValue: 8000,
-    note: 'Monarch auto-valuation, which you do not accept. Carried at zero until you give me a figure you would actually sell at.',
+    note: BOAT_REPOWERED
+      ? `Your half of a repowered 1999 Monterey 196 BR, at the conservative end — hard to sell, and it depreciates.`
+      : 'Carried at zero until the repower is done: an old boat needing an engine, and only half of it is yours. ' +
+        'Monarch says $8,000 for the whole boat, which you do not accept. Flip BOAT_REPOWERED when the work is finished.',
   },
 ]
 

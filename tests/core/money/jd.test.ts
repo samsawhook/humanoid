@@ -376,3 +376,13 @@ describe('the balance sheet composes rather than restates', () => {
     )
   })
 })
+
+describe('the boat on the balance sheet', () => {
+  it('stays at zero until the repower is done, then carries your half conservatively', async () => {
+    const { BOAT_REPOWERED, BOAT_SHARE_REPOWERED, PERSONAL_PROPERTY } = await import('@/core/money/lawschool')
+    const boat = PERSONAL_PROPERTY.find((p) => p.label.startsWith('Boat'))!
+    expect(boat.amount).toBe(BOAT_REPOWERED ? BOAT_SHARE_REPOWERED : 0)
+    // Half of the low end of the repowered range — never the $8,000 whole-boat figure.
+    expect(BOAT_SHARE_REPOWERED).toBeLessThanOrEqual(8000 / 2)
+  })
+})
