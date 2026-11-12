@@ -32,6 +32,17 @@ import { addLocalDays } from '@/core/time/localDay'
 import { Figure, Legend, StackedBars, TableView, Timeline, seriesColor } from '@/components/viz'
 import { TrendChart } from '@/components/TrendChart'
 import { CHECKING_DAILY, DFAS_PAYCHECKS, overdraftDips } from '@/core/money/statements'
+import { TRADELINES, REVIEW_FILE, reviewReadiness, type ReviewStatus } from '@/core/money/credit'
+
+/** How each review status reads — status colour, always with an icon and a label. */
+const REVIEW_LEVEL: Record<ReviewStatus, { level: 'critical' | 'warning' | 'serious' | 'good'; label: string }> = {
+  federal_delinquent: { level: 'critical', label: 'Federal, past due' },
+  collections: { level: 'critical', label: 'In collections' },
+  delinquent: { level: 'critical', label: 'Past due' },
+  charged_off: { level: 'serious', label: 'Charged off — document' },
+  recovering: { level: 'warning', label: 'Recovering' },
+  clean: { level: 'good', label: 'Clean' },
+}
 
 const usd0 = (n: number) =>
   n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
@@ -98,6 +109,7 @@ export function Briefing() {
   const dips = overdraftDips()
   const worst = dips.reduce((w, d) => (d.low < w.low ? d : w), dips[0]!)
   const deployedDips = dips.filter((d) => d.start >= '2026-08-08')
+  const readiness = reviewReadiness()
   const wire = impacts.find((i) => i.move.key === 'wire_to_ach')
 
   // ── Calls to attention, most urgent first ──
@@ -109,9 +121,30 @@ export function Briefing() {
         '$974.60 past due, $1,050.43 due 10 Dec, last payment Feb 2025. Federal loans default at ' +
         '270 days — tax refunds can be seized and ~20% collection costs added. Deployed, you qualify ' +
         'for military deferment and 0% interest; ask for forbearance on the past due and it is current ' +
-        'at $0. Until then the plan cures it from cash by mid-March.',
+        'at $0. Until then the plan cures it from cash by mid-January.',
       amount: '$974.60',
       note: 'past due',
+    },
+    {
+      level: 'critical',
+      title: 'UT student loan: $11,082 in collections',
+      body:
+        'Placed for collection, closed 7 Apr 2026 — not in Monarch, not in the plan until now. The ' +
+        'creditor is UT itself, which usually means a Federal Perkins loan: if so, military deferment ' +
+        'and Perkins cancellation for service in an imminent-danger area may apply. Call UT to confirm ' +
+        'the loan type, then ask for those or a written plan. Federal debt in collection weighs heavily ' +
+        'in a security review.',
+      amount: '$11,082',
+      note: 'in collections',
+    },
+    {
+      level: 'good',
+      title: 'Mortgage: one payment behind, not two',
+      body:
+        'NFCU reported 30–59 days late on 27 Oct — a single payment. One extra payment on 15 Dec makes ' +
+        'it current, a month early. Ask NFCU for a letter confirming it is current, for the file.',
+      amount: '15 Dec',
+      note: 'current',
     },
     {
       level: 'good',
@@ -147,8 +180,10 @@ export function Briefing() {
       body:
         `10% guaranteed on up to ${usd0(SDP_CAP)}, only while you are deployed. Deposits stop when you ` +
         `leave theatre, so every month it waits is a month that cannot be made up. myPay or finance.`,
-      amount: usd0(base.sdpInterest),
-      note: 'interest at plan',
+      // At plan the SDP gets little now (the student loan and the boat come first), and a
+      // "$1 interest" headline would undersell a 10% guaranteed rate. Show the rate instead.
+      amount: base.sdpInterest >= 50 ? usd0(base.sdpInterest) : '10%',
+      note: base.sdpInterest >= 50 ? 'interest at plan' : 'guaranteed',
     },
     {
       level: 'warning',
@@ -305,6 +340,64 @@ export function Briefing() {
             )}
           </div>
         ))}
+      </div>
+
+      <h2>Credit recovery — for the security review</h2>
+      <div className="note">
+        <strong>The goal is a clean review, not a score and not new credit.</strong> Under Guideline F
+        (Financial Considerations) an adjudicator asks: is anything delinquent now, is any federal debt
+        in default, is every bad account paid, settled or under a written plan you are following, and
+        are you getting financial counseling? You already are — Magellan Federal. Today{' '}
+        <strong>{readiness.federalDelinquent + readiness.inCollections + readiness.delinquentNow}</strong>{' '}
+        account{readiness.federalDelinquent + readiness.inCollections + readiness.delinquentNow === 1 ? ' is' : 's are'}{' '}
+        in a state a reviewer flags first, and <strong>{readiness.chargedOffUndocumented}</strong> charge-offs
+        need a documented decision. Every one has a dated action below.
+      </div>
+      <div className="scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Account</th>
+              <th>Status</th>
+              <th>Balance</th>
+              <th style={{ textAlign: 'left' }}>The action — and the paper to keep</th>
+              <th>By</th>
+            </tr>
+          </thead>
+          <tbody>
+            {TRADELINES.map((t) => (
+              <tr key={t.key}>
+                <td style={{ whiteSpace: 'normal', minWidth: 150 }}>
+                  <strong>{t.creditor}</strong>
+                  <div className="muted" style={{ fontSize: 12 }}>{t.kind}</div>
+                </td>
+                <td>
+                  <Pill level={REVIEW_LEVEL[t.status].level}>{REVIEW_LEVEL[t.status].label}</Pill>
+                </td>
+                <td>{usd0(t.balance)}</td>
+                <td style={{ whiteSpace: 'normal', textAlign: 'left', minWidth: 280, fontSize: 13 }}>
+                  {t.action}
+                  <div className="muted" style={{ fontSize: 12, marginTop: 3 }}>{t.reported}</div>
+                </td>
+                <td>{nice(t.by)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="rec" style={{ marginTop: 12 }}>
+        <h3>The review file — start it now</h3>
+        <ul className="tight">
+          {REVIEW_FILE.map((f) => (
+            <li key={f}>{f}</li>
+          ))}
+        </ul>
+        <p>
+          When you complete an SF-86 or sit a subject interview, debts over 120 days late, collections,
+          charge-offs and federal debt in default are exactly what you will be asked about. Disclose
+          them; the file is what turns a list of problems into evidence that they are being resolved.
+          See JAG Legal Assistance before contacting Upgrade or Goldman. Not legal advice.
+        </p>
       </div>
 
       <h2>What the statements show</h2>

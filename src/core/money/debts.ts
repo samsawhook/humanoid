@@ -112,7 +112,7 @@ export const SCRA_TARGETS: ScraTarget[] = [
     creditor: 'Avant',
     debtKey: 'avant',
     reason:
-      'DO THIS ONE FIRST. Instalment loan, $4,928.97, at a personal-loan rate you have ' +
+      'DO THIS ONE FIRST. Instalment loan, $4,509, at a personal-loan rate you have ' +
       'described as high. Every point above 6% is about $49 a year here, so the cap is ' +
       'worth roughly $200-$1,500 a year — more than every card on this list combined, ' +
       'and unlike a card the balance does not shrink on its own.',
@@ -192,7 +192,8 @@ export const DEBTS: Debt[] = [
   {
     key: 'avant',
     label: 'Avant personal loan',
-    balance: 4928.97,
+    /** $4,509 reported by Avant 31 Oct 2026 (credit report); was $4,928.97 in August. */
+    balance: 4509,
     /**
      * An INSTALMENT loan, not a card. It has no credit line, so paying it down does
      * nothing for utilisation — which is why it sits outside the open-card bucket even
@@ -218,7 +219,8 @@ export const DEBTS: Debt[] = [
      */
     apr: undefined,
     note:
-      'Live instalment loan: $4,928.97 principal as of August (not re-read since), ' +
+      'Live instalment loan: $4,509 (31 Oct 2026, in good standing), opened May 2025 — ' +
+      'before active duty, so SCRA applies, ' +
       '$210/mo contractual, past due cured. ' +
       'High rate, exact figure unknown. The highest-value SCRA target you have — a rate ' +
       'cap on a five-figure-ish balance at a personal-loan rate beats a cap on any of ' +
@@ -307,9 +309,27 @@ export const DEBTS: Debt[] = [
     posture: 'sued_dismissed',
     priority: 910,
     note:
-      'Sued, dismissed. Deprioritised deliberately. Do not make a payment without checking ' +
-      'the limitations date first — a partial payment can restart the clock. A credit union ' +
-      'may also have a right of setoff against accounts held there, so do not park cash at PSECU.',
+      'Sued, dismissed. Deprioritised deliberately. On the credit report (TransUnion, Nov 2026) ' +
+      'this $10,922 shows as UPGRADE INC: charge-off, last payment 17 Oct 2022, closed 31 Aug ' +
+      '2024 — the loan was likely sold to or serviced for PSECU. Do not make a payment without ' +
+      'JAG advice on the limitations period first. A credit union may also have a right of ' +
+      'setoff against accounts held there, so do not park cash at PSECU.',
+  },
+  {
+    key: 'ut_loan',
+    label: 'University of Texas student loan',
+    /** Credit Karma (TransUnion), reported 7 Aug 2026. */
+    balance: 11082,
+    instrument: 'installment',
+    posture: 'in_collections',
+    priority: 7,
+    apr: undefined,
+    note:
+      'NEW 2026-11-12, from the credit report: placed for collection, closed 7 Apr 2026. ' +
+      '$129/mo on a 120-month term from 2015; current Jul 2025–Feb 2026, late from March. ' +
+      'Creditor is UT itself, which usually means a Federal Perkins loan — if so, military ' +
+      'service deferment and Perkins cancellation for service in an imminent-danger area may ' +
+      'apply. Confirm the loan type with UT before anything else. Not in Monarch.',
   },
 ]
 

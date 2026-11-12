@@ -151,7 +151,7 @@ describe('the student loan deferment', () => {
   const d = moveImpacts(base).find((i) => i.move.key === 'sl_deferment')!
   it('stops the interest and frees the cash — worth more than zero, and clears the cards', () => {
     expect(d.delta).toBeGreaterThan(200)
-    expect(base.openCardsClear).toBe(null)
     expect(d.outcome.openCardsClear).not.toBe(null)
+    expect(d.outcome.openCardsClear! <= (base.openCardsClear ?? '9999')).toBe(true)
   })
 })

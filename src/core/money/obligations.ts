@@ -138,12 +138,19 @@ export const MORTGAGE_PAYMENT = 1381.79
 /**
  * Missed payments still to make good, as of PLAN_AS_OF.
  *
+ * ONE, from 2026-11-12: the credit report shows NFCU reporting "30–59 days late" on
+ * 27 Oct — a single payment behind. That also fits the statements if August's "four
+ * behind" was really three (7 due Aug–Nov, 6 paid). The catch-up is therefore one
+ * extra payment on 15 Dec, a month inside your January deadline. If NFCU says two,
+ * set this back to 2 — the January end date still holds.
+ *
+ * (Earlier reading, kept for the record:)
  * "Nearly complete, ending January" (2026-11-11). Monarch shows two payments in
  * September and one in October, so the catch-up is paid in whole extra payments rather
  * than every month. Modelled as two to go, on the 15 December and 15 January cheques;
  * if the count is different, change it here — the end date is MORTGAGE_CATCHUP_LAST.
  */
-export const MORTGAGE_ARREARS_PAYMENTS_LEFT = 2
+export const MORTGAGE_ARREARS_PAYMENTS_LEFT = 1
 /** Your call, 2026-11-11: the catch-up finishes in January. The last extra payment is the 15 January cheque. */
 export const MORTGAGE_CATCHUP_LAST = '2027-01-15' as const
 export const MORTGAGE_ARREARS_BALANCE =
@@ -634,7 +641,7 @@ export const OBLIGATIONS: Obligation[] = [
     execution: 'manual',
     howTo: 'Autopay it. High rate and no credit line, so there is nothing clever to do here — just do not miss it.',
     note:
-      '$210/mo against $4,928.97. RATE UNKNOWN and described as high, which makes the ' +
+      '$210/mo against $4,509. RATE UNKNOWN and described as high, which makes the ' +
       'SCRA cap the highest-value single action available: every point above 6% is ' +
       'about $49 a year at this balance.',
   },

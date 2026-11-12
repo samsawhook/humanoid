@@ -503,6 +503,24 @@ and to take my advice on how.
   approval (+~$263 in interest, open cards back by 14 May).
 - SCRA does not apply to the loan — the rate is already under 6%.
 
+### D27. Credit recovery is a goal — for the security review, not for credit
+
+Your framing, 2026-11-12. Success is measured the way a Guideline F adjudicator
+measures it, not by a score: nothing delinquent now, no federal debt in default,
+every derogatory account paid, settled or under a written plan, counseling
+documented. `credit.ts` scores each tradeline against that bar and gives each a
+dated action; a review file lists the paper to keep. No new credit is proposed.
+
+From the credit report (TransUnion via Credit Karma, Nov 2026):
+- **U of Texas student loan, $11,082, in collections** (closed 7 Apr 2026) — new to
+  the plan; likely Perkins, so deferment / cancellation may apply. Confirm with UT.
+- **Nelnet** 120+ days late, not yet defaulted — the 10 Dec call stands.
+- **Mortgage one payment behind, not two** (30–59 days late, 27 Oct). Catch-up is one
+  extra payment on 15 Dec. That pulls the student-loan cure to 15 Jan and the open
+  cards to 15 Jun even on the backstop path.
+- **"PSECU" $10,922 = Upgrade Inc** charge-off, last paid Oct 2022: JAG before contact.
+- **Avant $4,509**, current, opened May 2025 (pre-service → SCRA applies).
+
 ---
 
 # Seed context — as of 2026-08-05
