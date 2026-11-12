@@ -38,3 +38,12 @@ describe('credit recovery for the security review', () => {
     }
   })
 })
+
+describe('SLRP', () => {
+  it('is on file as evidence, and the Nelnet action says it did not cure the past due', () => {
+    const nelnet = TRADELINES.find((t) => t.key === 'nelnet')!
+    expect(nelnet.action).toMatch(/SLRP/)
+    expect(nelnet.action).toMatch(/did not cure the past due/)
+    expect(REVIEW_FILE.some((f) => /SLRP/.test(f))).toBe(true)
+  })
+})

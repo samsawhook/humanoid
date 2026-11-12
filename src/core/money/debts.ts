@@ -285,6 +285,8 @@ export const DEBTS: Debt[] = [
     /** $1.01/day on $7,191.78 ≈ 5.1%. Already under the SCRA 6% cap, so SCRA does not help. */
     apr: 0.0513,
     note:
+      'SLRP (Army Reserve Student Loan Repayment) paid $20k+ by 12 Nov 2026 — this balance ' +
+      'already reflects it. It went to principal and did NOT cure the past due. ' +
       'URGENT. $974.60 past due, $1,050.43 due 10 Dec 2026. While deployed: request military ' +
       'service deferment, the 0% interest benefit for service in an imminent-danger area ' +
       '(Direct Loans), and administrative forbearance on the past-due amount. That makes it ' +
@@ -329,7 +331,9 @@ export const DEBTS: Debt[] = [
       '$129/mo on a 120-month term from 2015; current Jul 2025–Feb 2026, late from March. ' +
       'Creditor is UT itself, which usually means a Federal Perkins loan — if so, military ' +
       'service deferment and Perkins cancellation for service in an imminent-danger area may ' +
-      'apply. Confirm the loan type with UT before anything else. Not in Monarch.',
+      'apply. Confirm the loan type with UT before anything else. Not in Monarch. ' +
+      'BALANCE MAY BE LOWER: the Nov 2026 SLRP payment was likely split proportionally and ' +
+      'part sent here — get a current balance from UT. $11,082 is the Aug report, kept until then.',
   },
 ]
 

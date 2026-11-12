@@ -67,7 +67,9 @@ export const TRADELINES: Tradeline[] = [
       'or collections — federal loans default at 270 days.',
     action:
       'Before 10 Dec: military service deferment + 0% interest (imminent-danger area) + ' +
-      'forbearance on the $974.60 past due. Keep the written confirmation it is current.',
+      'forbearance on the $974.60 past due. Keep the written confirmation it is current. The ' +
+      'Nov SLRP payment ($20k+) went to principal and did not cure the past due — and a ' +
+      'defaulted loan can lose SLRP eligibility, so this protects the next payment too.',
     by: '2026-12-10',
     debtKey: 'student_loan',
   },
@@ -83,8 +85,9 @@ export const TRADELINES: Tradeline[] = [
     action:
       'Call UT Student Loan Collections: ask (1) is this a Federal Perkins loan, (2) military ' +
       'service deferment, (3) Perkins cancellation for service in an imminent-danger area, ' +
-      '(4) rehabilitation or a written payment plan. Do not ignore it — a school-held federal ' +
-      'loan in collection reads as federal debt to a reviewer.',
+      '(4) rehabilitation or a written payment plan, (5) the balance after the Nov SLRP ' +
+      'payment. Ask your SLRP manager whether a loan in collection still qualifies. A ' +
+      'school-held federal loan in collection reads as federal debt to a reviewer.',
     by: '2026-12-15',
     debtKey: 'ut_loan',
   },
@@ -180,7 +183,8 @@ export function reviewReadiness(lines: Tradeline[] = TRADELINES): ReviewReadines
 export const REVIEW_FILE: string[] = [
   'Magellan Federal financial counseling — dates of sessions and the budget you submitted',
   'Nelnet: deferment approval and a statement showing the loan current',
-  'UT: loan type confirmation and the deferment / cancellation / payment-plan letter',
+  'UT: loan type confirmation, post-SLRP balance, and the deferment / cancellation / payment-plan letter',
+  'SLRP: each payment notice — the Nov 2026 one was $20k+. Evidence the debt is being paid down',
   'NFCU: letter confirming the mortgage is current',
   'JAG Legal Assistance memo on Upgrade and Goldman, and any settlement letters',
   'SCRA letters sent and creditor responses',

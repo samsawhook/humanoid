@@ -521,6 +521,15 @@ From the credit report (TransUnion via Credit Karma, Nov 2026):
 - **"PSECU" $10,922 = Upgrade Inc** charge-off, last paid Oct 2022: JAG before contact.
 - **Avant $4,509**, current, opened May 2025 (pre-service → SCRA applies).
 
+### D28. SLRP paid $20k+ (Nov 2026)
+
+The Army Reserve Student Loan Repayment Program payment landed: Nelnet is down to
+$7,191.78 + $708.34 interest (~$7.9k payoff, already the figure in the plan). It went
+to principal and did NOT cure the $974.60 past due, so the 10 Dec call stands. Keeping
+the loans out of default also protects SLRP eligibility for the next payment. Part of
+the payment likely went to the UT loan; its $11,082 is the August figure until UT gives
+a current balance. SLRP notices go in the review file as evidence of paydown.
+
 ---
 
 # Seed context — as of 2026-08-05
