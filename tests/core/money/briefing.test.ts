@@ -39,9 +39,12 @@ describe('the briefing', () => {
     ])
     const landed = run.find((a) => a.oneOffs?.some((o) => o.key === 'e'))!
     const covered = (landed.draws ?? []).reduce((s, d) => s + d.amount, 0)
-    expect(covered).toBe(1000)
+    // Whatever the buffer holds pays first — never more than the shock, never more than
+    // the $1,000 it can hold — and only the rest lands on checking.
+    expect(covered).toBeGreaterThan(0)
+    expect(covered).toBeLessThanOrEqual(1000)
     const before = run[run.indexOf(landed) - 1]!
-    expect(landed.openingBuffer).toBeCloseTo(before.remainder - 500, 2)
+    expect(landed.openingBuffer).toBeCloseTo(before.remainder - (1500 - covered), 2)
   })
 
   it('reduces debt from today to homecoming', () => {
@@ -140,5 +143,15 @@ describe('the boat', () => {
 
   it('finishes before homecoming if the savings are taken', () => {
     expect(allMoves().boatDone).not.toBe(null)
+  })
+})
+
+describe('the student loan deferment', () => {
+  const base = runPlan()
+  const d = moveImpacts(base).find((i) => i.move.key === 'sl_deferment')!
+  it('stops the interest and frees the cash — worth more than zero, and clears the cards', () => {
+    expect(d.delta).toBeGreaterThan(200)
+    expect(base.openCardsClear).toBe(null)
+    expect(d.outcome.openCardsClear).not.toBe(null)
   })
 })

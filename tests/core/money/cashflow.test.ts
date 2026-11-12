@@ -260,12 +260,13 @@ describe('the real plan', () => {
 
   it('pays the car off to its balance and then stops billing', () => {
     expect(cleared.car_payoff?.paid).toBe(CAR_LOAN_BALANCE)
-    // November's payment already drafted, so: December, January, and ~$140 in February.
-    expect(cleared.car_payoff?.clearedOn).toBe('2027-02-01')
+    // "Pay off car asap": the 15 Nov cheque sends ~$848 (December's Nth is skipped to
+    // make room) and the 1 Dec scheduled payment takes the last couple of dollars.
+    expect(cleared.car_payoff?.clearedOn).toBe('2026-12-01')
     const nov = allocations.find((a) => a.paycheck.scheduledDate === '2026-11-15')!
-    expect(nov.lines.some((l) => l.key === 'car_payoff')).toBe(false)
+    expect(nov.lines.find((l) => l.key === 'car_payoff_now')!.allocated).toBeGreaterThan(800)
 
-    const after = allocations.filter((a) => a.paycheck.payDate > '2027-02-01')
+    const after = allocations.filter((a) => a.paycheck.payDate > '2026-12-01')
     expect(after.every((a) => !a.lines.some((l) => l.key === 'car_payoff'))).toBe(true)
   })
 
@@ -387,18 +388,18 @@ describe('the real plan', () => {
    */
   it('runs the waterfall one balance at a time, in the order chosen', () => {
     // Arrears are a scheduled bill now, so the waterfall runs beside them, in order:
-    // tolls, a $1,000 cash buffer, the open cards, then the SDP while its window is open.
-    // Christmas ($500, 1 Dec) pushes the tolls from February to March.
-    expect(cleared.late_payments?.clearedOn).toBe('2027-03-15')
-    // Two assumed emergencies ($4,000) push the open cards a month and take most of the
-    // SDP; the buffer is refilled to $1,000 after each draw.
-    // Liability insurance from 1 Mar (~$100/mo, estimate) pushes this two weeks.
-    expect(cleared.open_cards?.clearedOn).toBe('2027-05-14')
+    // car payoff, the student loan's past due, tolls, a $1,000 cash buffer, the open
+    // cards, the boat, then the SDP while its window is open.
+    expect(cleared.car_payoff?.clearedOn).toBe('2026-12-01')
+    expect(cleared.student_loan_past_due?.clearedOn).toBe('2027-03-15')
+    expect(cleared.late_payments?.clearedOn).toBe('2027-04-15')
     expect(cleared.emergency_fund?.paid).toBe(1000)
-    // The boat ($2,250) sits between the open cards and the SDP, so it is funded first;
-    // after Christmas and two emergencies it reaches ~$820 (after insurance from March), and the SDP gets the rest.
-    expect(cleared.boat!.paid).toBeGreaterThan(500) // ~$820 at plan once insurance starts
-    expect(cleared.sdp!.paid).toBeGreaterThan(0)
+    // The BACKSTOP case — student loan cured from cash, no deferment — after Christmas,
+    // two emergencies and insurance: the open cards are reached but not cleared before
+    // homecoming, and nothing is left for the boat or the SDP. The deferment move is what
+    // changes this; see briefing.test.ts.
+    expect(cleared.open_cards?.clearedOn).toBe(null)
+    expect(cleared.open_cards!.paid).toBeGreaterThan(0)
     // The rest of the reserve and the closed balances wait until you are home — the SDP
     // payout funds them then. Closed-card minimums are still paid as bills throughout.
     expect(cleared.closed_cards?.clearedOn).toBe(null)

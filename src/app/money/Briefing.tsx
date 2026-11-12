@@ -104,6 +104,26 @@ export function Briefing() {
   const attention: { level: Level; title: string; body: string; amount?: string; note?: string }[] = [
     {
       level: 'critical',
+      title: 'Student loan: ~13 payments behind — call before 10 Dec',
+      body:
+        '$974.60 past due, $1,050.43 due 10 Dec, last payment Feb 2025. Federal loans default at ' +
+        '270 days — tax refunds can be seized and ~20% collection costs added. Deployed, you qualify ' +
+        'for military deferment and 0% interest; ask for forbearance on the past due and it is current ' +
+        'at $0. Until then the plan cures it from cash by mid-March.',
+      amount: '$974.60',
+      note: 'past due',
+    },
+    {
+      level: 'good',
+      title: 'Car paid off from the 15 Nov cheque',
+      body:
+        'Skipping December’s Nth transfer lets the 15 Nov cheque pay the remaining ~$850 outright. ' +
+        'Get a payoff quote from Westlake and the lien release in writing; then liability-only insurance.',
+      amount: '+$355/mo',
+      note: 'freed from Dec',
+    },
+    {
+      level: 'critical',
       title: 'Checking keeps going below zero',
       body:
         `${deployedDips.length} times in three months, as low as ${usd0(worst.low)} on ${nice(worst.lowOn)}. ` +
@@ -568,6 +588,28 @@ export function Briefing() {
             everything after the tolls, the $1,000 buffer and the open cards: {usd0(base.sdpDeposited)} at
             plan, {usd0(together.sdpDeposited)} if you take every move above. Confirm eligibility with finance
             first; deposits by allotment in myPay or in cash at finance.
+          </p>
+        </div>
+        <div className="rec">
+          <h3>Before anything else: the student loan, this week</h3>
+          <p>
+            <strong>Call the servicer before 10 December</strong> with your orders and an LES showing
+            imminent danger pay, and ask for three things: <strong>military service deferment</strong>
+            (payments paused while on active duty), the <strong>0% interest benefit</strong> for Direct
+            Loans while you serve in an imminent-danger area, and <strong>administrative forbearance on the
+            $974.60 past due</strong> to bring the account current. Confirm in writing that it is current,
+            and ask whether it was ever reported as defaulted. If it is a FFEL or private loan rather than a
+            Direct Loan, the 0% benefit may not apply — ask. SCRA will not help: the rate is already ~5.1%.
+          </p>
+          <p>
+            If they refuse, the plan pays $75.83 a month from December and clears the past due from
+            spare cash by mid-March — but that costs the boat, the open cards and the SDP their place
+            before homecoming. Approval is worth{' '}
+            {(() => {
+              const d = impacts.find((i) => i.move.key === 'sl_deferment')
+              return d ? <strong>{signed(d.delta)}</strong> : null
+            })()}{' '}
+            and gets you current four months sooner.
           </p>
         </div>
         <div className="rec">

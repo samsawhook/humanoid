@@ -486,6 +486,23 @@ Christi rates and limits above the 30/60/25 minimum, because you own a house.
 Replace with a real quote. Cost: open cards 30 Apr → 14 May; boat ~$820 by
 homecoming at plan (the savings moves still finish it).
 
+### D26. Car paid off now; the student loan made current — by the servicer first
+
+You asked to pay off the car and get the student loan current as soon as possible,
+and to take my advice on how.
+
+- **Car:** December's Nth transfer is skipped so the 15 Nov cheque pays the ~$850
+  outright (`car_payoff_now`, top of the waterfall). Frees $355/mo from December.
+- **Student loan (federal):** $7,900.12 payoff, $974.60 past due (~13 payments; last paid
+  Feb 2025), $1,050.43 due 10 Dec, ~5.1%. Cash cannot cure it before mid-March without
+  missing other bills — December and January carry two mortgage payments. So the plan
+  of choice is the servicer: military service deferment, the 0% interest benefit for an
+  imminent-danger area, and forbearance on the past due. The plan models the BACKSTOP
+  (pay $75.83/mo from Dec, cure from cash by 15 Mar), which costs the open cards, the
+  boat and the SDP their place before homecoming; the `sl_deferment` move prices the
+  approval (+~$263 in interest, open cards back by 14 May).
+- SCRA does not apply to the loan — the rate is already under 6%.
+
 ---
 
 # Seed context — as of 2026-08-05

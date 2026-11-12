@@ -150,7 +150,7 @@ describe('paydown simulation', () => {
   it('excludes a debt under a payment agreement from the paydown queue', () => {
     const chase = DEBTS.find((d) => d.key === 'chase')!
     expect(chase.scheduledMonthly).toBe(110)
-    expect(scheduledDebts().map((d) => d.key).sort()).toEqual(['avant', 'chase'])
+    expect(scheduledDebts().map((d) => d.key).sort()).toEqual(['avant', 'chase', 'student_loan'])
 
     expect(activeDebts().map((d) => d.key)).not.toContain('chase')
     expect(simulatePaydown(500, 24).steps.map((s) => s.debt.key)).not.toContain('chase')
@@ -172,5 +172,18 @@ describe('paydown simulation', () => {
     const result = simulatePaydown(0, 24)
     expect(result.totalPaid).toBe(0)
     expect(result.allClearedAfter).toBeNull()
+  })
+})
+
+describe('the federal student loan', () => {
+  const sl = DEBTS.find((d) => d.key === 'student_loan')!
+  it('is carried at the payoff figure, with the past due recorded', () => {
+    expect(sl.balance).toBeCloseTo(7191.78 + 708.34, 2)
+    expect(sl.pastDue).toBe(974.6)
+    expect(sl.scheduledMonthly).toBe(75.83)
+  })
+  it('is not an SCRA target — the rate is already under 6%', () => {
+    expect(sl.apr!).toBeLessThan(0.06)
+    expect(SCRA_TARGETS.some((t) => t.debtKey === 'student_loan')).toBe(false)
   })
 })

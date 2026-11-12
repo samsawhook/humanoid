@@ -35,6 +35,7 @@ import {
 import { DEBTS } from './debts'
 import { projectSdp } from './sdp'
 import { TIMELINE } from './rates'
+import { localDaysBetween } from '../time/localDay'
 
 export const BRIEFING_END: LocalDate = '2027-08-01'
 
@@ -43,6 +44,24 @@ const NTH_PRINCIPAL = 500
 
 /** Chase is paid on an agreement with no cap, so its balance is tracked here. */
 const CHASE_BALANCE = DEBTS.find((d) => d.key === 'chase')!.balance
+
+/**
+ * The federal student loan: payoff today, and the interest it keeps adding ($1.01/day)
+ * unless the 0% benefit for service in an imminent-danger area is applied. A plan with
+ * no student-loan lines is a plan where the deferment was approved — so no payments,
+ * and no interest either.
+ */
+const STUDENT_LOAN = DEBTS.find((d) => d.key === 'student_loan')!
+const STUDENT_LOAN_DAILY_INTEREST = 1.01
+
+function studentLoanLeft(allocations: Allocation[], obligations: Obligation[]): number {
+  const deferred = !obligations.some((o) => o.key.startsWith('student_loan'))
+  const last = allocations[allocations.length - 1]?.paycheck.payDate ?? PLAN_START
+  const days = Math.max(0, localDaysBetween(PLAN_START, last))
+  const interest = deferred ? 0 : days * STUDENT_LOAN_DAILY_INTEREST
+  const paid = sumLines(allocations, (k) => k.startsWith('student_loan'))
+  return round2(Math.max(0, STUDENT_LOAN.balance + interest - paid))
+}
 
 export interface PlanInputs {
   obligations: Obligation[]
@@ -120,7 +139,8 @@ export function runPlan(inputs: PlanInputs = BASE_INPUTS, end: LocalDate = BRIEF
       remaining('car_payoff') +
       remaining('mortgage_arrears') +
       remaining('late_payments') +
-      Math.max(0, CHASE_BALANCE - chasePaid),
+      Math.max(0, CHASE_BALANCE - chasePaid) +
+      studentLoanLeft(allocations, inputs.obligations),
   )
 
   const emergencyFund = Math.max(0, cleared.emergency_fund?.paid ?? 0)
@@ -197,6 +217,20 @@ const trimSpending = (monthly: number) => (inputs: PlanInputs) =>
   }))
 
 export const MOVES: Move[] = [
+  {
+    key: 'sl_deferment',
+    label: 'Student loan: deferment + 0% interest',
+    action:
+      'Call the servicer before 10 Dec with your orders and an LES showing imminent danger pay. ' +
+      'Ask for military service deferment, the 0% interest benefit while serving in an ' +
+      'imminent-danger area, and administrative forbearance on the $974.60 past due. ' +
+      'Current at $0, and no more interest while deployed.',
+    basis: 'computed',
+    apply: (i) => ({
+      ...i,
+      obligations: i.obligations.filter((o) => !o.key.startsWith('student_loan')),
+    }),
+  },
   {
     key: 'wire_to_ach',
     label: 'Send Nth by ACH, not wire',
@@ -420,7 +454,8 @@ export function trajectory(outcome: Outcome, obligations: Obligation[] = OBLIGAT
       remaining('car_payoff') +
       remaining('mortgage_arrears') +
       remaining('late_payments') +
-      Math.max(0, CHASE_BALANCE - chasePaid)
+      Math.max(0, CHASE_BALANCE - chasePaid) +
+      studentLoanLeft(upTo, obligations)
     const ef = Math.max(0, cleared.emergency_fund?.paid ?? 0)
     const cash =
       ef +
@@ -464,6 +499,7 @@ export function openingDebt(obligations: Obligation[] = OBLIGATIONS): number {
       cap('car_payoff') +
       cap('mortgage_arrears') +
       cap('late_payments') +
-      CHASE_BALANCE,
+      CHASE_BALANCE +
+      STUDENT_LOAN.balance,
   )
 }

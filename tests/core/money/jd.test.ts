@@ -89,13 +89,14 @@ describe('balance sheet', () => {
     // Re-based 2026-11-11: the car loan is down to $850 (from $1,800) and the TSP's
     // $9,500 is on the sheet. Both arrive by composition — CAR_LOAN_BALANCE and
     // RETIREMENT_ACCOUNTS — which is the point of composing.
-    expect(Math.round(opening.netWorth)).toBe(-22339)
+    // The federal student loan ($7,900.12 payoff, added 2026-11-12) is on the sheet now.
+    expect(Math.round(opening.netWorth)).toBe(-30239)
     expect(opening.liquid).toBeLessThan(100)
   })
 
   it('keeps disputed values visible as a sensitivity rather than deleting them', () => {
     expect(opening.disputedTotal).toBeCloseTo(16898.59, 2)
-    expect(Math.round(opening.netWorthIfDisputedAccepted)).toBe(-5440)
+    expect(Math.round(opening.netWorthIfDisputedAccepted)).toBe(-13340)
     // The gap between the two IS the disputed total — nothing else moved.
     expect(opening.netWorthIfDisputedAccepted - opening.netWorth).toBeCloseTo(
       opening.disputedTotal,

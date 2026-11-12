@@ -264,6 +264,31 @@ export const DEBTS: Debt[] = [
       'a tight payday.',
   },
   {
+    key: 'student_loan',
+    label: 'Student loan (federal)',
+    /**
+     * From the servicer's page, 11 Nov 2026: principal $7,191.78 plus $708.34 unpaid
+     * accrued interest. Carried at the payoff figure.
+     */
+    balance: 7900.12,
+    instrument: 'installment',
+    posture: 'active',
+    priority: 6,
+    scheduledMonthly: 75.83,
+    /**
+     * ~13 payments missed — the last one was $3,624.16 on 6 Feb 2025. Federal loans go
+     * to DEFAULT at 270 days delinquent, which this may already be past.
+     */
+    pastDue: 974.6,
+    /** $1.01/day on $7,191.78 ≈ 5.1%. Already under the SCRA 6% cap, so SCRA does not help. */
+    apr: 0.0513,
+    note:
+      'URGENT. $974.60 past due, $1,050.43 due 10 Dec 2026. While deployed: request military ' +
+      'service deferment, the 0% interest benefit for service in an imminent-danger area ' +
+      '(Direct Loans), and administrative forbearance on the past-due amount. That makes it ' +
+      'current at no cost; the plan cures it from cash by mid-March only as the backstop.',
+  },
+  {
     key: 'goldman',
     label: 'Goldman',
     balance: 22730,

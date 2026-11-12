@@ -101,6 +101,9 @@ export const AVANT_MONTHLY = debtBy('avant').scheduledMonthly ?? 0
 export const AVANT_PAST_DUE = debtBy('avant').pastDue ?? 0
 export const AVANT_BALANCE = debtBy('avant').balance
 
+export const STUDENT_LOAN_MONTHLY = debtBy('student_loan').scheduledMonthly ?? 0
+export const STUDENT_LOAN_PAST_DUE = debtBy('student_loan').pastDue ?? 0
+
 /** Sanity: every scheduled debt must have a line, or it silently goes unpaid. */
 const SCHEDULED_KEYS = scheduledDebts().map((d) => d.key)
 
@@ -486,7 +489,12 @@ export const OBLIGATIONS: Obligation[] = [
     amountPerPaycheck: 530,
     /** Confirmed 2026-11-11 to be the Bank of America transfer, which posts early in the month. */
     payDays: 'first',
-    activeFrom: null,
+    /**
+     * SKIPS 1 December, your call 2026-11-12 ("pay off car asap"): that one transfer is
+     * what lets the 15 Nov cheque pay the remaining $850 on the car outright. Resumes
+     * 1 January. Net cost: none — it saves one $30 wire fee and frees $355/mo from December.
+     */
+    activeFrom: '2027-01-01',
     activeTo: null,
     priority: 35,
     kind: 'secured_recurring',
@@ -631,6 +639,25 @@ export const OBLIGATIONS: Obligation[] = [
       'about $49 a year at this balance.',
   },
   {
+    key: 'student_loan_payment',
+    label: 'Student loan — monthly',
+    /**
+     * $75.83, due the 10th, so the 1st cheque pays it. From December: the 10 Dec bill
+     * ($1,050.43) is this payment plus the $974.60 past due, which has its own line.
+     * Becomes $0 the day a deferment is approved — see the `sl_deferment` move.
+     */
+    amountPerPaycheck: STUDENT_LOAN_MONTHLY,
+    payDays: 'first',
+    activeFrom: '2026-12-01',
+    activeTo: null,
+    /** Above Avant and the cards: a federal loan in default can take tax refunds. */
+    priority: 34,
+    kind: 'unsecured_debt',
+    execution: 'automatic',
+    howTo: 'Autopay $75.83 by the 10th, unless the deferment is approved first.',
+    note: 'Federal loan. Interest ~5.1%, under the SCRA cap.',
+  },
+  {
     key: 'debt_agreements',
     label: 'Chase — payment agreement',
     /**
@@ -717,6 +744,49 @@ export const OBLIGATIONS: Obligation[] = [
    *  Chase is not in this queue. It is under an agreement and therefore a bill.
    * ────────────────────────────────────────────────────────────────────────────
    */
+  {
+    key: 'car_payoff_now',
+    label: 'Auto loan — pay off now',
+    /**
+     * Top of the waterfall, your call 2026-11-12: "pay off car asap". Shares the car's
+     * balance, so it sends whatever the scheduled $355 has not yet covered and both
+     * stop together. With December's Nth transfer skipped, the 15 Nov cheque clears it.
+     */
+    amountPerPaycheck: 0,
+    sweep: true,
+    payDays: 'both',
+    activeFrom: PLAN_AS_OF,
+    activeTo: null,
+    priority: 40.1,
+    kind: 'secured_recurring',
+    balanceCap: CAR_LOAN_BALANCE,
+    capGroup: 'car_payoff',
+    execution: 'manual',
+    howTo: 'Ask Westlake for a payoff quote (it will differ a little from $850), pay it, and get the lien release in writing.',
+    note: 'Pays the car off from the first money free. Liability-only insurance follows.',
+  },
+  {
+    key: 'student_loan_cure',
+    label: 'Student loan — cure the past due',
+    /**
+     * Backstop, not the plan of choice. The plan of choice is the servicer: military
+     * service deferment + forbearance on the past due makes the loan current at $0.
+     * Until that is approved, every spare dollar after the car goes here, and it is
+     * current by mid-March. Shares the loan's pool with the monthly payment.
+     */
+    amountPerPaycheck: 0,
+    sweep: true,
+    payDays: 'both',
+    activeFrom: PLAN_AS_OF,
+    activeTo: null,
+    priority: 40.2,
+    kind: 'unsecured_debt',
+    balanceCap: STUDENT_LOAN_PAST_DUE,
+    capGroup: 'student_loan_past_due',
+    execution: 'manual',
+    howTo: 'Pay the servicer marked "apply to past due". Better: call first and ask for deferment + forbearance.',
+    note: '$974.60 past due (~13 missed payments). Default is 270 days; it may already be there.',
+  },
   {
     key: 'mortgage_arrears',
     label: 'Mortgage — arrears catch-up',
