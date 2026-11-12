@@ -521,7 +521,7 @@ From the credit report (TransUnion via Credit Karma, Nov 2026):
 - **"PSECU" $10,922 = Upgrade Inc** charge-off, last paid Oct 2022: JAG before contact.
 - **Avant $4,509**, current, opened May 2025 (pre-service → SCRA applies).
 
-### D28. SLRP paid $20k+ (Nov 2026)
+### D28. SLRP paid $20k+ on 6 Nov 2026
 
 The Army Reserve Student Loan Repayment Program payment landed: Nelnet is down to
 $7,191.78 + $708.34 interest (~$7.9k payoff, already the figure in the plan). It went

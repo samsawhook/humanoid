@@ -285,7 +285,7 @@ export const DEBTS: Debt[] = [
     /** $1.01/day on $7,191.78 ≈ 5.1%. Already under the SCRA 6% cap, so SCRA does not help. */
     apr: 0.0513,
     note:
-      'SLRP (Army Reserve Student Loan Repayment) paid $20k+ by 12 Nov 2026 — this balance ' +
+      'SLRP (Army Reserve Student Loan Repayment) paid $20k+ on 6 Nov 2026 — this balance ' +
       'already reflects it. It went to principal and did NOT cure the past due. ' +
       'URGENT. $974.60 past due, $1,050.43 due 10 Dec 2026. While deployed: request military ' +
       'service deferment, the 0% interest benefit for service in an imminent-danger area ' +

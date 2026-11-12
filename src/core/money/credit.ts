@@ -68,7 +68,7 @@ export const TRADELINES: Tradeline[] = [
     action:
       'Before 10 Dec: military service deferment + 0% interest (imminent-danger area) + ' +
       'forbearance on the $974.60 past due. Keep the written confirmation it is current. The ' +
-      'Nov SLRP payment ($20k+) went to principal and did not cure the past due — and a ' +
+      '6 Nov SLRP payment ($20k+) went to principal and did not cure the past due — and a ' +
       'defaulted loan can lose SLRP eligibility, so this protects the next payment too.',
     by: '2026-12-10',
     debtKey: 'student_loan',
@@ -184,7 +184,7 @@ export const REVIEW_FILE: string[] = [
   'Magellan Federal financial counseling — dates of sessions and the budget you submitted',
   'Nelnet: deferment approval and a statement showing the loan current',
   'UT: loan type confirmation, post-SLRP balance, and the deferment / cancellation / payment-plan letter',
-  'SLRP: each payment notice — the Nov 2026 one was $20k+. Evidence the debt is being paid down',
+  'SLRP: each payment notice — the 6 Nov 2026 one was $20k+. Evidence the debt is being paid down',
   'NFCU: letter confirming the mortgage is current',
   'JAG Legal Assistance memo on Upgrade and Goldman, and any settlement letters',
   'SCRA letters sent and creditor responses',
