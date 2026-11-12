@@ -462,17 +462,17 @@ export const OBLIGATIONS: Obligation[] = [
     label: 'Christmas',
     /**
      * Your call, 2026-11-11: $500, on top of the $300 already sent home for Christmas in
-     * November. From the 1 December cheque — the larger one — so it is in hand with
-     * three weeks to spare.
+     * November. From the 15 December cheque — moved from the 1st in the clearance-first
+     * rewrite (2026-11-12) so the 1 Dec cheque can make the federal student loan current.
      *
      * Sized against the plan, not guessed: up to $1,000 fits with every bill paid;
      * $1,500 left ~$450 of bills unpaid through the catch-up. $500 costs ~$520 at
      * homecoming and moves the open cards from 15 to 30 April.
      */
     amountPerPaycheck: CHRISTMAS_BUDGET,
-    payDays: 'first',
-    activeFrom: '2026-12-01',
-    activeTo: '2026-12-01',
+    payDays: 'fifteenth',
+    activeFrom: '2026-12-15',
+    activeTo: '2026-12-15',
     /**
      * LAST of all the bills — below the Chase agreement, the designated give — so a
      * tight December cuts Christmas before it cuts anything owed. Not a target: it is
@@ -481,8 +481,8 @@ export const OBLIGATIONS: Obligation[] = [
     priority: 39.5,
     kind: 'living',
     execution: 'manual',
-    howTo: 'Send home on 1 December, or spend it directly. One amount, then it is done.',
-    note: '$500 for Christmas, 1 December. $300 already went home in November.',
+    howTo: 'Send home on 15 December, or spend it directly. One amount, then it is done.',
+    note: '$500 for Christmas, 15 December. $300 already went home in November.'
   },
   {
     key: 'nth_investments',
@@ -583,12 +583,12 @@ export const OBLIGATIONS: Obligation[] = [
      * the delinquency clock kept running. Tolls escalate over months; a 120-day
      * delinquency escalates on a date. When both want the same dollar, the deadline wins.
      */
-    amountPerPaycheck: 0,
-    sweep: true,
-    payDays: 'both',
-    activeFrom: null,
-    activeTo: null,
-    priority: 45,
+    amountPerPaycheck: LATE_PAYMENTS_BALANCE,
+    /** Fixed on the 1 Jan cheque: a Texas toll hold can block the registration renewal. */
+    payDays: 'first',
+    activeFrom: '2027-01-01',
+    activeTo: '2027-01-01',
+    priority: 38.6,
     kind: 'unsecured_debt',
     balanceCap: LATE_PAYMENTS_BALANCE,
     execution: 'manual',
@@ -715,7 +715,7 @@ export const OBLIGATIONS: Obligation[] = [
     amountPerPaycheck: MORTGAGE_PAYMENT,
     payDays: 'fifteenth',
     /** Starts with the 15 December cheque; the 15 November one is left to rebuild the buffer. */
-    activeFrom: '2026-11-16',
+    activeFrom: '2026-12-16',
     activeTo: MORTGAGE_CATCHUP_LAST,
     priority: 38,
     /** A bill, not the gauge: if it cannot be paid in full the page should say so. */
@@ -755,16 +755,17 @@ export const OBLIGATIONS: Obligation[] = [
     key: 'car_payoff_now',
     label: 'Auto loan — pay off now',
     /**
-     * Top of the waterfall, your call 2026-11-12: "pay off car asap". Shares the car's
-     * balance, so it sends whatever the scheduled $355 has not yet covered and both
-     * stop together. With December's Nth transfer skipped, the 15 Nov cheque clears it.
+     * Your call, 2026-11-12: "pay off car asap" — and the registration is coming due, so
+     * a paid-off truck can drop to liability-only insurance before renewal. The whole
+     * balance on the 15 Nov cheque (December's Nth transfer is skipped to make room).
+     * Shares the car's balance with the scheduled payment, so nothing is paid twice.
      */
-    amountPerPaycheck: 0,
-    sweep: true,
-    payDays: 'both',
-    activeFrom: PLAN_AS_OF,
-    activeTo: null,
-    priority: 40.1,
+    amountPerPaycheck: CAR_LOAN_BALANCE,
+    /** A fixed bill on the 15 Nov cheque — the whole balance at once. */
+    payDays: 'fifteenth',
+    activeFrom: '2026-11-15',
+    activeTo: '2026-11-15',
+    priority: 20.5,
     kind: 'secured_recurring',
     balanceCap: CAR_LOAN_BALANCE,
     capGroup: 'car_payoff',
@@ -776,17 +777,18 @@ export const OBLIGATIONS: Obligation[] = [
     key: 'student_loan_cure',
     label: 'Student loan — cure the past due',
     /**
-     * Backstop, not the plan of choice. The plan of choice is the servicer: military
-     * service deferment + forbearance on the past due makes the loan current at $0.
-     * Until that is approved, every spare dollar after the car goes here, and it is
-     * current by mid-March. Shares the loan's pool with the monthly payment.
+     * CLEARANCE FIRST (2026-11-12 rewrite): federal debt sliding toward default is the
+     * heaviest Guideline F finding, and default would also cost the next SLRP payment.
+     * So the past due is paid in full from the 1 Dec cheque — current before the 10 Dec
+     * due date. Still call the servicer: deferment + 0% interest beats paying it, and if
+     * approved, this line comes out and the money goes down the waterfall.
      */
-    amountPerPaycheck: 0,
-    sweep: true,
-    payDays: 'both',
-    activeFrom: PLAN_AS_OF,
-    activeTo: null,
-    priority: 40.2,
+    amountPerPaycheck: STUDENT_LOAN_PAST_DUE,
+    /** A fixed bill on the 1 Dec cheque — current before the 10 Dec due date. */
+    payDays: 'first',
+    activeFrom: '2026-12-01',
+    activeTo: '2026-12-01',
+    priority: 34.5,
     kind: 'unsecured_debt',
     balanceCap: STUDENT_LOAN_PAST_DUE,
     capGroup: 'student_loan_past_due',

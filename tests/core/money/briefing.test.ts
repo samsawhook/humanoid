@@ -115,9 +115,10 @@ describe('stress test', () => {
 export type _OneOffs = typeof ONE_OFFS
 
 describe('Christmas', () => {
-  it('is paid in full on the 1 December cheque, and nothing owed goes unpaid', () => {
+  it('is paid in full on the 15 December cheque, and nothing owed goes unpaid', () => {
+    // Moved from 1 Dec so the 1 Dec cheque can make the federal student loan current.
     const base = runPlan()
-    const dec = base.allocations.find((a) => a.paycheck.scheduledDate === '2026-12-01')!
+    const dec = base.allocations.find((a) => a.paycheck.scheduledDate === '2026-12-15')!
     const xmas = dec.lines.find((l) => l.key === 'christmas')!
     expect(xmas.allocated).toBe(500)
     expect(base.allocations.filter((a) => a.lines.some((l) => l.key === 'christmas'))).toHaveLength(1)

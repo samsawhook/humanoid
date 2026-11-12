@@ -121,7 +121,7 @@ export function Briefing() {
         '$974.60 past due, $1,050.43 due 10 Dec, last payment Feb 2025. Federal loans default at ' +
         '270 days — tax refunds can be seized and ~20% collection costs added. Deployed, you qualify ' +
         'for military deferment and 0% interest; ask for forbearance on the past due and it is current ' +
-        'at $0. Until then the plan cures it from cash by mid-January.',
+        'at $0. If they will not, the plan pays the $974.60 from the 1 Dec cheque — before the 10 Dec due date.',
       amount: '$974.60',
       note: 'past due',
     },
@@ -138,12 +138,15 @@ export function Briefing() {
       note: 'in collections',
     },
     {
-      level: 'good',
-      title: 'Mortgage: one payment behind, not two',
+      level: 'warning',
+      title: 'Mortgage extra payment deliberately moved to 15 Jan',
       body:
-        'NFCU reported 30–59 days late on 27 Oct — a single payment. One extra payment on 15 Dec makes ' +
-        'it current, a month early. Ask NFCU for a letter confirming it is current, for the file.',
-      amount: '15 Dec',
+        'NFCU reports one payment behind (30–59 days late, 27 Oct). The extra payment waits until ' +
+        '15 Jan — your January deadline — so December can make the federal student loan current ' +
+        'first: federal default is the heavier finding in a security review, and SCRA and the ' +
+        '"active military duty" note protect the mortgage. Cost: one more 30-day mark. Keep paying ' +
+        'the regular payment on every 1st without fail, and ask NFCU for a letter once current.',
+      amount: '15 Jan',
       note: 'current',
     },
     {
@@ -206,10 +209,11 @@ export function Briefing() {
     },
     {
       level: 'serious',
-      title: 'The tolls are probably still owed',
+      title: 'Tolls: paid 1 Jan, before the registration renewal',
       body:
-        'The back pay landed on 28 Aug, but four months of statements show no payment to a toll ' +
-        'authority. Check for a registration hold before it becomes a problem you cannot fix from here.',
+        'Four months of statements show no toll payment, and in Texas unpaid tolls can block a ' +
+        'registration renewal. The plan pays the $1,100 on 1 Jan. Check the renewal month: if it is ' +
+        'due in December, pay the tolls from the 15 Dec cheque and move Christmas to 1 Jan instead.',
       amount: tolls ? signed(tolls.delta) : undefined,
       note: 'if already paid',
     },

@@ -530,6 +530,26 @@ the loans out of default also protects SLRP eligibility for the next payment. Pa
 the payment likely went to the UT loan; its $11,082 is the August figure until UT gives
 a current balance. SLRP notices go in the review file as evidence of paydown.
 
+### D29. The plan rewritten clearance-first (2026-11-12)
+
+Your ask: rewrite with security-clearance maintenance in mind, with the car's
+registration coming due (insurance needed, so better paid off), and consider delaying
+mortgage extra payments. Ordered by what a Guideline F reviewer — and the county tax
+office — weigh:
+
+1. **Federal student loan current first** — past due $974.60 from the 1 Dec cheque,
+   before the 10 Dec due date (servicer deferment still tried first). Federal default is
+   the heaviest finding and would also cost SLRP eligibility.
+2. **Car paid off on the 15 Nov cheque** — liability-only insurance before renewal.
+3. **Tolls on 1 Jan** — a Texas toll hold can block registration (15 Dec if the renewal
+   is due in December, with Christmas moving to 1 Jan).
+4. **Mortgage extra payment moved 15 Dec → 15 Jan** — inside your January deadline. Costs
+   one more 30-day mark; SCRA and the "active military duty" note protect against worse.
+5. Christmas moves 1 Dec → 15 Dec.
+
+Every bill still paid. Knock-on: open cards clear 15 Apr (was 15 Jun), boat ~$895 by
+homecoming (was ~$410). Tightest payday: 15 Jan, ~$0 left.
+
 ---
 
 # Seed context — as of 2026-08-05

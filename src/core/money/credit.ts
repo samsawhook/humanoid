@@ -101,9 +101,10 @@ export const TRADELINES: Tradeline[] = [
       '30–59 days late as of 27 Oct — one payment behind. 15/11/6 times 30/60/90 late since ' +
       '2023. "Active military duty" and a dispute noted.',
     action:
-      'One extra full payment on 15 Dec makes it current. Then never late again — and ask ' +
-      'NFCU for a letter confirming it is current.',
-    by: '2026-12-15',
+      'One extra full payment on 15 Jan makes it current — deliberately after the federal ' +
+      'student loan, which is the heavier review finding. Regular payment every 1st without ' +
+      'fail; then ask NFCU for a letter confirming it is current.',
+    by: '2027-01-15',
   },
   {
     key: 'upgrade',
