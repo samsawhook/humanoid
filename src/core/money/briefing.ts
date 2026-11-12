@@ -333,7 +333,7 @@ export function stressTest(cases: StressCase[] = STRESS_CASES) {
 export const BUCKETS = [
   { key: 'housing', label: 'Mortgage', keys: ['mortgage_current', 'arrears_catchup_payment', 'mortgage_arrears'] },
   { key: 'home', label: 'Sent home', keys: ['support_home_deployed', 'support_home_extras', 'childcare', 'christmas'] },
-  { key: 'you', label: 'Your spending', keys: ['living_deployed', 'boat'] },
+  { key: 'you', label: 'Your spending', keys: ['living_deployed', 'boat', 'auto_liability'] },
   {
     key: 'debt',
     label: 'Debt payments',

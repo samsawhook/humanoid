@@ -392,11 +392,12 @@ describe('the real plan', () => {
     expect(cleared.late_payments?.clearedOn).toBe('2027-03-15')
     // Two assumed emergencies ($4,000) push the open cards a month and take most of the
     // SDP; the buffer is refilled to $1,000 after each draw.
-    expect(cleared.open_cards?.clearedOn).toBe('2027-04-30')
+    // Liability insurance from 1 Mar (~$100/mo, estimate) pushes this two weeks.
+    expect(cleared.open_cards?.clearedOn).toBe('2027-05-14')
     expect(cleared.emergency_fund?.paid).toBe(1000)
     // The boat ($2,250) sits between the open cards and the SDP, so it is funded first;
-    // after Christmas and two emergencies it reaches ~$1,200, and the SDP gets the rest.
-    expect(cleared.boat!.paid).toBeGreaterThan(1000)
+    // after Christmas and two emergencies it reaches ~$820 (after insurance from March), and the SDP gets the rest.
+    expect(cleared.boat!.paid).toBeGreaterThan(500) // ~$820 at plan once insurance starts
     expect(cleared.sdp!.paid).toBeGreaterThan(0)
     // The rest of the reserve and the closed balances wait until you are home — the SDP
     // payout funds them then. Closed-card minimums are still paid as bills throughout.
@@ -530,5 +531,20 @@ describe('deductions', () => {
     expect(p.taxableGross).toBe(
       p.lines.filter((l) => l.taxable).reduce((s, l) => s + l.amount, 0),
     )
+  })
+})
+
+describe('Expedition liability insurance', () => {
+  const all = allocateAll(projectPaychecks(PLAN_START, '2027-08-01'), OBLIGATIONS, ONE_OFFS)
+  it('starts the month after the car is paid off, never alongside the loan', () => {
+    const paidOff = balanceClearedOn(all, OBLIGATIONS).car_payoff!.clearedOn!
+    for (const a of all) {
+      const ins = a.lines.find((l) => l.key === 'auto_liability')
+      if (ins) {
+        expect(a.paycheck.scheduledDate > paidOff).toBe(true)
+        expect(ins.shortfall).toBe(0)
+      }
+    }
+    expect(all.some((a) => a.lines.some((l) => l.key === 'auto_liability'))).toBe(true)
   })
 })

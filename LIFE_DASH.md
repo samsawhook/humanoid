@@ -477,6 +477,15 @@ easy savings (extras home to $200/mo, or ACH + Hugedomains + phone) finish it.
 Money into the boat counts toward net position — it is an asset you keep, and scoring
 it as spending made every saving look worthless. You hold a 50% interest.
 
+### D25. Liability insurance on the Expedition once it is paid off — estimated
+
+$100/mo from 1 Mar 2027, the first bill after the loan's last payment. The premium
+is unknown (no insurance payment appears in the statements), so this is an estimate:
+Texas liability-only averages ~$60–117/mo across sources; $100 assumes Corpus
+Christi rates and limits above the 30/60/25 minimum, because you own a house.
+Replace with a real quote. Cost: open cards 30 Apr → 14 May; boat ~$820 by
+homecoming at plan (the savings moves still finish it).
+
 ---
 
 # Seed context — as of 2026-08-05

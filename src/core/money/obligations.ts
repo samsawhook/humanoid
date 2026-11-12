@@ -152,6 +152,13 @@ export const CAR_LOAN_BALANCE = 850
 export const CAR_PAYMENT = 355
 
 /**
+ * Liability-only insurance on the 2013 Expedition once it is paid off. An ESTIMATE:
+ * Texas liability-only averages ~$60–117/mo (Insurify, MoneyGeek, Compare.com, 2026);
+ * $100 assumes Corpus Christi rates and limits above the state minimum.
+ */
+export const AUTO_LIABILITY_MONTHLY = 100
+
+/**
  * Money arriving outside the semi-monthly cycle.
  *
  * The paycheck projection can only see entitlements running at a monthly rate, so
@@ -307,6 +314,32 @@ export const OBLIGATIONS: Obligation[] = [
       '2026-11-11, capped at the balance, so it clears and then stops: December, ' +
       'January, and a ~$140 final payment in February. SCRA is active on this loan; ' +
       'verify the 6% cap on the statement.',
+  },
+  {
+    key: 'auto_liability',
+    label: 'Expedition — liability insurance',
+    /**
+     * Starts once the loan is gone: with no lienholder, full coverage on a 2013 vehicle
+     * is no longer required, and liability is what the law still asks for.
+     *
+     * ESTIMATE — the real premium is unknown (no insurance payment appears in your
+     * statements). Texas liability-only runs ~$60–117/mo across sources; $100 sits
+     * toward the top because Corpus Christi rates run above the state average and,
+     * owning a house, you want limits above the 30/60/25 minimum (50/100/50 or better).
+     * Replace with the real quote.
+     */
+    amountPerPaycheck: AUTO_LIABILITY_MONTHLY,
+    payDays: 'first',
+    /** The car's last payment is 1 Feb; the first liability-only bill is 1 Mar. */
+    activeFrom: '2027-03-01',
+    activeTo: null,
+    priority: 21,
+    kind: 'secured_recurring',
+    execution: 'automatic',
+    howTo:
+      'Once Westlake confirms the lien is released, ask the insurer to drop to liability ' +
+      '(keep comprehensive only if the truck is worth it to you). Autopay.',
+    note: 'ESTIMATE $100/mo from 1 Mar 2027. Replace with the actual quote.',
   },
   {
     key: 'childcare',

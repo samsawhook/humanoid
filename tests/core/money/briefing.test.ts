@@ -138,8 +138,7 @@ describe('the boat', () => {
     }
   })
 
-  it('finishes before homecoming if the easy savings are taken', () => {
-    const extras = moveImpacts(base).find((i) => i.move.key === 'extras_200')!
-    expect(extras.outcome.boatDone).not.toBe(null)
+  it('finishes before homecoming if the savings are taken', () => {
+    expect(allMoves().boatDone).not.toBe(null)
   })
 })
