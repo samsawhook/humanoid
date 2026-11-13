@@ -274,18 +274,17 @@ describe('the real plan', () => {
    * Your call, 2026-11-11: the catch-up ends in January. Whole payments — the servicer
    * counts missed payments, so two full ones beat the same money spread as partials.
    */
-  it('finishes the mortgage catch-up with whole payments, inside your January deadline', () => {
-    // One payment behind per the credit report (30–59 days late on 27 Oct). The clearance-
-    // first rewrite (2026-11-12) moves the one extra payment to 15 Jan — still inside the
-    // January deadline — so the federal student loan is current first, on 1 Dec.
+  it('finishes the mortgage catch-up with one whole payment, on the date that keeps every bill paid', () => {
+    // One payment behind per the credit report. "Mortgage extra later" (2026-11-13): with
+    // the nanny at $2,400/mo and Nth untouchable, the one extra payment lands 15 Apr.
     expect(cleared.mortgage_arrears!.clearedOn! <= MORTGAGE_CATCHUP_LAST).toBe(true)
-    expect(cleared.mortgage_arrears?.clearedOn).toBe('2027-01-15')
+    expect(cleared.mortgage_arrears?.clearedOn).toBe('2027-04-15')
     const catchups = allocations.flatMap((a) =>
       a.lines
         .filter((l) => (l.capGroup ?? l.key) === 'mortgage_arrears' && l.allocated > 0)
         .map((l) => ({ on: a.paycheck.scheduledDate, amount: l.allocated })),
     )
-    expect(catchups).toEqual([{ on: '2027-01-15', amount: MORTGAGE_PAYMENT }])
+    expect(catchups).toEqual([{ on: '2027-04-15', amount: MORTGAGE_PAYMENT }])
   })
 
   /**
@@ -364,16 +363,14 @@ describe('the real plan', () => {
    */
   it('lets the order between the waterfall lines actually decide who gets the slack', () => {
     const pays = projectPaychecks(PLAN_START, '2027-08-01')
-    // Demote the open cards from ahead of the boat to the bottom of the waterfall.
-    // (The tolls used to be the example; they are a dated bill now, for the registration.)
-    const cardsLast = OBLIGATIONS.map((o) =>
-      o.key === 'debt_paydown_open' ? { ...o, priority: 80 } : o,
+    // Demote the cash buffer below the open cards: the cards get the slack instead.
+    const bufferLast = OBLIGATIONS.map((o) =>
+      o.key === 'emergency_starter' ? { ...o, priority: 80 } : o,
     )
-    const demoted = balanceClearedOn(allocateAll(pays, cardsLast, ONE_OFFS), cardsLast)
+    const demoted = balanceClearedOn(allocateAll(pays, bufferLast, ONE_OFFS), bufferLast)
 
-    expect(cleared.open_cards?.clearedOn).not.toBe(null)
-    expect(demoted.open_cards?.clearedOn).toBe(null)
-    expect(demoted.boat?.paid ?? 0).toBeGreaterThan(cleared.boat?.paid ?? 0)
+    expect(demoted.open_cards!.paid).toBeGreaterThan(cleared.open_cards!.paid)
+    expect(demoted.emergency_fund?.paid ?? 0).toBeLessThan(cleared.emergency_fund?.paid ?? 0)
   })
 
   it('measures the pot the waterfall competes for, excluding the waterfall itself', () => {
@@ -392,12 +389,12 @@ describe('the real plan', () => {
     // Arrears are a scheduled bill now, so the waterfall runs beside them, in order:
     // car payoff, the student loan's past due, tolls, a $1,000 cash buffer, the open
     // cards, the boat, then the SDP while its window is open.
-    // Clearance-first rewrite (2026-11-12): car on the 15 Nov cheque, the federal student
-    // loan's past due on 1 Dec (before the 10 Dec due date), the tolls on 1 Jan (a Texas
-    // toll hold can block the registration), the mortgage's extra payment on 15 Jan.
+    // 2026-11-13: car on the 15 Nov cheque; the student loan's past due on 15 Dec (if the
+    // deferment is refused — five days after the 10 Dec due date, well inside 30); the
+    // last ~$400 of tolls on 15 Jan (before registration); the mortgage extra on 15 Apr.
     expect(cleared.car_payoff?.clearedOn).toBe('2026-11-13')
-    expect(cleared.student_loan_past_due?.clearedOn).toBe('2026-12-01')
-    expect(cleared.late_payments?.clearedOn).toBe('2027-01-01')
+    expect(cleared.student_loan_past_due?.clearedOn).toBe('2026-12-15')
+    expect(cleared.late_payments?.clearedOn).toBe('2027-01-15')
     expect(cleared.emergency_fund?.paid).toBe(1000)
     // The BACKSTOP case — student loan cured from cash, no deferment — after Christmas,
     // two emergencies and insurance: the open cards are reached but not cleared before
@@ -405,7 +402,9 @@ describe('the real plan', () => {
     // changes this; see briefing.test.ts.
     // With the mortgage one payment behind rather than two, the open cards now clear
     // before homecoming even on this backstop path.
-    expect(cleared.open_cards?.clearedOn).toBe('2027-04-15') // two months sooner: the tolls no longer hold up the cards
+    // Since 2026-11-13 (nanny $2,400/mo, Nth untouchable) the open cards are reached
+    // but not cleared before homecoming at plan — only their minimums plus a little.
+    expect(cleared.open_cards?.clearedOn).toBe(null)
     // The rest of the reserve and the closed balances wait until you are home — the SDP
     // payout funds them then. Closed-card minimums are still paid as bills throughout.
     expect(cleared.closed_cards?.clearedOn).toBe(null)
@@ -559,15 +558,17 @@ describe('Expedition liability insurance', () => {
 describe('clearance-first order (2026-11-12 rewrite)', () => {
   const all = allocateAll(projectPaychecks(PLAN_START, '2027-08-01'), OBLIGATIONS, ONE_OFFS)
   const c = balanceClearedOn(all, OBLIGATIONS)
-  it('makes the federal loan current before its 10 Dec due date', () => {
-    expect(c.student_loan_past_due!.clearedOn! < '2026-12-10').toBe(true)
+  it('makes the federal loan current in December, inside 30 days of the 10 Dec due date', () => {
+    expect(c.student_loan_past_due!.clearedOn! <= '2026-12-15').toBe(true)
   })
   it('pays the car off and clears the tolls before the registration renewal', () => {
     expect(c.car_payoff!.clearedOn! <= '2026-11-15').toBe(true)
-    expect(c.late_payments!.clearedOn! <= '2027-01-01').toBe(true)
+    expect(c.late_payments!.clearedOn! <= '2027-01-15').toBe(true)
   })
-  it('defers the mortgage extra, but never past the January deadline, and never a bill unpaid', () => {
-    expect(c.mortgage_arrears!.clearedOn).toBe('2027-01-15')
+  it('defers the mortgage extra to the date that keeps every bill paid, and Nth is never skipped', () => {
+    expect(c.mortgage_arrears!.clearedOn).toBe('2027-04-15')
+    const firsts = all.filter((a) => a.paycheck.scheduledDate.endsWith('-01'))
+    for (const a of firsts) expect(a.lines.some((l) => l.key === 'nth_investments' && l.shortfall === 0)).toBe(true)
     expect(all.every((a) => a.lines.filter((l) => !l.swept && !l.target && l.kind !== 'arrears_catchup').every((l) => l.shortfall === 0))).toBe(true)
   })
 })

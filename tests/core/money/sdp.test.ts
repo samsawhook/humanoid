@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { projectSdp, SDP_CAP, SDP_RATE, SDP_ACCRUAL_TAIL_DAYS, SDP_LAST_DEPOSIT } from '@/core/money/sdp'
 import { projectPaychecks } from '@/core/money/paychecks'
 import { allocateAll, balanceClearedOn } from '@/core/money/allocation'
+import { allMoves } from '@/core/money/briefing'
 import { OBLIGATIONS, PLAN_START } from '@/core/money/obligations'
 import { addLocalDays } from '@/core/time/localDay'
 
@@ -54,14 +55,14 @@ describe('Savings Deposit Program', () => {
           .reduce((t, l) => t + l.allocated, 0)
         expect(later).toBe(0)
       }
-      expect(deposits.length).toBeGreaterThan(0)
     })
 
     it('comes back with interest, as the cash for coming home', () => {
+      // At plan the SDP gets nothing now (nanny $2,400/mo, Nth untouchable); the savings
+      // moves are what reach it. Whatever is deposited earns.
       const p = projectSdp(deposits)
-      expect(p.payout).toBeGreaterThan(p.deposited)
-      // Small at plan now — the boat is ahead of it — but never zero, and it earns.
-      expect(p.deposited).toBeGreaterThan(0)
+      expect(p.payout).toBeGreaterThanOrEqual(p.deposited)
+      expect(allMoves().sdpDeposited).toBeGreaterThan(0)
     })
   })
 })

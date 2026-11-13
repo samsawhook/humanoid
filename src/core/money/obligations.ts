@@ -108,10 +108,11 @@ export const STUDENT_LOAN_PAST_DUE = debtBy('student_loan').pastDue ?? 0
 const SCHEDULED_KEYS = scheduledDebts().map((d) => d.key)
 
 /**
- * Accumulated toll charges and late fees. Your estimate, ~$1,100.
- * Cleared early on purpose — see the note on the obligation.
+ * Tolls and late fees still owed. Was ~$1,100; your update 2026-11-13: "the tolls I think
+ * are paid, there's maybe $400 from random pieces left". Paid before the registration
+ * renewal all the same, since a Texas toll hold can block it.
  */
-export const LATE_PAYMENTS_BALANCE = 1100
+export const LATE_PAYMENTS_BALANCE = 400
 
 /** What the drill back pay is actually worth after tax. Computed, never typed in. */
 export const EXPECTED_BACK_PAY_NET = backPay(EXPECTED_BACK_PAY).net
@@ -152,7 +153,13 @@ export const MORTGAGE_PAYMENT = 1381.79
  */
 export const MORTGAGE_ARREARS_PAYMENTS_LEFT = 1
 /** Your call, 2026-11-11: the catch-up finishes in January. The last extra payment is the 15 January cheque. */
-export const MORTGAGE_CATCHUP_LAST = '2027-01-15' as const
+/**
+ * The extra mortgage payment's date. Was 15 Jan (your first deadline); moved to 15 Apr
+ * on 2026-11-13 — your call, "mortgage extra later" — once the nanny rose to $2,400/mo
+ * and Nth became untouchable. It is the date that keeps every bill paid even if the
+ * student-loan deferment is refused; if it is approved, this can come forward to 15 Jan.
+ */
+export const MORTGAGE_CATCHUP_LAST = '2027-04-15' as const
 export const MORTGAGE_ARREARS_BALANCE =
   Math.round(MORTGAGE_ARREARS_PAYMENTS_LEFT * MORTGAGE_PAYMENT * 100) / 100
 
@@ -449,8 +456,27 @@ export const OBLIGATIONS: Obligation[] = [
     amountPerPaycheck: SENT_HOME.extrasMonthly / 2,
     payDays: 'both',
     activeFrom: PLAN_AS_OF,
-    activeTo: null,
+    /**
+     * Pauses for December: Christmas ($500, 15 Dec) IS December's extra, and counting a
+     * $400 allowance on top of it double-counts the month. Resumes in January via
+     * `support_home_extras_2027`. This is what keeps every bill paid even if the student
+     * loan deferment is refused.
+     */
+    activeTo: '2026-11-30',
     /** Below your own spending: this is the line that flexes when a payday is tight. */
+    priority: 31,
+    kind: 'living',
+    execution: 'manual',
+    howTo: 'Christmas, a trip, a specific problem. Not a standing transfer.',
+    note: SENT_HOME.extrasBasis,
+  },
+  {
+    key: 'support_home_extras_2027',
+    label: 'Sent home — extras',
+    amountPerPaycheck: SENT_HOME.extrasMonthly / 2,
+    payDays: 'both',
+    activeFrom: '2027-01-01',
+    activeTo: null,
     priority: 31,
     kind: 'living',
     execution: 'manual',
@@ -497,11 +523,10 @@ export const OBLIGATIONS: Obligation[] = [
     /** Confirmed 2026-11-11 to be the Bank of America transfer, which posts early in the month. */
     payDays: 'first',
     /**
-     * SKIPS 1 December, your call 2026-11-12 ("pay off car asap"): that one transfer is
-     * what lets the 15 Nov cheque pay the remaining $850 on the car outright. Resumes
-     * 1 January. Net cost: none — it saves one $30 wire fee and frees $355/mo from December.
+     * NEVER skipped — your call, 2026-11-13: "I can't not do Nth money". (A December skip
+     * to pay the car was tried and withdrawn.) The car is still paid off on 15 Nov.
      */
-    activeFrom: '2027-01-01',
+    activeFrom: null,
     activeTo: null,
     priority: 35,
     kind: 'secured_recurring',
@@ -585,9 +610,9 @@ export const OBLIGATIONS: Obligation[] = [
      */
     amountPerPaycheck: LATE_PAYMENTS_BALANCE,
     /** Fixed on the 1 Jan cheque: a Texas toll hold can block the registration renewal. */
-    payDays: 'first',
-    activeFrom: '2027-01-01',
-    activeTo: '2027-01-01',
+    payDays: 'fifteenth',
+    activeFrom: '2027-01-15',
+    activeTo: '2027-01-15',
     priority: 38.6,
     kind: 'unsecured_debt',
     balanceCap: LATE_PAYMENTS_BALANCE,
@@ -715,7 +740,7 @@ export const OBLIGATIONS: Obligation[] = [
     amountPerPaycheck: MORTGAGE_PAYMENT,
     payDays: 'fifteenth',
     /** Starts with the 15 December cheque; the 15 November one is left to rebuild the buffer. */
-    activeFrom: '2026-12-16',
+    activeFrom: '2027-04-15',
     activeTo: MORTGAGE_CATCHUP_LAST,
     priority: 38,
     /** A bill, not the gauge: if it cannot be paid in full the page should say so. */
@@ -785,9 +810,9 @@ export const OBLIGATIONS: Obligation[] = [
      */
     amountPerPaycheck: STUDENT_LOAN_PAST_DUE,
     /** A fixed bill on the 1 Dec cheque — current before the 10 Dec due date. */
-    payDays: 'first',
-    activeFrom: '2026-12-01',
-    activeTo: '2026-12-01',
+    payDays: 'fifteenth',
+    activeFrom: '2026-12-15',
+    activeTo: '2026-12-15',
     priority: 34.5,
     kind: 'unsecured_debt',
     balanceCap: STUDENT_LOAN_PAST_DUE,
@@ -813,10 +838,10 @@ export const OBLIGATIONS: Obligation[] = [
      * takes spare money at them only if that bill ever comes up short.
      */
     /**
-     * Off until the scheduled catch-up is over. You pay in WHOLE payments; letting the
-     * sweep send spare partials in November turned January's payment into $50.
+     * Off until the scheduled catch-up is over (15 Apr). You pay in WHOLE payments;
+     * letting the sweep send spare partials ahead of it splits the one payment in two.
      */
-    activeFrom: '2027-01-16',
+    activeFrom: '2027-04-16',
     activeTo: null,
     priority: 40,
     kind: 'arrears_catchup',

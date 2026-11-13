@@ -381,7 +381,11 @@ export function deployedActualsTotal(rows: ObservedCategory[] = DEPLOYED_ACTUALS
  * that is short every month, so they get an observed allowance rather than zero.
  */
 export const SENT_HOME = {
-  perPaycheck: 1000,
+  /**
+   * $1,200 every payday from 13 Nov 2026 — the nanny is now $2,400/mo, your figure, and
+   * the transfer covers the nanny and the household together. Was $1,000.
+   */
+  perPaycheck: 1200,
   extrasMonthly: 400,
   extrasBasis: 'Observed: Sep $365, Oct $425, Nov $500 by the 11th. Not budgeted by you; modelled so it is not a surprise.',
 }

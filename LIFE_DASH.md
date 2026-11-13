@@ -550,6 +550,24 @@ office — weigh:
 Every bill still paid. Knock-on: open cards clear 15 Apr (was 15 Jun), boat ~$895 by
 homecoming (was ~$410). Tightest payday: 15 Jan, ~$0 left.
 
+### D30. Nanny $2,400/mo; Nth untouchable; tolls ~$400 (2026-11-13)
+
+- **Sent home $1,200 every payday** ($2,400/mo), covering the nanny and the household.
+- **Nth is never skipped** — "I can't not do Nth money". The December skip is withdrawn;
+  the "pause Nth" move and playbook step are removed.
+- **Tolls ~$400**, not $1,100 — most paid already. Paid 15 Jan, before registration.
+- **Mortgage extra payment → 15 Apr** (your pick: mortgage gives first). It is the date
+  that keeps every bill paid even if the student-loan deferment is refused; 15 Jan if
+  approved. The arrears sweep stays off until after it, so the payment stays whole.
+- **Christmas is December's extra**: the ~$400/mo sporadic allowance pauses for December
+  only, which closes the last $109 gap in the refused-deferment case.
+- Student loan past due paid 15 Dec if the deferment is refused.
+
+Result: every bill paid, with the two assumed emergencies. The cost is real: at plan the
+open cards are not cleared before homecoming, the boat and SDP get nothing, and a THIRD
+emergency now leaves ~$1,344 of bills unpaid. The deferment and the savings moves are
+what put money back into those.
+
 ---
 
 # Seed context — as of 2026-08-05

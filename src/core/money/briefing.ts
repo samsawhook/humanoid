@@ -243,18 +243,9 @@ export const MOVES: Move[] = [
   {
     key: 'tolls_paid',
     label: 'Tolls already paid',
-    action: 'Confirm the $1,100 of tolls and late fees went out of the August back pay.',
+    action: 'Confirm the last ~$400 of tolls and late fees is already paid.',
     basis: 'computed',
     apply: (i) => adjust(i, 'late_payments', () => null),
-  },
-  {
-    key: 'nth_to_sdp',
-    label: 'Pause Nth, fill the SDP',
-    action:
-      'If Nth Investments can be paused, send its $500/mo to the SDP until departure: ' +
-      '10% guaranteed instead of market risk, and cash in hand when you land.',
-    basis: 'computed',
-    apply: (i) => adjust(i, 'nth_investments', () => null),
   },
   {
     key: 'extras_200',
@@ -366,7 +357,7 @@ export function stressTest(cases: StressCase[] = STRESS_CASES) {
 /** Where the money goes, grouped into the six things a person thinks in. */
 export const BUCKETS = [
   { key: 'housing', label: 'Mortgage', keys: ['mortgage_current', 'arrears_catchup_payment', 'mortgage_arrears'] },
-  { key: 'home', label: 'Sent home', keys: ['support_home_deployed', 'support_home_extras', 'childcare', 'christmas'] },
+  { key: 'home', label: 'Sent home', keys: ['support_home_deployed', 'support_home_extras', 'support_home_extras_2027', 'childcare', 'christmas'] },
   { key: 'you', label: 'Your spending', keys: ['living_deployed', 'boat', 'auto_liability'] },
   {
     key: 'debt',

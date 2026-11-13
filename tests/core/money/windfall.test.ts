@@ -82,13 +82,11 @@ describe('what the back pay buys', () => {
     expect(BACK_PAY_CLAIMS.map((c) => c.label).join(' ')).not.toMatch(/auto|car/i)
   })
 
-  it('does not pretend the tolls are fully covered', () => {
-    // At the expected amount they are not, and the plan says how much is left.
+  it('caps the tolls claim at what is actually left (~$400 since 2026-11-13)', () => {
     const plan = windfallPlan(backPay(EXPECTED_BACK_PAY).net, BACK_PAY_CLAIMS)
     const tolls = plan.lines.find((l) => l.key === 'tolls')!
-    expect(tolls.partial).toBe(true)
-    expect(tolls.remaining).toBeGreaterThan(0)
     expect(tolls.cap).toBe(LATE_PAYMENTS_BALANCE)
+    expect(tolls.amount).toBeLessThanOrEqual(LATE_PAYMENTS_BALANCE)
   })
 
   it('states a reason for every claim, since the order is the argument', () => {

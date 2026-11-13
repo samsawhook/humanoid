@@ -78,10 +78,9 @@ describe('moves', () => {
     }
   })
 
-  it('counts Nth as yours either way — pausing it gains the SDP interest and the wire fees', () => {
-    const nth = impacts.find((i) => i.move.key === 'nth_to_sdp')!
-    const wires = base.allocations.filter((a) => a.lines.some((l) => l.key === 'nth_investments')).length
-    expect(nth.delta).toBeCloseTo(nth.outcome.sdpInterest - base.sdpInterest + wires * 30, 0)
+  it('never suggests pausing Nth — your call, 2026-11-13', () => {
+    expect(impacts.some((i) => i.move.key === 'nth_to_sdp')).toBe(false)
+    expect(impacts.every((i) => i.outcome.allocations.some((a) => a.lines.some((l) => l.key === 'nth_investments')))).toBe(true)
   })
 
   it('values all moves together by re-running, not by adding', () => {
@@ -104,10 +103,15 @@ describe('stress test', () => {
     expect(by('base').outcome.netPosition).toBeCloseTo(base.netPosition, 2)
   })
 
-  /** The finding the page calls out: the catch-up months have no room for a shock. */
-  it('shows an emergency during the catch-up costs real bills', () => {
+  /**
+   * The finding the page calls out. Since the nanny rose to $2,400/mo (2026-11-13) the
+   * plan absorbs the two assumed emergencies and no more: a third, or one during the
+   * catch-up, leaves real bills unpaid.
+   */
+  it('shows the plan absorbs two emergencies, and a third costs real bills', () => {
+    expect(by('base').outcome.billsUnpaid).toBe(0)
     expect(by('early').outcome.billsUnpaid).toBeGreaterThan(0)
-    expect(by('three').outcome.billsUnpaid).toBe(0)
+    expect(by('three').outcome.billsUnpaid).toBeGreaterThan(0)
   })
 })
 
@@ -142,17 +146,17 @@ describe('the boat', () => {
     }
   })
 
-  it('finishes before homecoming if the savings are taken', () => {
-    expect(allMoves().boatDone).not.toBe(null)
+  it('gets further with the savings taken — the plan alone leaves nothing for it now', () => {
+    expect(allMoves().boatFunded).toBeGreaterThan(base.boatFunded)
   })
 })
 
 describe('the student loan deferment', () => {
   const base = runPlan()
   const d = moveImpacts(base).find((i) => i.move.key === 'sl_deferment')!
-  it('stops the interest and frees the cash — worth more than zero, and clears the cards', () => {
+  it('stops the interest and frees the cash — worth more than zero, every bill still paid', () => {
     expect(d.delta).toBeGreaterThan(200)
-    expect(d.outcome.openCardsClear).not.toBe(null)
-    expect(d.outcome.openCardsClear! <= (base.openCardsClear ?? '9999')).toBe(true)
+    expect(d.outcome.billsUnpaid).toBe(0)
+    expect(d.outcome.debtLeft + d.outcome.comingHomeCash).toBeGreaterThan(0)
   })
 })

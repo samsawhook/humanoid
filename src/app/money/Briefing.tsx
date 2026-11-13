@@ -31,6 +31,7 @@ import { RETIREMENT_ACCOUNTS } from '@/core/money/lawschool'
 import { addLocalDays } from '@/core/time/localDay'
 import { Figure, Legend, StackedBars, TableView, Timeline, seriesColor } from '@/components/viz'
 import { TrendChart } from '@/components/TrendChart'
+import { SENT_HOME } from '@/core/money/household'
 import { CHECKING_DAILY, DFAS_PAYCHECKS, overdraftDips } from '@/core/money/statements'
 import { TRADELINES, REVIEW_FILE, reviewReadiness, type ReviewStatus } from '@/core/money/credit'
 
@@ -121,7 +122,7 @@ export function Briefing() {
         '$974.60 past due, $1,050.43 due 10 Dec, last payment Feb 2025. Federal loans default at ' +
         '270 days — tax refunds can be seized and ~20% collection costs added. Deployed, you qualify ' +
         'for military deferment and 0% interest; ask for forbearance on the past due and it is current ' +
-        'at $0. If they will not, the plan pays the $974.60 from the 1 Dec cheque — before the 10 Dec due date.',
+        'at $0. If they will not, the plan pays the $974.60 from the 15 Dec cheque — inside 30 days of the 10 Dec due date.',
       amount: '$974.60',
       note: 'past due',
     },
@@ -139,21 +140,22 @@ export function Briefing() {
     },
     {
       level: 'warning',
-      title: 'Mortgage extra payment deliberately moved to 15 Jan',
+      title: 'Mortgage extra payment moved to 15 Apr',
       body:
-        'NFCU reports one payment behind (30–59 days late, 27 Oct). The extra payment waits until ' +
-        '15 Jan — your January deadline — so December can make the federal student loan current ' +
-        'first: federal default is the heavier finding in a security review, and SCRA and the ' +
-        '"active military duty" note protect the mortgage. Cost: one more 30-day mark. Keep paying ' +
-        'the regular payment on every 1st without fail, and ask NFCU for a letter once current.',
-      amount: '15 Jan',
+        'NFCU reports one payment behind (30–59 days late, 27 Oct). With the nanny at $2,400/mo and ' +
+        'Nth untouchable, the one extra payment lands 15 Apr — the date that keeps every bill paid even ' +
+        'if the student-loan deferment is refused (15 Jan if it is approved). The federal loan comes ' +
+        'first: default is the heavier review finding, and SCRA and the "active military duty" note ' +
+        'protect the mortgage. Cost: a few more 30-day marks. Pay the regular payment on every 1st ' +
+        'without fail, and ask NFCU for a letter once current.',
+      amount: '15 Apr',
       note: 'current',
     },
     {
       level: 'good',
       title: 'Car paid off from the 15 Nov cheque',
       body:
-        'Skipping December’s Nth transfer lets the 15 Nov cheque pay the remaining ~$850 outright. ' +
+        'The 15 Nov cheque pays the remaining ~$850 outright — with Nth untouched. ' +
         'Get a payoff quote from Westlake and the lien release in writing; then liability-only insurance.',
       amount: '+$355/mo',
       note: 'freed from Dec',
@@ -164,7 +166,7 @@ export function Briefing() {
       body:
         `${deployedDips.length} times in three months, as low as ${usd0(worst.low)} on ${nice(worst.lowOn)}. ` +
         `There is no overdraft protection — a paycheck landing the next day is all that has stopped fees ` +
-        `and returned payments (Avant bounced twice this summer). It is timing, not money: the $1,000 home ` +
+        `and returned payments (Avant bounced twice this summer). It is timing, not money: the $1,200 home ` +
         `and the mortgage check go out 1–4 days before payday. Send them ON payday.`,
       amount: usd0(worst.low),
       note: 'lowest balance',
@@ -209,11 +211,11 @@ export function Briefing() {
     },
     {
       level: 'serious',
-      title: 'Tolls: paid 1 Jan, before the registration renewal',
+      title: 'Tolls: last ~$400, paid 15 Jan, before the registration renewal',
       body:
-        'Four months of statements show no toll payment, and in Texas unpaid tolls can block a ' +
-        'registration renewal. The plan pays the $1,100 on 1 Jan. Check the renewal month: if it is ' +
-        'due in December, pay the tolls from the 15 Dec cheque and move Christmas to 1 Jan instead.',
+        'You think most are paid, with maybe $400 of random pieces left. In Texas unpaid tolls can ' +
+        'block a registration renewal, so the plan pays the remainder on 15 Jan. If the renewal is due ' +
+        'sooner, look them up and pay them first — it is small enough to fit any payday.',
       amount: tolls ? signed(tolls.delta) : undefined,
       note: 'if already paid',
     },
@@ -289,7 +291,7 @@ export function Briefing() {
           )}
         </div>
         <div className="lede">
-          {usd0(OBSERVED_NET_MONTHLY)}/mo take-home, Roth TSP at 5%, {usd0(2000)}/mo home. The plan
+          {usd0(OBSERVED_NET_MONTHLY)}/mo take-home, Roth TSP at 5%, {usd0(SENT_HOME.perPaycheck * 2)}/mo home (nanny + household). The plan
           assumes {usd0(emergencyTotal)} of emergencies and still pays everything. The deployment is
           the window: it ends {nice(HORIZON.departure)}, and the moves below are worth doing inside it.
         </div>
@@ -312,7 +314,7 @@ export function Briefing() {
           </div>
         </div>
         <div className="kpi">
-          <div className="k">Freed up by March</div>
+          <div className="k">Freed up by May</div>
           <div className="v">+{usd0(freed)}/mo</div>
           <div className="d">
             catch-up ends <b>{nice(base.mortgageCurrent)}</b>, car <b>{nice(base.carPaidOff)}</b>
@@ -714,7 +716,7 @@ export function Briefing() {
           <p>
             The statements show the account below zero {deployedDips.length} times in three months, as low as{' '}
             {usd0(worst.low)}. Not once because the month was short — every time because something went out
-            before the paycheck that pays for it. Three changes: <strong>send the $1,000 home on payday, not
+            before the paycheck that pays for it. Three changes: <strong>send the $1,200 home on payday, not
             the days before</strong>; <strong>date the mortgage check to arrive after the 1st or 15th</strong>;
             and <strong>link a Wells Fargo savings account as Overdraft Protection</strong> and park the
             $1,000 buffer there — Wells Fargo does not charge for those transfers, and it turns a returned
@@ -748,11 +750,11 @@ export function Briefing() {
         <div className="rec">
           <h3>5. The emergency playbook — in this order</h3>
           <p>
-            <strong>1)</strong> the $1,000 cash buffer. <strong>2)</strong> skip one month of Nth ($500).{' '}
-            <strong>3)</strong> call the servicer and move that month&rsquo;s catch-up payment back a month
-            — never miss the regular one. <strong>4)</strong> SDP emergency withdrawal, with command
-            approval. <strong>Never</strong> a new card or a payday loan: one of those undoes a year of this
-            plan. Before February, step 2 and 3 are what keep the bills paid.
+            <strong>1)</strong> the $1,000 cash buffer. <strong>2)</strong> hold the month&rsquo;s extras home.{' '}
+            <strong>3)</strong> move the mortgage catch-up payment back a month (call NFCU first) — never
+            miss the regular one. <strong>4)</strong> SDP emergency withdrawal, with command approval.
+            Nth is never the give. <strong>Never</strong> a new card or a payday loan: one of those undoes a
+            year of this plan, and new debt is the last thing a security review wants to see.
           </p>
         </div>
         <div className="rec">
