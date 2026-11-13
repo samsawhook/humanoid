@@ -250,8 +250,13 @@ export const MOVES: Move[] = [
     label: 'Extras home to $200/mo',
     action: 'Hold sporadic transfers home to about $200/mo instead of the $400 observed.',
     basis: 'computed',
+    // Both extras lines: the pre-December one and the one that resumes in January.
     apply: (i) =>
-      adjust(i, 'support_home_extras', (o) => ({ ...o, amountPerPaycheck: 100 })),
+      adjust(
+        adjust(i, 'support_home_extras', (o) => ({ ...o, amountPerPaycheck: 100 })),
+        'support_home_extras_2027',
+        (o) => ({ ...o, amountPerPaycheck: 100 }),
+      ),
   },
   {
     key: 'hugedomains',
