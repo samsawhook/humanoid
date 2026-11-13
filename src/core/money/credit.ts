@@ -51,6 +51,11 @@ export interface Tradeline {
   action: string
   /** When that action should be done by. */
   by: LocalDate
+  /**
+   * Something about this line that is believed but NOT confirmed. Shown next to it so a
+   * figure that may be stale is never read as settled.
+   */
+  uncertain?: string
   /** Key into debts.ts, where the balance also lives. */
   debtKey?: string
 }
@@ -90,6 +95,10 @@ export const TRADELINES: Tradeline[] = [
       'payment. Ask your SLRP manager whether a loan in collection still qualifies. A ' +
       'school-held federal loan in collection reads as federal debt to a reviewer.',
     by: '2026-12-15',
+    uncertain:
+      'Balance unconfirmed. You think the 6 Nov 2026 SLRP payment also paid UT, but are not ' +
+      'sure. If it did, this is lower — possibly cleared — and its status may have changed. ' +
+      '$11,082 is the August credit-report figure, kept until UT confirms.',
     debtKey: 'ut_loan',
   },
   {

@@ -592,6 +592,13 @@ one extra payment forward to **15 Dec** (from 15 Apr) with every bill still paid
 open: the 0% interest benefit for imminent-danger service (interest ~$30/mo accrues in
 forbearance) and a military deferment through the deployment.
 
+### D33. Uncertainty: did SLRP also pay UT?
+
+You think the 6 Nov SLRP payment also paid the UT loan, but are not sure. The UT
+balance ($11,082, August report) is marked UNCONFIRMED on the tradeline (`uncertain`),
+in the debt note and on the page, until UT gives a current balance. Not acted on in the
+plan — no payments are scheduled to UT either way.
+
 ---
 
 # Seed context — as of 2026-08-05

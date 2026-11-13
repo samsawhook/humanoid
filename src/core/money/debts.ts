@@ -332,8 +332,9 @@ export const DEBTS: Debt[] = [
       'Creditor is UT itself, which usually means a Federal Perkins loan — if so, military ' +
       'service deferment and Perkins cancellation for service in an imminent-danger area may ' +
       'apply. Confirm the loan type with UT before anything else. Not in Monarch. ' +
-      'BALANCE MAY BE LOWER: the Nov 2026 SLRP payment was likely split proportionally and ' +
-      'part sent here — get a current balance from UT. $11,082 is the Aug report, kept until then.',
+      'UNCERTAIN (2026-11-13): you think the 6 Nov 2026 SLRP payment also paid this loan, ' +
+      'but are not sure. If so the balance is lower, possibly cleared. $11,082 is the Aug ' +
+      'credit-report figure, carried until UT confirms — see TRADELINES.ut_loan.uncertain.',
   },
 ]
 

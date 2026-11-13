@@ -386,10 +386,23 @@ export function Briefing() {
                 <td>
                   <Pill level={REVIEW_LEVEL[t.status].level}>{REVIEW_LEVEL[t.status].label}</Pill>
                 </td>
-                <td>{usd0(t.balance)}</td>
+                <td>
+                  {usd0(t.balance)}
+                  {t.uncertain && (
+                    <div style={{ marginTop: 4 }}>
+                      <Pill level="serious">Unconfirmed</Pill>
+                    </div>
+                  )}
+                </td>
                 <td style={{ whiteSpace: 'normal', textAlign: 'left', minWidth: 280, fontSize: 13 }}>
                   {t.action}
                   <div className="muted" style={{ fontSize: 12, marginTop: 3 }}>{t.reported}</div>
+                  {t.uncertain && (
+                    <div style={{ fontSize: 12, marginTop: 3, color: 'var(--status-serious)' }}>
+                      <span aria-hidden>? </span>
+                      {t.uncertain}
+                    </div>
+                  )}
                 </td>
                 <td>{nice(t.by)}</td>
               </tr>

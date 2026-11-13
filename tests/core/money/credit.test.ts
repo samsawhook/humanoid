@@ -47,3 +47,14 @@ describe('SLRP', () => {
     expect(REVIEW_FILE.some((f) => /SLRP/.test(f))).toBe(true)
   })
 })
+
+describe('uncertainties', () => {
+  it('flags the UT balance as unconfirmed after the SLRP payment', () => {
+    const ut = TRADELINES.find((t) => t.key === 'ut_loan')!
+    expect(ut.uncertain).toMatch(/SLRP/)
+    expect(ut.uncertain).toMatch(/unconfirmed/i)
+  })
+  it('flags nothing it has confirmation for', () => {
+    expect(TRADELINES.find((t) => t.key === 'nelnet')!.uncertain).toBeUndefined()
+  })
+})
