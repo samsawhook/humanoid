@@ -32,7 +32,7 @@ import { addLocalDays } from '@/core/time/localDay'
 import { Figure, Legend, StackedBars, TableView, Timeline, seriesColor } from '@/components/viz'
 import { TrendChart } from '@/components/TrendChart'
 import { SENT_HOME } from '@/core/money/household'
-import { CHECKING_DAILY, DFAS_PAYCHECKS, overdraftDips } from '@/core/money/statements'
+import { CHECKING_DAILY, DFAS_PAYCHECKS, availableDaily, overdraftDips, EARLY_PAY_BUSINESS_DAYS } from '@/core/money/statements'
 import { TRADELINES, REVIEW_FILE, reviewReadiness, type ReviewStatus } from '@/core/money/credit'
 
 /** How each review status reads — status colour, always with an icon and a label. */
@@ -107,9 +107,15 @@ export function Briefing() {
   const onTrack = base.billsUnpaid === 0
 
   // ── What the statements showed ──
-  const dips = overdraftDips()
-  const worst = dips.reduce((w, d) => (d.low < w.low ? d : w), dips[0]!)
-  const deployedDips = dips.filter((d) => d.start >= '2026-08-08')
+  // The ledger reads negative before paydays only because deposits print on the settle
+  // date; DFAS pay is spendable two business days earlier. Judge on what was spendable.
+  const available = availableDaily()
+  const ledgerDips = overdraftDips().filter((d) => d.start >= '2026-08-08')
+  const dips = overdraftDips(available)
+  const deployedDips = dips.filter((d) => d.start >= '2026-09-01')
+  const lowestAvailable = available
+    .filter((d) => d.date >= '2026-09-01')
+    .reduce((m, d) => Math.min(m, d.balance), Infinity)
   const readiness = reviewReadiness()
   const wire = impacts.find((i) => i.move.key === 'wire_to_ach')
 
@@ -161,15 +167,15 @@ export function Briefing() {
       note: 'freed from Dec',
     },
     {
-      level: 'critical',
-      title: 'Checking keeps going below zero',
+      level: deployedDips.length === 0 ? 'good' : 'warning',
+      title: deployedDips.length === 0 ? 'Checking: never actually below zero since September' : 'Checking dipped below zero',
       body:
-        `${deployedDips.length} times in three months, as low as ${usd0(worst.low)} on ${nice(worst.lowOn)}. ` +
-        `There is no overdraft protection — a paycheck landing the next day is all that has stopped fees ` +
-        `and returned payments (Avant bounced twice this summer). It is timing, not money: the $1,200 home ` +
-        `and the mortgage check go out 1–4 days before payday. Send them ON payday.`,
-      amount: usd0(worst.low),
-      note: 'lowest balance',
+        `The statements print ${ledgerDips.length} dips, but DFAS pay is spendable ${EARLY_PAY_BUSINESS_DAYS} business days ` +
+        `before it posts, and every one of those dips falls inside that window. On what you could actually spend, ` +
+        `the lowest point since September was ${usd0(lowestAvailable)}. The only real risk is a late release — ` +
+        `a holiday or a shutdown — on a day you have already sent money against it.`,
+      amount: usd0(lowestAvailable),
+      note: 'lowest spendable',
     },
     {
       level: 'serious',
@@ -408,14 +414,14 @@ export function Briefing() {
 
       <h2>What the statements show</h2>
       <Figure
-        title="Checking balance, every day the bank printed one — July to November"
+        title="Checking: what you could spend vs what the statement prints — July to November"
         caption={
           <>
-            From the four Wells Fargo statements. The money is enough; the order is not. Each dive below
-            zero is a transfer home or a mortgage check leaving a few days before the paycheck that pays for
-            it — then the paycheck lands (marked) and the balance snaps back. There is no overdraft
-            protection on this account, so the only thing between these dips and returned payments is the
-            paycheck arriving on time. Hover or tap for any day.
+            From the four Wells Fargo statements. The statement posts each DFAS deposit on its settle date
+            (marked), but the money is spendable {EARLY_PAY_BUSINESS_DAYS} business days earlier — so the
+            printed balance dives below zero before every payday while the spendable balance does not.
+            Since deployment pay began, spendable never went below zero; the only real dips are three small
+            ones in July and August. Hover or tap for any day.
           </>
         }
       >
@@ -426,9 +432,15 @@ export function Briefing() {
           ariaLabel="Checking account daily balance from the statements"
           series={[
             {
-              key: 'bal',
-              label: 'Checking',
+              key: 'avail',
+              label: 'Spendable',
               color: seriesColor(0),
+              points: available.map((d) => ({ date: d.date, value: Math.round(d.balance) })),
+            },
+            {
+              key: 'bal',
+              label: 'As printed',
+              color: seriesColor(1),
               points: CHECKING_DAILY.map((d) => ({ date: d.date, value: Math.round(d.balance) })),
             },
           ]}
@@ -712,15 +724,15 @@ export function Briefing() {
           </p>
         </div>
         <div className="rec">
-          <h3>2. Fix the order money leaves checking — this costs nothing</h3>
+          <h3>2. Early pay is working — give it a backstop</h3>
           <p>
-            The statements show the account below zero {deployedDips.length} times in three months, as low as{' '}
-            {usd0(worst.low)}. Not once because the month was short — every time because something went out
-            before the paycheck that pays for it. Three changes: <strong>send the $1,200 home on payday, not
-            the days before</strong>; <strong>date the mortgage check to arrive after the 1st or 15th</strong>;
-            and <strong>link a Wells Fargo savings account as Overdraft Protection</strong> and park the
-            $1,000 buffer there — Wells Fargo does not charge for those transfers, and it turns a returned
-            payment into a quiet top-up. One late DFAS deposit is all it takes to bounce the mortgage.
+            DFAS pay is spendable {EARLY_PAY_BUSINESS_DAYS} business days before it posts, and you time the
+            transfers home and the mortgage check to it: on what you could actually spend, checking has not
+            gone below zero since deployment pay began. The one exposure is a release that comes late — a
+            federal holiday, a pay-system delay, a shutdown — after money has already gone out against it.
+            The cheap fix: <strong>link a Wells Fargo savings account as Overdraft Protection</strong> and keep
+            the $1,000 buffer there. Wells Fargo does not charge for those transfers, so a late release
+            becomes a quiet top-up instead of a returned mortgage payment.
           </p>
         </div>
         <div className="rec">

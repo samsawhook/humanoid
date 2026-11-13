@@ -3,6 +3,7 @@ import {
   CHECKING_DAILY,
   DFAS_PAYCHECKS,
   overdraftDips,
+  availableDaily,
   observedFirstShare,
   STATEMENT_FINDINGS,
 } from '@/core/money/statements'
@@ -69,5 +70,27 @@ describe('calibration against the statements', () => {
 
   it('bills Avant from the 15th, matching its ~20th draft date', () => {
     expect(OBLIGATIONS.find((o) => o.key === 'avant_payment')!.payDays).toBe('fifteenth')
+  })
+})
+
+describe('early pay — what was actually spendable', () => {
+  it('releases each DFAS deposit two business days before it posts', () => {
+    const a = availableDaily()
+    // Fri 11 Sep prints −$999.15; the Tue 15 Sep deposit ($3,326.25) was already spendable.
+    expect(a.find((d) => d.date === '2026-09-11')!.balance).toBeCloseTo(-999.15 + 3326.25, 2)
+    // Tue 29 Sep prints −$988.04; the Thu 1 Oct deposit ($3,957.59) was already spendable.
+    expect(a.find((d) => d.date === '2026-09-29')!.balance).toBeCloseTo(-988.04 + 3957.59, 2)
+  })
+
+  it('shows checking never actually went below zero once deployed pay settled (September on)', () => {
+    // The one late-August dip (−$8.17, 27 Aug) is a real $15 Avant return fee, pre-deployment.
+    const real = overdraftDips(availableDaily()).filter((d) => d.start >= '2026-09-01')
+    expect(real).toHaveLength(0)
+  })
+
+  it('leaves the small genuine July/August dips on the record', () => {
+    const real = overdraftDips(availableDaily())
+    expect(real.length).toBeGreaterThan(0)
+    for (const d of real) expect(d.low).toBeGreaterThan(-50)
   })
 })

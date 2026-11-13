@@ -568,6 +568,17 @@ open cards are not cleared before homecoming, the boat and SDP get nothing, and 
 emergency now leaves ~$1,344 of bills unpaid. The deferment and the savings moves are
 what put money back into those.
 
+### D31. Correction: checking was not overdrawing (2026-11-13)
+
+D22 read the statements' negative ending balances as overdrafts. You corrected it: DFAS
+pay is spendable about two business days before it settles on the 1st and 15th. The
+dates confirm it exactly — every printed dip starts two business days before the deposit
+that ends it. `availableDaily()` (statements.ts) adds early-released deposits back:
+on what was actually spendable, checking has not gone below zero since September; the
+only real dips are three small ones in July and August (the largest −$43.67). The
+briefing now shows spendable against printed, and the advice is a backstop (overdraft
+protection on the buffer) against a late release, not a change of habit.
+
 ---
 
 # Seed context — as of 2026-08-05

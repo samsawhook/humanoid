@@ -97,6 +97,57 @@ export const DFAS_PAYCHECKS: { date: LocalDate; amount: number; payday: 'first' 
   { date: '2026-10-30', amount: 4005.1, payday: 'first' }, // 1 Nov, a Sunday
 ]
 
+/**
+ * Every DFAS direct deposit on the statements, including the odd ones (back-pay pieces,
+ * the $26 monthly item). All of them are available EARLY — see availableDaily().
+ */
+export const DFAS_DEPOSITS: { date: LocalDate; amount: number }[] = [
+  { date: '2026-08-14', amount: 2715.62 },
+  { date: '2026-08-19', amount: 150 },
+  ...DFAS_PAYCHECKS.map(({ date, amount }) => ({ date, amount })),
+  { date: '2026-09-25', amount: 1027.16 },
+  { date: '2026-10-02', amount: 26 },
+  { date: '2026-11-04', amount: 26 },
+].sort((a, b) => (a.date < b.date ? -1 : 1))
+
+/**
+ * How many business days early a DFAS deposit is spendable. Your correction, 2026-11-13:
+ * "cash is available before it settles on 1st and 15th, usually 2 business days ahead".
+ * The statements agree exactly — every apparent dip starts two business days before the
+ * deposit that ends it (Fri 11 Sep → Tue 15 Sep; Tue 29 Sep → Thu 1 Oct; ...).
+ */
+export const EARLY_PAY_BUSINESS_DAYS = 2
+
+function minusBusinessDays(date: LocalDate, n: number): LocalDate {
+  const d = new Date(date + 'T00:00:00Z')
+  let left = n
+  while (left > 0) {
+    d.setUTCDate(d.getUTCDate() - 1)
+    const dow = d.getUTCDay()
+    if (dow !== 0 && dow !== 6) left--
+  }
+  return d.toISOString().slice(0, 10)
+}
+
+/**
+ * The balance you could actually SPEND each day: the printed ledger balance plus any DFAS
+ * deposit already released early but not yet posted. The statement prints a deposit on
+ * its settlement date, so on the two business days before it the ledger reads negative
+ * while the money is in fact there — which is why no overdraft fee ever appears.
+ */
+export function availableDaily(
+  days: DailyBalance[] = CHECKING_DAILY,
+  deposits: { date: LocalDate; amount: number }[] = DFAS_DEPOSITS,
+  early: number = EARLY_PAY_BUSINESS_DAYS,
+): DailyBalance[] {
+  return days.map((d) => {
+    const released = deposits
+      .filter((p) => p.date > d.date && minusBusinessDays(p.date, early) <= d.date)
+      .reduce((s, p) => s + p.amount, 0)
+    return { date: d.date, balance: Math.round((d.balance + released) * 100) / 100 }
+  })
+}
+
 export interface Dip {
   start: LocalDate
   end: LocalDate
