@@ -269,28 +269,28 @@ export const DEBTS: Debt[] = [
     key: 'student_loan',
     label: 'Student loan (federal)',
     /**
-     * From the servicer's page, 11 Nov 2026: principal $7,191.78 plus $708.34 unpaid
-     * accrued interest. Carried at the payoff figure.
+     * Nelnet, 13 Nov 2026: current balance $7,193.80 = principal $6,483.44 + unpaid
+     * interest $710.36. (The 11 Nov reading double-counted the interest — the "current
+     * balance" there already included it — and carried $7,900.12. Corrected.)
      */
-    balance: 7900.12,
+    balance: 7193.8,
     instrument: 'installment',
     posture: 'active',
     priority: 6,
+    /** $75.83 from 10 Feb 2027, per the servicer's schedule. $0 Nov, Dec, Jan. */
     scheduledMonthly: 75.83,
     /**
-     * ~13 payments missed — the last one was $3,624.16 on 6 Feb 2025. Federal loans go
-     * to DEFAULT at 270 days delinquent, which this may already be past.
+     * CURED. Nelnet placed the loan in ADMINISTRATIVE FORBEARANCE (seen 13 Nov 2026):
+     * "no payment is currently due"; payments resume Feb 2027. Was $974.60 past due.
      */
-    pastDue: 974.6,
-    /** $1.01/day on $7,191.78 ≈ 5.1%. Already under the SCRA 6% cap, so SCRA does not help. */
+    pastDue: 0,
+    /** ~$1.01/day ≈ 5.1%, still accruing in forbearance. Under the SCRA 6% cap. */
     apr: 0.0513,
     note:
-      'SLRP (Army Reserve Student Loan Repayment) paid $20k+ on 6 Nov 2026 — this balance ' +
-      'already reflects it. It went to principal and did NOT cure the past due. ' +
-      'URGENT. $974.60 past due, $1,050.43 due 10 Dec 2026. While deployed: request military ' +
-      'service deferment, the 0% interest benefit for service in an imminent-danger area ' +
-      '(Direct Loans), and administrative forbearance on the past-due amount. That makes it ' +
-      'current at no cost; the plan cures it from cash by mid-March only as the backstop.',
+      'Current: administrative forbearance, nothing due until 10 Feb 2027, then $75.83/mo. ' +
+      'SLRP paid $21,291.07 on 6 Nov 2026. Interest still accrues (~$30/mo) — still worth ' +
+      'asking for the 0% interest benefit for service in an imminent-danger area (Direct ' +
+      'Loans). Confirm next month that the credit report shows it current.',
   },
   {
     key: 'goldman',

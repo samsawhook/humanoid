@@ -154,12 +154,14 @@ export const MORTGAGE_PAYMENT = 1381.79
 export const MORTGAGE_ARREARS_PAYMENTS_LEFT = 1
 /** Your call, 2026-11-11: the catch-up finishes in January. The last extra payment is the 15 January cheque. */
 /**
- * The extra mortgage payment's date. Was 15 Jan (your first deadline); moved to 15 Apr
- * on 2026-11-13 — your call, "mortgage extra later" — once the nanny rose to $2,400/mo
- * and Nth became untouchable. It is the date that keeps every bill paid even if the
- * student-loan deferment is refused; if it is approved, this can come forward to 15 Jan.
+ * The extra mortgage payment's date. History: 15 Jan (your first deadline) → 15 Apr
+ * (2026-11-13, once the nanny rose and Nth became untouchable) → 15 DEC (2026-11-13,
+ * later): Nelnet put the student loan in administrative forbearance, so the $974.60
+ * cure and three $75.83 payments are no longer needed, and the one extra mortgage payment
+ * fits on the 15 Dec cheque with every bill still paid. Current a month sooner than any
+ * earlier plan, which is what a security review wants to see.
  */
-export const MORTGAGE_CATCHUP_LAST = '2027-04-15' as const
+export const MORTGAGE_CATCHUP_LAST = '2026-12-15' as const
 export const MORTGAGE_ARREARS_BALANCE =
   Math.round(MORTGAGE_ARREARS_PAYMENTS_LEFT * MORTGAGE_PAYMENT * 100) / 100
 
@@ -680,7 +682,8 @@ export const OBLIGATIONS: Obligation[] = [
      */
     amountPerPaycheck: STUDENT_LOAN_MONTHLY,
     payDays: 'first',
-    activeFrom: '2026-12-01',
+    /** Administrative forbearance (13 Nov 2026): $0 until the 10 Feb 2027 payment. */
+    activeFrom: '2027-02-01',
     activeTo: null,
     /** Above Avant and the cards: a federal loan in default can take tax refunds. */
     priority: 34,
@@ -740,7 +743,7 @@ export const OBLIGATIONS: Obligation[] = [
     amountPerPaycheck: MORTGAGE_PAYMENT,
     payDays: 'fifteenth',
     /** Starts with the 15 December cheque; the 15 November one is left to rebuild the buffer. */
-    activeFrom: '2027-04-15',
+    activeFrom: MORTGAGE_CATCHUP_LAST,
     activeTo: MORTGAGE_CATCHUP_LAST,
     priority: 38,
     /** A bill, not the gauge: if it cannot be paid in full the page should say so. */
@@ -799,29 +802,6 @@ export const OBLIGATIONS: Obligation[] = [
     note: 'Pays the car off from the first money free. Liability-only insurance follows.',
   },
   {
-    key: 'student_loan_cure',
-    label: 'Student loan — cure the past due',
-    /**
-     * CLEARANCE FIRST (2026-11-12 rewrite): federal debt sliding toward default is the
-     * heaviest Guideline F finding, and default would also cost the next SLRP payment.
-     * So the past due is paid in full from the 1 Dec cheque — current before the 10 Dec
-     * due date. Still call the servicer: deferment + 0% interest beats paying it, and if
-     * approved, this line comes out and the money goes down the waterfall.
-     */
-    amountPerPaycheck: STUDENT_LOAN_PAST_DUE,
-    /** A fixed bill on the 1 Dec cheque — current before the 10 Dec due date. */
-    payDays: 'fifteenth',
-    activeFrom: '2026-12-15',
-    activeTo: '2026-12-15',
-    priority: 34.5,
-    kind: 'unsecured_debt',
-    balanceCap: STUDENT_LOAN_PAST_DUE,
-    capGroup: 'student_loan_past_due',
-    execution: 'manual',
-    howTo: 'Pay the servicer marked "apply to past due". Better: call first and ask for deferment + forbearance.',
-    note: '$974.60 past due (~13 missed payments). Default is 270 days; it may already be there.',
-  },
-  {
     key: 'mortgage_arrears',
     label: 'Mortgage — arrears catch-up',
     /**
@@ -838,10 +818,10 @@ export const OBLIGATIONS: Obligation[] = [
      * takes spare money at them only if that bill ever comes up short.
      */
     /**
-     * Off until the scheduled catch-up is over (15 Apr). You pay in WHOLE payments;
+     * Off until the scheduled catch-up is over (15 Dec). You pay in WHOLE payments;
      * letting the sweep send spare partials ahead of it splits the one payment in two.
      */
-    activeFrom: '2027-04-16',
+    activeFrom: '2026-12-16',
     activeTo: null,
     priority: 40,
     kind: 'arrears_catchup',

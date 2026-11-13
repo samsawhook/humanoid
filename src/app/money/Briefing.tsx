@@ -122,15 +122,15 @@ export function Briefing() {
   // ── Calls to attention, most urgent first ──
   const attention: { level: Level; title: string; body: string; amount?: string; note?: string }[] = [
     {
-      level: 'critical',
-      title: 'Student loan: ~13 payments behind — call before 10 Dec',
+      level: 'good',
+      title: 'Student loan: current — administrative forbearance',
       body:
-        '$974.60 past due, $1,050.43 due 10 Dec, last payment Feb 2025. Federal loans default at ' +
-        '270 days — tax refunds can be seized and ~20% collection costs added. Deployed, you qualify ' +
-        'for military deferment and 0% interest; ask for forbearance on the past due and it is current ' +
-        'at $0. If they will not, the plan pays the $974.60 from the 15 Dec cheque — inside 30 days of the 10 Dec due date.',
-      amount: '$974.60',
-      note: 'past due',
+        'Nelnet shows nothing due until 10 Feb 2027, then $75.83/mo; the $974.60 past due is ' +
+        'cleared, and default is off the table — protecting SLRP too. Interest still accrues ' +
+        '(~$30/mo): ask for the 0% benefit for imminent-danger service. Save the confirmation, ' +
+        'set autopay for 10 Feb, and check the credit report shows it current next month.',
+      amount: '10 Feb',
+      note: 'next payment',
     },
     {
       level: 'critical',
@@ -702,25 +702,22 @@ export function Briefing() {
           </p>
         </div>
         <div className="rec">
-          <h3>Before anything else: the student loan, this week</h3>
+          <h3>Done: the student loan is current</h3>
           <p>
-            <strong>Call the servicer before 10 December</strong> with your orders and an LES showing
-            imminent danger pay, and ask for three things: <strong>military service deferment</strong>
-            (payments paused while on active duty), the <strong>0% interest benefit</strong> for Direct
-            Loans while you serve in an imminent-danger area, and <strong>administrative forbearance on the
-            $974.60 past due</strong> to bring the account current. Confirm in writing that it is current,
-            and ask whether it was ever reported as defaulted. If it is a FFEL or private loan rather than a
-            Direct Loan, the 0% benefit may not apply — ask. SCRA will not help: the rate is already ~5.1%.
+            Nelnet put the loan in <strong>administrative forbearance</strong>: the $974.60 past due is
+            cleared, nothing is due until <strong>10 February</strong>, then $75.83 a month. That took federal
+            default — the heaviest finding in a review, and a threat to SLRP — off the table, and it freed
+            the December cash that now brings the <strong>mortgage current on 15 December</strong>.
           </p>
           <p>
-            If they refuse, the plan pays $75.83 a month from December and clears the past due from
-            spare cash by mid-March — but that costs the boat, the open cards and the SDP their place
-            before homecoming. Approval is worth{' '}
+            Two loose ends. Interest still accrues in forbearance (~$30 a month): ask for the{' '}
+            <strong>0% interest benefit</strong> for Direct Loans while serving in an imminent-danger area,
+            and a military service deferment through the deployment — together worth{' '}
             {(() => {
               const d = impacts.find((i) => i.move.key === 'sl_deferment')
               return d ? <strong>{signed(d.delta)}</strong> : null
             })()}{' '}
-            and gets you current four months sooner.
+            by homecoming. And save the forbearance confirmation for the review file.
           </p>
         </div>
         <div className="rec">

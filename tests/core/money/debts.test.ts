@@ -177,9 +177,10 @@ describe('paydown simulation', () => {
 
 describe('the federal student loan', () => {
   const sl = DEBTS.find((d) => d.key === 'student_loan')!
-  it('is carried at the payoff figure, with the past due recorded', () => {
-    expect(sl.balance).toBeCloseTo(7191.78 + 708.34, 2)
-    expect(sl.pastDue).toBe(974.6)
+  it('is carried at the payoff figure, current under administrative forbearance', () => {
+    // $6,483.44 principal + $710.36 interest. The 11 Nov reading double-counted interest.
+    expect(sl.balance).toBeCloseTo(6483.44 + 710.36, 2)
+    expect(sl.pastDue).toBe(0)
     expect(sl.scheduledMonthly).toBe(75.83)
   })
   it('is not an SCRA target — the rate is already under 6%', () => {

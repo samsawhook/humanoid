@@ -221,10 +221,8 @@ export const MOVES: Move[] = [
     key: 'sl_deferment',
     label: 'Student loan: deferment + 0% interest',
     action:
-      'Call the servicer before 10 Dec with your orders and an LES showing imminent danger pay. ' +
-      'Ask for military service deferment, the 0% interest benefit while serving in an ' +
-      'imminent-danger area, and administrative forbearance on the $974.60 past due. ' +
-      'Current at $0, and no more interest while deployed.',
+      'Already current by forbearance. Ask Nelnet for military service deferment through the ' +
+      'deployment (no $75.83 from Feb) and the 0% interest benefit for imminent-danger service.',
     basis: 'computed',
     apply: (i) => ({
       ...i,

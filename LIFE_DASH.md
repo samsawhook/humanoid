@@ -579,6 +579,19 @@ only real dips are three small ones in July and August (the largest −$43.67). 
 briefing now shows spendable against printed, and the advice is a backstop (overdraft
 protection on the buffer) against a late release, not a change of habit.
 
+### D32. Nelnet: administrative forbearance — current (2026-11-13)
+
+Nelnet's dashboard: status Administrative Forbearance; $0 due Nov–Jan; $75.83 from
+10 Feb 2027; past due cleared. Balance corrected to $7,193.80 ($6,483.44 principal +
+$710.36 interest) — the 11 Nov reading double-counted interest ($7,900.12). SLRP paid
+$21,291.07 on 6 Nov.
+
+Consequences: no December cure payment; the student loan moves from "federal, past due"
+to "recovering" in the review file; and the freed December cash brings the mortgage's
+one extra payment forward to **15 Dec** (from 15 Apr) with every bill still paid. Still
+open: the 0% interest benefit for imminent-danger service (interest ~$30/mo accrues in
+forbearance) and a military deferment through the deployment.
+
 ---
 
 # Seed context — as of 2026-08-05

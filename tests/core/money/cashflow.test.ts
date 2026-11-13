@@ -275,16 +275,16 @@ describe('the real plan', () => {
    * counts missed payments, so two full ones beat the same money spread as partials.
    */
   it('finishes the mortgage catch-up with one whole payment, on the date that keeps every bill paid', () => {
-    // One payment behind per the credit report. "Mortgage extra later" (2026-11-13): with
-    // the nanny at $2,400/mo and Nth untouchable, the one extra payment lands 15 Apr.
+    // One payment behind per the credit report. With the student loan in administrative
+    // forbearance (13 Nov), the one extra payment fits on the 15 Dec cheque.
     expect(cleared.mortgage_arrears!.clearedOn! <= MORTGAGE_CATCHUP_LAST).toBe(true)
-    expect(cleared.mortgage_arrears?.clearedOn).toBe('2027-04-15')
+    expect(cleared.mortgage_arrears?.clearedOn).toBe('2026-12-15')
     const catchups = allocations.flatMap((a) =>
       a.lines
         .filter((l) => (l.capGroup ?? l.key) === 'mortgage_arrears' && l.allocated > 0)
         .map((l) => ({ on: a.paycheck.scheduledDate, amount: l.allocated })),
     )
-    expect(catchups).toEqual([{ on: '2027-04-15', amount: MORTGAGE_PAYMENT }])
+    expect(catchups).toEqual([{ on: '2026-12-15', amount: MORTGAGE_PAYMENT }])
   })
 
   /**
@@ -389,11 +389,10 @@ describe('the real plan', () => {
     // Arrears are a scheduled bill now, so the waterfall runs beside them, in order:
     // car payoff, the student loan's past due, tolls, a $1,000 cash buffer, the open
     // cards, the boat, then the SDP while its window is open.
-    // 2026-11-13: car on the 15 Nov cheque; the student loan's past due on 15 Dec (if the
-    // deferment is refused — five days after the 10 Dec due date, well inside 30); the
-    // last ~$400 of tolls on 15 Jan (before registration); the mortgage extra on 15 Apr.
+    // 2026-11-13: car on the 15 Nov cheque; the student loan is current by forbearance (no
+    // cure payment); the mortgage extra on 15 Dec; the last ~$400 of tolls on 15 Jan.
     expect(cleared.car_payoff?.clearedOn).toBe('2026-11-13')
-    expect(cleared.student_loan_past_due?.clearedOn).toBe('2026-12-15')
+    expect(cleared.student_loan_past_due).toBeUndefined()
     expect(cleared.late_payments?.clearedOn).toBe('2027-01-15')
     expect(cleared.emergency_fund?.paid).toBe(1000)
     // The BACKSTOP case — student loan cured from cash, no deferment — after Christmas,
@@ -558,15 +557,18 @@ describe('Expedition liability insurance', () => {
 describe('clearance-first order (2026-11-12 rewrite)', () => {
   const all = allocateAll(projectPaychecks(PLAN_START, '2027-08-01'), OBLIGATIONS, ONE_OFFS)
   const c = balanceClearedOn(all, OBLIGATIONS)
-  it('makes the federal loan current in December, inside 30 days of the 10 Dec due date', () => {
-    expect(c.student_loan_past_due!.clearedOn! <= '2026-12-15').toBe(true)
+  it('needs no cash to make the federal loan current — forbearance did it — and pays nothing until Feb', () => {
+    expect(c.student_loan_past_due).toBeUndefined()
+    for (const a of all.filter((x) => x.paycheck.scheduledDate < '2027-02-01')) {
+      expect(a.lines.some((l) => l.key.startsWith('student_loan'))).toBe(false)
+    }
   })
   it('pays the car off and clears the tolls before the registration renewal', () => {
     expect(c.car_payoff!.clearedOn! <= '2026-11-15').toBe(true)
     expect(c.late_payments!.clearedOn! <= '2027-01-15').toBe(true)
   })
-  it('defers the mortgage extra to the date that keeps every bill paid, and Nth is never skipped', () => {
-    expect(c.mortgage_arrears!.clearedOn).toBe('2027-04-15')
+  it('brings the mortgage current on 15 Dec with every bill paid, and Nth is never skipped', () => {
+    expect(c.mortgage_arrears!.clearedOn).toBe('2026-12-15')
     const firsts = all.filter((a) => a.paycheck.scheduledDate.endsWith('-01'))
     for (const a of firsts) expect(a.lines.some((l) => l.key === 'nth_investments' && l.shortfall === 0)).toBe(true)
     expect(all.every((a) => a.lines.filter((l) => !l.swept && !l.target && l.kind !== 'arrears_catchup').every((l) => l.shortfall === 0))).toBe(true)

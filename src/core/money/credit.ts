@@ -60,17 +60,18 @@ export const TRADELINES: Tradeline[] = [
     key: 'nelnet',
     creditor: 'Dept of Education / Nelnet',
     kind: 'Federal student loan',
-    balance: 7900.12,
-    status: 'federal_delinquent',
+    balance: 7193.8,
+    status: 'recovering',
     reported:
-      '120+ days late; last payment 6 Feb 2025; 7× 90+ days late in 2026. Not yet in default ' +
-      'or collections — federal loans default at 270 days.',
+      'Administrative forbearance as of 13 Nov 2026: no payment due until 10 Feb 2027, then ' +
+      '$75.83/mo. Was 120+ days late (last borrower payment Feb 2025). SLRP paid $21,291.07 ' +
+      'on 6 Nov 2026.',
     action:
-      'Before 10 Dec: military service deferment + 0% interest (imminent-danger area) + ' +
-      'forbearance on the $974.60 past due. Keep the written confirmation it is current. The ' +
-      '6 Nov SLRP payment ($20k+) went to principal and did not cure the past due — and a ' +
-      'defaulted loan can lose SLRP eligibility, so this protects the next payment too.',
-    by: '2026-12-10',
+      'Done: brought current through forbearance. Still to do: ask for the 0% interest ' +
+      'benefit for service in an imminent-danger area (interest still accrues ~$30/mo), save ' +
+      'the forbearance confirmation, and check next month that the credit report shows the ' +
+      'account current. Set autopay for 10 Feb.',
+    by: '2027-02-10',
     debtKey: 'student_loan',
   },
   {

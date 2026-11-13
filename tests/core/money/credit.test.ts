@@ -6,7 +6,7 @@ describe('credit recovery for the security review', () => {
   it('is not ready today, and says exactly why', () => {
     const r = reviewReadiness()
     expect(r.ready).toBe(false)
-    expect(r.federalDelinquent).toBe(1) // Nelnet
+    expect(r.federalDelinquent).toBe(0) // Nelnet: administrative forbearance, 13 Nov
     expect(r.inCollections).toBe(1) // UT
     expect(r.chargedOffUndocumented).toBe(2) // Upgrade, Goldman
   })
@@ -40,10 +40,10 @@ describe('credit recovery for the security review', () => {
 })
 
 describe('SLRP', () => {
-  it('is on file as evidence, and the Nelnet action says it did not cure the past due', () => {
+  it('is on file as evidence, and Nelnet is recovering, not delinquent', () => {
     const nelnet = TRADELINES.find((t) => t.key === 'nelnet')!
-    expect(nelnet.action).toMatch(/SLRP/)
-    expect(nelnet.action).toMatch(/did not cure the past due/)
+    expect(nelnet.reported).toMatch(/SLRP/)
+    expect(nelnet.status).toBe('recovering')
     expect(REVIEW_FILE.some((f) => /SLRP/.test(f))).toBe(true)
   })
 })
