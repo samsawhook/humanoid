@@ -258,13 +258,8 @@ export const MOVES: Move[] = [
         (o) => ({ ...o, amountPerPaycheck: 100 }),
       ),
   },
-  {
-    key: 'hugedomains',
-    label: 'Drop Hugedomains',
-    action: 'Cancel or pay out the $99.79/mo Hugedomains plan.',
-    basis: 'computed',
-    apply: trimSpending(99.79),
-  },
+  // Hugedomains ($99.79/mo) is sawhook.com — kept by your choice (2026-11-13), so it is
+  // not offered as a saving.
   {
     key: 'phone_line',
     label: 'Suspend your phone line',

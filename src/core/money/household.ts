@@ -305,7 +305,7 @@ export const DEPLOYED_ACTUALS: ObservedCategory[] = [
     label: 'Digital subscriptions',
     monthly: 225,
     basis:
-      'Sep $117, Oct $226, Nov $255 by the 10th. Hugedomains $99.79/mo, Anthropic $106.60, ' +
+      'Sep $117, Oct $226, Nov $255 by the 10th. Hugedomains $99.79/mo (sawhook.com — keeping), Anthropic $106.60, ' +
       'Squarespace $26.65, Google Workspace, Apple. Rising — worth an audit.',
   },
   {

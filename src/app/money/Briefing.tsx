@@ -235,7 +235,10 @@ export function Briefing() {
     {
       level: 'warning',
       title: 'Subscriptions are creeping',
-      body: 'September $117 → October $226 → November $255 by the 10th. Hugedomains alone is $99.79/mo.',
+      body:
+        'September $117 → October $226 → November $255 by the 10th. Hugedomains ($99.79, sawhook.com) ' +
+        'stays — your call. If it is a lease-to-own plan, ask when it is paid off: it should drop to a ' +
+        'normal yearly renewal. The rest to look at: Apple (~$50 across four charges), Squarespace, Google.',
       amount: '$255',
       note: 'Nov, to date',
     },

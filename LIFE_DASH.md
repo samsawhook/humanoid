@@ -599,6 +599,12 @@ balance ($11,082, August report) is marked UNCONFIRMED on the tradeline (`uncert
 in the debt note and on the page, until UT gives a current balance. Not acted on in the
 plan — no payments are scheduled to UT either way.
 
+### D34. Hugedomains stays — it is sawhook.com
+
+$99.79/mo is the sawhook.com domain, and you are keeping it. Removed from the savings
+moves; still counted in your subscriptions. If it is a lease-to-own plan, its end date
+is worth knowing — it should fall to a normal yearly renewal once paid.
+
 ---
 
 # Seed context — as of 2026-08-05
