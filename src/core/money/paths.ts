@@ -124,16 +124,25 @@ export const PATH_ASSUMPTIONS = {
     /** CPA review course and exam fees, spread over the exam months. */
     cpaCost: 3500,
     cpaMonths: ['2028-01', '2028-02', '2028-03', '2028-04', '2028-05', '2028-06'],
-    /** Corpus Christi staff accountant → licensed CPA → senior → manager. MY ESTIMATE. */
+    /**
+     * Not entry level: you have a year-plus of audit experience at GAO and in Schwab
+     * internal audit (your note, 14 Nov). So the start is an experienced / senior
+     * internal-audit role, and — if a CPA supervised that work and will verify it — the
+     * Texas one-year experience requirement may already be met, so the licence follows
+     * the exam rather than a year after it. Senior auditor → licensed CPA → audit manager.
+     * MY ESTIMATE, for Corpus Christi or a remote role at Texas pay.
+     */
     salary: [
-      ['2027-09', 58000],
-      ['2029-06', 65000],
-      ['2031-01', 75000],
-      ['2033-01', 88000],
-      ['2036-01', 100000],
-      ['2041-01', 120000],
-      ['2046-12', 140000],
+      ['2027-09', 70000],
+      ['2028-09', 78000],
+      ['2031-01', 90000],
+      ['2033-01', 102000],
+      ['2036-01', 115000],
+      ['2041-01', 135000],
+      ['2046-12', 155000],
     ] as Anchor[],
+    /** Licensed once the exam is passed, the experience already being on file. */
+    licensed: '2028-09',
   },
 }
 
@@ -357,9 +366,9 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
         } else {
           salary = salaryAt(macc.salary, m) / 12
           phase = enrolled
-            ? 'Staff accountant + last MAcc block'
-            : monthIndex(m) < monthIndex('2029-06')
-              ? 'Staff accountant / CPA exam'
+            ? 'Senior auditor + last MAcc block'
+            : monthIndex(m) < monthIndex(macc.licensed)
+              ? 'Senior auditor / CPA exam'
               : 'CPA'
         }
         if (macc.cpaMonths.includes(m)) costs['CPA review & exam fees'] = macc.cpaCost / macc.cpaMonths.length
