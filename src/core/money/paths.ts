@@ -51,8 +51,21 @@ export const PATH_ASSUMPTIONS = {
 
   /** Reserve drill pay, both paths. My estimate, as in lawschool.ts. */
   drillMonthly: 475,
-  /** VA disability at 10%, 2026 rate. Likely higher after this deployment — not modelled. */
-  vaMonthly: 180,
+  /**
+   * VA disability after this deployment. You are at 10% now; your range for the new
+   * rating is 30–80% (14 Nov). The planning case takes 50%, near the middle; the bands
+   * run 30% to 80%. Monthly amounts are for a veteran with a spouse and two children,
+   * roughly 2027 rates — MY ESTIMATE of the tables; check them against the VA's.
+   * Modelled from the first month home; in practice the claim takes months and the
+   * back pay arrives as a lump.
+   */
+  vaRating: 50,
+  vaMonthly: 1360,
+  /**
+   * VA pay cannot be drawn for days you are paid for drill or annual training, so it is
+   * waived for those days: ~48 drill periods (24 days) plus 15 days of AT a year.
+   */
+  vaWaivedDaysPerYear: 39,
 
   nthMonthly: 530,
   nthPrincipal: 500,
@@ -364,7 +377,8 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
       }
       const drill = a.drillMonthly * infl
       income['Reserve drill pay'] = drill
-      income['VA disability (10%)'] = a.vaMonthly * infl
+      income[`VA disability (${a.vaRating}%)`] = a.vaMonthly * infl
+      costs['VA waived for drill & AT days'] = ((a.vaMonthly * 12) / 365) * a.vaWaivedDaysPerYear / 12 * infl
       let taxableWages = drill
       let salary = 0
       let summerTax = 0
