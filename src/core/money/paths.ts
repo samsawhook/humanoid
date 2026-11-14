@@ -52,7 +52,7 @@ export const PATH_ASSUMPTIONS = {
    */
   family: {
     births: ['2025-11', '2028-06', '2030-08'],
-    childcare: { corpus: 900, lubbock: 850, austin: 1400, houston: 1200 } as Record<string, number>,
+    childcare: { corpus: 900, lubbock: 850, austin: 1400, houston: 1200, country: 700 } as Record<string, number>,
     under5Other: 250,
     schoolAge: 500,
     birthCost: 1500,
@@ -249,6 +249,37 @@ export const PATH_ASSUMPTIONS = {
      * verification (your word, 14 Nov), so the experience year is already met.
      */
     licensed: '2028-09',
+    /**
+     * Remote work, and out to the countryside as soon as possible (your call, 14 Nov). The
+     * job is remote — the same ~$85k planning case; remote roles draw a national applicant
+     * pool, which the job-search band already allows for. The move is a VA-loan purchase
+     * of a family home on some acreage, made as early as a lender will do it: six months
+     * into the job, with the seller paying 2 of the 3 points of closing (VA allows up to
+     * 4% in concessions), and only the move and a small reserve in cash — not waiting for
+     * the debt to clear. 628 Chamberlain is let from then on, and that is the house
+     * upgrade on this path. Location not pinned down; Texas countryside prices. MY
+     * ESTIMATES. Lender check: debt-to-income will be high (two mortgages, the debt plan)
+     * — VA judges it on residual income, and VA disability and 75% of the Chamberlain rent
+     * count as income.
+     */
+    countryside: {
+      enabled: true,
+      price: 350000,
+      taxRate: 0.018,
+      monthsOnJob: 6,
+      sellerConcession: 0.02,
+      move: 5000,
+      reserve: 5000,
+      /** Fuel and a second vehicle's upkeep, well and septic, Starlink-class internet. */
+      ruralExtras: 350,
+      /**
+       * Buying needs ~$14k in hand, which the CPA path does not have until about 2032.
+       * "As soon as possible" therefore means renting in the country first — moving six
+       * months into the remote job — and buying out there when the cash allows.
+       */
+      rentFirst: true,
+      rent: 1500,
+    },
   },
   /**
    * PATH C — Houston, working by day, law school at night. The University of Houston Law
@@ -420,6 +451,8 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
   let newMortgage = 0
   let newPI = 0
   let newLoc = ''
+  let jobMonths = 0
+  let inCountry = false
   const priceIdx = (m: string) => Math.pow(1 + a.homeAppreciation, (monthIndex(m) - monthIndex('2027-01')) / 12)
 
   const law = a.law
@@ -600,7 +633,9 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
             : monthIndex(m) >= monthIndex(law.schoolStart)
               ? 'lubbock'
               : 'corpus'
-          : 'corpus'
+          : inCountry || (upgraded && newLoc === 'country')
+            ? 'country'
+            : 'corpus'
 
       // Housing: 628 Chamberlain's mortgage is paid in both paths unless it was sold.
       if (!sold) costs['Mortgage (P&I + escrow)'] = MORTGAGE_PAYMENT
@@ -626,8 +661,33 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
 
       // The upgrade, once it is affordable: payable debt gone, settled where you will stay,
       // and cash covering closing, the move and a reserve.
+      if (salary > 0) jobMonths++
+      const cs = macc.countryside
+      if (key === 'macc' && cs.enabled && cs.rentFirst && !inCountry && jobMonths >= cs.monthsOnJob) {
+        inCountry = true
+        costs['Move to the countryside (renting first)'] = cs.move * infl
+      }
+      if (key === 'macc' && inCountry && !upgraded) {
+        costs['Rent in the countryside'] = cs.rent * infl
+        costs['Rural extras (driving, well & septic, internet)'] = cs.ruralExtras * infl
+      }
+      if (key === 'macc' && cs.enabled && !upgraded && jobMonths >= cs.monthsOnJob) {
+        // Out to the countryside as soon as a lender will do it.
+        const price = cs.price * priceIdx(m)
+        const upfront =
+          price * Math.max(0, a.upgrade.closingRate - cs.sellerConcession) + (inCountry ? 2000 : cs.move) * infl
+        if (cash >= upfront + cs.reserve * infl) {
+          upgraded = true
+          newLoc = 'country'
+          newValue = price
+          newMortgage = price
+          const r = a.upgrade.rate / 12
+          newPI = (price * r) / (1 - Math.pow(1 + r, -360))
+          costs[inCountry ? 'Buy in the countryside — closing (after seller credit) & local move' : 'Move to the countryside — closing (after seller credit) & move'] = upfront
+        }
+      }
       const settled = key === 'law' ? monthIndex(m) >= monthIndex(law.jobStart) + 6 : salary > 0
-      if (!upgraded && settled && debt <= 0) {
+      if (!upgraded && settled && debt <= 0 && !(key === 'macc' && cs.enabled)) {
         const price = a.upgrade.price[loc]! * priceIdx(m)
         const upfront = price * a.upgrade.closingRate + a.upgrade.moveAndFurnish * infl
         if (cash >= upfront + a.upgrade.reserve * infl) {
@@ -643,7 +703,11 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
       if (upgraded) {
         costs['New home — principal & interest'] = newPI
         costs['New home — property tax & insurance'] =
-          (newValue * a.upgrade.taxRate[newLoc]!) / 12 + a.upgrade.insuranceMonthly * infl
+          (newValue * (newLoc === 'country' ? macc.countryside.taxRate : a.upgrade.taxRate[newLoc]!)) / 12 +
+          a.upgrade.insuranceMonthly * infl
+        if (newLoc === 'country') costs['Rural extras (driving, well & septic, internet)'] = macc.countryside.ruralExtras * infl
+      }
+      if (upgraded || (key === 'macc' && inCountry)) {
         // On the CPA path you move out of 628 Chamberlain, so it is let from here on.
         if (key === 'macc') {
           income['Corpus house — rent'] = HOUSE.monthlyMarketRent * infl
@@ -702,7 +766,7 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
         ? 'Law school — Texas Tech, then Austin'
         : key === 'night'
           ? 'Night law — UH part-time, working in Houston'
-          : 'MAcc → CPA — stay in Corpus',
+          : 'MAcc → CPA — remote, countryside',
     months,
   }
 }

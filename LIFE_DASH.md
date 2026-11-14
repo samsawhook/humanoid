@@ -642,6 +642,15 @@ then tax or transactional law from Sep 2031. Modelled as Path C beside full-time
 Lubbock and the CPA path in Corpus. On the planning case it finishes 20 years highest
 and borrows far less than Lubbock, because the paycheck never stops. The cost is time.
 
+### D39. The CPA path goes remote, and to the countryside
+
+Your call, 14 Nov: remote work, out to the countryside as soon as possible. Buying
+needs ~$14k in hand (VA loan, seller paying most of closing, the move, a reserve),
+which this path does not have until about 2032 — so the plan rents in the country from
+six months into the job (Apr 2028), lets 628 Chamberlain from the move, and buys a
+~$350k family home on acreage when cash allows (Oct 2033). It costs ~$60k by year 20
+against staying in town. The in-town version is kept as a dotted line.
+
 ---
 
 # Seed context — as of 2026-08-05
