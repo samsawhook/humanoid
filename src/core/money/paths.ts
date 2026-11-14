@@ -181,21 +181,22 @@ export const PATH_ASSUMPTIONS = {
     cpaCost: 3500,
     cpaMonths: ['2028-01', '2028-02', '2028-03', '2028-04', '2028-05', '2028-06'],
     /**
-     * Not entry level: you have a year-plus of audit experience at GAO and in Schwab
-     * internal audit (your note, 14 Nov). So the start is an experienced / senior
-     * internal-audit role, and — if a CPA supervised that work and will verify it — the
-     * Texas one-year experience requirement may already be met, so the licence follows
-     * the exam rather than a year after it. Senior auditor → licensed CPA → audit manager.
-     * MY ESTIMATE, for Corpus Christi or a remote role at Texas pay.
+     * Back to Guidehouse, defense financial management consulting — your read, 14 Nov:
+     * "about $100k all in". Your résumé backs it: GAO financial auditor (SEC audit, DoD
+     * performance audit), Schwab bank & trust internal audit, Guidehouse Army Working
+     * Capital Fund / Futures Command audit remediation, a UT McCombs finance degree and a
+     * Secret clearance. Total cash pay; growth is the consulting ladder — senior
+     * consultant → manager → senior manager → director — with the CPA helping each step.
+     * The ladder past the start is MY ESTIMATE. Assumes remote or hybrid from Corpus.
      */
     salary: [
-      ['2027-09', 70000],
-      ['2028-09', 78000],
-      ['2031-01', 90000],
-      ['2033-01', 102000],
-      ['2036-01', 115000],
-      ['2041-01', 135000],
-      ['2046-12', 155000],
+      ['2027-09', 100000],
+      ['2029-09', 115000],
+      ['2031-09', 135000],
+      ['2034-09', 160000],
+      ['2037-09', 185000],
+      ['2041-09', 215000],
+      ['2046-12', 250000],
     ] as Anchor[],
     /** Licensed once the exam is passed, the experience already being on file. */
     licensed: '2028-09',
@@ -443,10 +444,10 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
         } else {
           salary = salaryAt(macc.salary, m) / 12
           phase = enrolled
-            ? 'Senior auditor + last MAcc block'
+            ? 'Guidehouse + last MAcc block'
             : monthIndex(m) < monthIndex(macc.licensed)
-              ? 'Senior auditor / CPA exam'
-              : 'CPA'
+              ? 'Guidehouse / CPA exam'
+              : 'Guidehouse, CPA'
         }
         if (macc.cpaMonths.includes(m)) costs['CPA review & exam fees'] = macc.cpaCost / macc.cpaMonths.length
       }
@@ -515,7 +516,7 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
 
   return {
     key,
-    label: key === 'law' ? 'Law school — Texas Tech, then Austin' : 'MAcc → CPA — stay in Corpus',
+    label: key === 'law' ? 'Law school — Texas Tech, then Austin' : 'MAcc → CPA, Guidehouse — stay in Corpus',
     months,
   }
 }
