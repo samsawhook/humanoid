@@ -65,12 +65,12 @@ export const TIMELINE = {
    */
   czteEnd: '2027-06-30' as LocalDate,
   /**
-   * Released from active duty: demob plus accrued leave, about four weeks after landing.
-   * MY ESTIMATE. All active-duty pay stops here; drill pay resumes.
+   * Released from active duty. Your guess, 2026-11-14: paid "with leave etc through July".
+   * July pay is full base, BAH and BAS, but taxed — no CZTE, FSA, IDP or ODP.
    */
-  refrad: '2027-06-30' as LocalDate,
+  refrad: '2027-07-31' as LocalDate,
   /** The last active-duty payday — the end of every deployed-pay projection. */
-  lastPayday: '2027-07-01' as LocalDate,
+  lastPayday: '2027-08-01' as LocalDate,
   /** Hard ceiling from the orders. */
   ordersMaxEnd: '2027-10-04' as LocalDate,
 } as const

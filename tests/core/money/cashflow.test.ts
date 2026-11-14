@@ -330,7 +330,13 @@ describe('the real plan', () => {
 
   it('pays a card minimum as a bill and the sweep as acceleration, onto one balance', () => {
     // Both lines exist, both are unsecured debt, and only one of them is discretionary.
-    const withBoth = allocations.find(
+    // Run without the assumed emergencies: at plan they leave no slack for the sweep.
+    const calm = allocateAll(
+      projectPaychecks(PLAN_START, TIMELINE.lastPayday),
+      OBLIGATIONS,
+      ONE_OFFS.filter((o) => !o.drawsFrom),
+    )
+    const withBoth = calm.find(
       (a) =>
         a.lines.some((l) => l.key === 'card_minimums_open' && l.allocated > 0) &&
         a.lines.some((l) => l.key === 'debt_paydown_open' && l.allocated > 0),

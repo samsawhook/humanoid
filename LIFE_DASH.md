@@ -618,11 +618,11 @@ AutoPay is set for the 21st (done 14 Nov), so it comes out of the 15th cheque.
 
 Your read, 14 Nov: "probably back in June". Leaving theatre 5 Jun 2027; FSA, IDP, ODP
 and SDP deposits stop there. CZTE covers every month with a day in the zone, so June
-is still tax-free. Released ~30 Jun (my estimate: demob plus leave), so the last
-active-duty paycheck is 1 Jul. Two fewer deployed paychecks: coming-home cash falls to
-~$1,355 (the June emergency empties the fund just before the end), payable debt
-~$22.0k, and the SDP gets nothing. In the 20-year model the MAcc path starts work in
-September 2027; law moves to Lubbock in August.
+is still tax-free. Paid with leave through July (your guess, 14 Nov) — full base, BAH
+and BAS, but taxed — so the last active-duty paycheck is 1 Aug. Coming-home cash
+~$1,300 (the June emergency empties the fund near the end), payable debt ~$21.4k, and
+the SDP gets nothing. In the 20-year model the 1 Aug check is August's income; the
+MAcc path starts work in September 2027; law moves to Lubbock in August.
 
 ---
 

@@ -226,22 +226,28 @@ interface DeployedMonth {
   debt: number
 }
 
-function deployedMonths(): { rows: DeployedMonth[]; comingHomeCash: number; debtLeft: number; invested: number } {
+function deployedMonths(): { rows: DeployedMonth[]; comingHomeCash: number; debtLeft: number; finalPay: number } {
   const outcome = runPlan()
-  const comp = monthlyComposition(outcome.allocations)
   const traj = trajectory(outcome)
+  // The last active-duty paycheck lands on the 1st of the first month home. It is that
+  // month's income in the path, not a deployed month of its own — August is already
+  // Lubbock or the job search, and its costs are the path's.
+  let allocations = outcome.allocations
+  let finalPay = 0
+  const last = allocations.at(-1)!
+  if (last.paycheck.scheduledDate.endsWith('-01')) {
+    finalPay = last.paycheck.net
+    allocations = allocations.slice(0, -1)
+  }
+  const handoff = traj[allocations.length - 1]!
+  const comp = monthlyComposition(allocations)
   const rows = comp
     .filter((r) => monthIndex(r.month) >= monthIndex(PATH_ASSUMPTIONS.startMonth))
     .map((r) => {
       const last = traj.filter((p) => p.date.slice(0, 7) <= r.month).at(-1)
       return { ...r, byBucket: { ...r.byBucket }, cash: last?.cash ?? 0, debt: last?.debt ?? 0 }
     })
-  return {
-    rows,
-    comingHomeCash: outcome.comingHomeCash,
-    debtLeft: outcome.debtLeft,
-    invested: outcome.invested,
-  }
+  return { rows, comingHomeCash: handoff.cash, debtLeft: handoff.debt, finalPay }
 }
 
 // ── The projection ──────────────────────────────────────────────────────────
@@ -290,7 +296,7 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
     if (dep) {
       // ── Deployed: the plan in briefing.ts, as-is. Identical for both paths.
       phase = 'Deployed'
-      income['Military pay (net, CZTE)'] = dep.net
+      income['Military pay (net; tax-free through June)'] = dep.net
       costs['Mortgage'] = dep.byBucket.housing ?? 0
       costs['Sent home — nanny & household'] = dep.byBucket.home ?? 0
       costs['Your spending, phone, subscriptions'] = dep.byBucket.you ?? 0
@@ -304,6 +310,7 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
       if (m === homeMonth) {
         cash = deployed.comingHomeCash
         debt = deployed.debtLeft
+        if (deployed.finalPay > 0) income['Last active-duty pay (July leave, taxed)'] = deployed.finalPay
       }
       const drill = a.drillMonthly * infl
       income['Reserve drill pay'] = drill
