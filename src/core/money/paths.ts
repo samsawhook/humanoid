@@ -250,7 +250,8 @@ export const PATH_ASSUMPTIONS = {
      */
     licensed: '2028-09',
     /**
-     * Remote work, and out to the countryside as soon as possible (your call, 14 Nov). The
+     * A FORK of the Corpus CPA path, off by default (your framing, 14 Nov: "a fork from
+     * Corpus CPA"). Remote work, and out to the countryside as soon as possible. The
      * job is remote — the same ~$85k planning case; remote roles draw a national applicant
      * pool, which the job-search band already allows for. The move is a VA-loan purchase
      * of a family home on some acreage, made as early as a lender will do it: six months
@@ -263,7 +264,7 @@ export const PATH_ASSUMPTIONS = {
      * count as income.
      */
     countryside: {
-      enabled: true,
+      enabled: false,
       price: 350000,
       taxRate: 0.018,
       monthsOnJob: 6,
@@ -766,7 +767,9 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
         ? 'Law school — Texas Tech, then Austin'
         : key === 'night'
           ? 'Night law — UH part-time, working in Houston'
-          : 'MAcc → CPA — remote, countryside',
+          : a.macc.countryside.enabled
+            ? 'MAcc → CPA — remote, countryside'
+            : 'MAcc → CPA — Corpus',
     months,
   }
 }
