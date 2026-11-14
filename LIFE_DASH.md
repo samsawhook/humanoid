@@ -624,6 +624,16 @@ and BAS, but taxed — so the last active-duty paycheck is 1 Aug. Coming-home ca
 the SDP gets nothing. In the 20-year model the 1 Aug check is August's income; the
 MAcc path starts work in September 2027; law moves to Lubbock in August.
 
+### D37. The family grows, and the house with it
+
+Child 1 born ~Apr 2026. Your plan (14 Nov): pregnant a few months after you are home,
+the same spacing again — so children ~Jun 2028 and ~Aug 2030, the same dates on both
+paths. Each child is costed on its own (childcare at the local rate under five, then
+school-age costs), so expenses scale with the family; spending also rises with a tenth
+of salary above $85k. The house upgrade happens "when cash allows" — debt gone, closing
+and a reserve in hand — with a VA loan, keeping 628 Chamberlain as a rental. Your GAO
+supervisor will sign the CPA experience verification. Not Guidehouse.
+
 ---
 
 # Seed context — as of 2026-08-05

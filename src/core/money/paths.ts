@@ -34,11 +34,53 @@ export const PATH_ASSUMPTIONS = {
   months: 240,
 
   /**
-   * Your contribution to the family after you are home: childcare and household. Today's
-   * $2,400 pays a full-time nanny because you are away; at home, with both of you
-   * working, I have taken your share as $1,000. MY ESTIMATE — the biggest lever here.
+   * Your contribution to the household after you are home, NOT counting the children —
+   * they are costed one by one in `family` below, so the budget grows as the family does.
+   * Today's $2,400 pays a full-time nanny because you are away. MY ESTIMATE.
    */
-  familySupportMonthly: 1000,
+  familySupportMonthly: 500,
+  /**
+   * The family. Child 1 born ~Apr 2026 (7 months old on 14 Nov 2026). Your plan: pregnant
+   * a few months after you are home (so child 2 ~Jun 2028) and the same spacing again
+   * (child 3 ~Aug 2030). Same dates in both paths.
+   *
+   * Per child, 2027 dollars, MY ESTIMATES: under five, childcare at the local rate plus
+   * $250/mo of everything else (food, diapers, clothes, gear); five to seventeen, $500/mo
+   * (food, clothes, activities, after-school and summer care); $1,500 around each birth
+   * (Tricare covers the delivery). College is not costed: the Hazlewood Legacy Act lets
+   * you pass unused Hazlewood hours to a child.
+   */
+  family: {
+    births: ['2026-04', '2028-06', '2030-08'],
+    childcare: { corpus: 900, lubbock: 850, austin: 1400 } as Record<string, number>,
+    under5Other: 250,
+    schoolAge: 500,
+    birthCost: 1500,
+  },
+  /**
+   * Lifestyle scales with income: for each dollar of salary above $85k (2027 dollars), a
+   * dime more goes on spending. A plan that held spending flat while pay tripled would
+   * be flattering the higher-paid path. MY ESTIMATE.
+   */
+  lifestyleShare: 0.1,
+  lifestyleFloor: 85000,
+  /**
+   * The house upgrade, "when cash allows" (your call, 14 Nov): once payable debt is gone
+   * and cash covers closing, the move and a reserve, buy a bigger family home — Corpus on
+   * the CPA path, Austin on the law path — with a VA loan (no down payment; no funding fee
+   * with a disability rating). 628 Chamberlain is kept and let. Prices in 2027 dollars,
+   * rising with house prices. MY ESTIMATES. A second VA loan while the first is open
+   * depends on remaining entitlement — check with the lender.
+   */
+  upgrade: {
+    price: { corpus: 375000, austin: 550000 } as Record<string, number>,
+    rate: 0.0625,
+    taxRate: { corpus: 0.021, austin: 0.019 } as Record<string, number>,
+    insuranceMonthly: 250,
+    closingRate: 0.03,
+    moveAndFurnish: 8000,
+    reserve: 15000,
+  },
   /**
    * Your own and home spending at home. The Monarch 12-month average before you shipped
    * was $2,834, on income that did not cover it — which is how the debts happened. The
@@ -54,13 +96,15 @@ export const PATH_ASSUMPTIONS = {
   /**
    * VA disability after this deployment. You are at 10% now; your range for the new
    * rating is 30–80% (14 Nov). The planning case takes 50%, near the middle; the bands
-   * run 30% to 80%. Monthly amounts are for a veteran with a spouse and two children,
-   * roughly 2027 rates — MY ESTIMATE of the tables; check them against the VA's.
+   * run 30% to 80%. Monthly amounts are for a veteran with a spouse and one child, roughly
+   * 2027 rates, plus ~5% for each further child — MY ESTIMATE of the tables; check them
+   * against the VA's.
    * Modelled from the first month home; in practice the claim takes months and the
    * back pay arrives as a lump.
    */
   vaRating: 50,
-  vaMonthly: 1360,
+  vaMonthly: 1300,
+  vaPerChildShare: 0.05,
   /**
    * VA pay cannot be drawn for days you are paid for drill or annual training, so it is
    * waived for those days: ~48 drill periods (24 days) plus 15 days of AT a year.
@@ -114,8 +158,8 @@ export const PATH_ASSUMPTIONS = {
     market: 'Austin',
     /** Family-sized rent within commuting reach of central Austin, 2027 dollars. MY ESTIMATE. */
     marketRent: 2700,
-    /** Childcare and general costs run higher in Austin than in Corpus. MY ESTIMATE. */
-    marketCostPremium: 350,
+    /** General costs run higher in Austin than in Corpus (childcare is costed per child). MY ESTIMATE. */
+    marketCostPremium: 150,
     jobStart: '2030-09',
     movingCost: 3000,
     barCost: 4000,
@@ -341,6 +385,13 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
   let debt = 0
   let ut = a.utBalance
   let sold = false
+  // The upgrade home, once bought.
+  let upgraded = false
+  let newValue = 0
+  let newMortgage = 0
+  let newPI = 0
+  let newLoc = ''
+  const priceIdx = (m: string) => Math.pow(1 + a.homeAppreciation, (monthIndex(m) - monthIndex('2027-01')) / 12)
 
   const law = a.law
   const macc = a.macc
@@ -362,6 +413,10 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
     const interest = mortgage * (a.mortgageRate / 12)
     if (!sold) mortgage = Math.max(0, mortgage - (pAndI - interest))
     ut = ut * (1 + a.utRate / 12)
+    if (upgraded) {
+      newValue *= 1 + a.homeAppreciation / 12
+      newMortgage = Math.max(0, newMortgage - (newPI - newMortgage * (a.upgrade.rate / 12)))
+    }
 
     const dep = deployed.rows.find((r) => r.month === m)
     if (dep) {
@@ -385,8 +440,10 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
       }
       const drill = a.drillMonthly * infl
       income['Reserve drill pay'] = drill
-      income[`VA disability (${a.vaRating}%)`] = a.vaMonthly * infl
-      costs['VA waived for drill & AT days'] = ((a.vaMonthly * 12) / 365) * a.vaWaivedDaysPerYear / 12 * infl
+      const kids = a.family.births.filter((b) => monthIndex(b) <= monthIndex(m)).length
+      const va = a.vaMonthly * (1 + a.vaPerChildShare * Math.max(0, kids - 1)) * infl
+      income[`VA disability (${a.vaRating}%)`] = va
+      costs['VA waived for drill & AT days'] = ((va * 12) / 365) * a.vaWaivedDaysPerYear / 12
       let taxableWages = drill
       let salary = 0
       let summerTax = 0
@@ -417,8 +474,8 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
             salary = salaryAt(law.salary, m) / 12
           }
           if (m === law.moveToMarket) costs[`Moving to ${law.market}`] = law.movingCost
-          costs[`Rent in ${law.market}`] = law.marketRent * infl
-          costs[`${law.market} cost premium (childcare etc.)`] = law.marketCostPremium * infl
+          if (!upgraded) costs[`Rent in ${law.market}`] = law.marketRent * infl
+          costs[`${law.market} cost premium (general)`] = law.marketCostPremium * infl
         }
         if (m === law.reenlistMonth && law.reenlistBonus > 0) {
           income['Re-enlistment bonus'] = law.reenlistBonus
@@ -470,11 +527,66 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
       const tax = federalTax(annual, year) / 12 + taxableWages * 0.0765 + summerTax
       costs['Taxes (federal + FICA)'] = tax
 
-      // Housing in Corpus whenever you live there; the mortgage is paid in both paths.
+      // Where the family lives this month — it sets childcare and the upgrade market.
+      const loc =
+        key === 'law'
+          ? monthIndex(m) >= monthIndex(law.moveToMarket)
+            ? 'austin'
+            : monthIndex(m) >= monthIndex(law.schoolStart)
+              ? 'lubbock'
+              : 'corpus'
+          : 'corpus'
+
+      // Housing: 628 Chamberlain's mortgage is paid in both paths unless it was sold.
       if (!sold) costs['Mortgage (P&I + escrow)'] = MORTGAGE_PAYMENT
-      costs['Family support (childcare, household)'] = a.familySupportMonthly * infl
-      costs['Your spending & home'] = a.personalSpendingMonthly * infl
+      costs['Family support (household)'] = a.familySupportMonthly * infl
+
+      // The children, one by one.
+      let under5 = 0
+      let school = 0
+      let births = 0
+      for (const b of a.family.births) {
+        const age = monthIndex(m) - monthIndex(b)
+        if (age === 0) births += a.family.birthCost * infl
+        if (age >= 0 && age < 60) under5 += (a.family.childcare[loc]! + a.family.under5Other) * infl
+        else if (age >= 60 && age < 216) school += a.family.schoolAge * infl
+      }
+      if (under5 > 0) costs['Children under 5 (childcare & care)'] = under5
+      if (school > 0) costs['Children 5-17'] = school
+      if (births > 0) costs['New baby'] = births
+
+      const lifestyle = Math.max(0, salary * 12 - a.lifestyleFloor * infl) * a.lifestyleShare / 12
+      costs['Your spending & home'] = a.personalSpendingMonthly * infl + lifestyle
       costs['Tricare Select Reserve'] = a.tricareMonthly * infl
+
+      // The upgrade, once it is affordable: payable debt gone, settled where you will stay,
+      // and cash covering closing, the move and a reserve.
+      const settled = key === 'law' ? monthIndex(m) >= monthIndex(law.jobStart) + 6 : salary > 0
+      if (!upgraded && settled && debt <= 0) {
+        const price = a.upgrade.price[loc]! * priceIdx(m)
+        const upfront = price * a.upgrade.closingRate + a.upgrade.moveAndFurnish * infl
+        if (cash >= upfront + a.upgrade.reserve * infl) {
+          upgraded = true
+          newLoc = loc
+          newValue = price
+          newMortgage = price
+          const r = a.upgrade.rate / 12
+          newPI = (price * r) / (1 - Math.pow(1 + r, -360))
+          costs['Home upgrade — closing, move & furnishing'] = upfront
+        }
+      }
+      if (upgraded) {
+        costs['New home — principal & interest'] = newPI
+        costs['New home — property tax & insurance'] =
+          (newValue * a.upgrade.taxRate[newLoc]!) / 12 + a.upgrade.insuranceMonthly * infl
+        // On the CPA path you move out of 628 Chamberlain, so it is let from here on.
+        if (key === 'macc') {
+          income['Corpus house — rent'] = HOUSE.monthlyMarketRent * infl
+          costs['Corpus house — management & vacancy'] =
+            HOUSE.monthlyMarketRent * infl * (HOUSE.managementRate + HOUSE.vacancyMaintenanceRate)
+          costs['Corpus house — non-homestead tax & landlord insurance'] = HOUSE.monthlyRentalTaxInsuranceUplift
+        }
+      }
 
       // Debts.
       debt = debt * (1 + a.debtRate / 12)
@@ -498,7 +610,7 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
     const net = r2(totalIncome - totalCosts)
     if (!dep) cash += net
 
-    const liabilities = mortgage + debt + ut + chargeOffs
+    const liabilities = mortgage + newMortgage + debt + ut + chargeOffs
     months.push({
       month: m,
       phase,
@@ -511,10 +623,10 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
       cash: r2(cash),
       investments: r2(investments),
       retirement: r2(retirement),
-      homeValue: r2(homeValue),
-      mortgage: r2(mortgage),
+      homeValue: r2(homeValue + newValue),
+      mortgage: r2(mortgage + newMortgage),
       debt: r2(debt + ut + chargeOffs),
-      netWorth: r2(cash + investments + retirement + homeValue - liabilities),
+      netWorth: r2(cash + investments + retirement + homeValue + newValue - liabilities),
     })
   }
 
