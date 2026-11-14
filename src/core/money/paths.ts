@@ -40,7 +40,7 @@ export const PATH_ASSUMPTIONS = {
    */
   familySupportMonthly: 500,
   /**
-   * The family. Child 1 born ~Apr 2026 (7 months old on 14 Nov 2026). Your plan: pregnant
+   * The family. Child 1 about a year old on 14 Nov 2026 (your figure), so born ~Nov 2025. Your plan: pregnant
    * a few months after you are home (so child 2 ~Jun 2028) and the same spacing again
    * (child 3 ~Aug 2030). Same dates in both paths.
    *
@@ -51,7 +51,7 @@ export const PATH_ASSUMPTIONS = {
    * you pass unused Hazlewood hours to a child.
    */
   family: {
-    births: ['2026-04', '2028-06', '2030-08'],
+    births: ['2025-11', '2028-06', '2030-08'],
     childcare: { corpus: 900, lubbock: 850, austin: 1400 } as Record<string, number>,
     under5Other: 250,
     schoolAge: 500,

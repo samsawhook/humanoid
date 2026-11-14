@@ -626,7 +626,7 @@ MAcc path starts work in September 2027; law moves to Lubbock in August.
 
 ### D37. The family grows, and the house with it
 
-Child 1 born ~Apr 2026. Your plan (14 Nov): pregnant a few months after you are home,
+Child 1 about a year old (born ~Nov 2025). Your plan (14 Nov): pregnant a few months after you are home,
 the same spacing again — so children ~Jun 2028 and ~Aug 2030, the same dates on both
 paths. Each child is costed on its own (childcare at the local rate under five, then
 school-age costs), so expenses scale with the family; spending also rises with a tenth
