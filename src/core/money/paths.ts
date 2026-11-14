@@ -69,8 +69,9 @@ export const PATH_ASSUMPTIONS = {
    * and cash covers closing, the move and a reserve, buy a bigger family home — Corpus on
    * the CPA path, Austin on the law path — with a VA loan (no down payment; no funding fee
    * with a disability rating). 628 Chamberlain is kept and let. Prices in 2027 dollars,
-   * rising with house prices. MY ESTIMATES. A second VA loan while the first is open
-   * depends on remaining entitlement — check with the lender.
+   * rising with house prices. MY ESTIMATES. 628 Chamberlain is not on a VA loan (your
+   * note, 14 Nov), so your full VA entitlement is available for the upgrade — no
+   * entitlement limit and no down payment. The new home must be your primary residence.
    */
   upgrade: {
     price: { corpus: 375000, austin: 550000 } as Record<string, number>,
