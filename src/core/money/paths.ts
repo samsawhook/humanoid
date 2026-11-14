@@ -175,30 +175,34 @@ export const PATH_ASSUMPTIONS = {
     enrolledMonths: ['2027-09', '2027-10', '2027-11', '2027-12'],
     /** Online-only Chapter 33 housing: half the national average, before the 80% tier. MY ESTIMATE. */
     onlineMhaFull: 1170,
-    /** Home in June: job search over the summer, start in September. MY ESTIMATE. */
-    jobStart: '2027-09',
+    /** Home in June; paid through July; a job search into the autumn. MY ESTIMATE. */
+    jobStart: '2027-11',
     /** CPA review course and exam fees, spread over the exam months. */
     cpaCost: 3500,
     cpaMonths: ['2028-01', '2028-02', '2028-03', '2028-04', '2028-05', '2028-06'],
     /**
-     * Back to Guidehouse, defense financial management consulting — your read, 14 Nov:
-     * "about $100k all in". Your résumé backs it: GAO financial auditor (SEC audit, DoD
-     * performance audit), Schwab bank & trust internal audit, Guidehouse Army Working
-     * Capital Fund / Futures Command audit remediation, a UT McCombs finance degree and a
-     * Secret clearance. Total cash pay; growth is the consulting ladder — senior
-     * consultant → manager → senior manager → director — with the CPA helping each step.
-     * The ladder past the start is MY ESTIMATE. Assumes remote or hybrid from Corpus.
+     * Not Guidehouse (your call, 14 Nov: it has been a while and you left a little quick).
+     * A returning veteran after a stretch running a startup: the market on return is
+     * genuinely uncertain, so the planning case is deliberately middle-of-the-road and the
+     * bands are wide. The realistic landing spots, all leaning on the clearance and on
+     * veterans' preference: a federal financial-management or audit job (Corpus Christi
+     * Army Depot, DCAA, Army audit — GS-11/12), a defense FM consulting role at another
+     * firm, or industry internal audit. Planning case: ~$85k from November 2027 after a
+     * job search over the late summer and autumn. MY ESTIMATE.
      */
     salary: [
-      ['2027-09', 100000],
-      ['2029-09', 115000],
-      ['2031-09', 135000],
-      ['2034-09', 160000],
-      ['2037-09', 185000],
-      ['2041-09', 215000],
-      ['2046-12', 250000],
+      ['2027-11', 85000],
+      ['2029-09', 95000],
+      ['2031-09', 110000],
+      ['2034-09', 130000],
+      ['2037-09', 150000],
+      ['2041-09', 175000],
+      ['2046-12', 205000],
     ] as Anchor[],
-    /** Licensed once the exam is passed, the experience already being on file. */
+    /**
+     * Licensed once the exam is passed: your GAO supervisor will sign the Texas experience
+     * verification (your word, 14 Nov), so the experience year is already met.
+     */
     licensed: '2028-09',
   },
 }
@@ -444,10 +448,10 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
         } else {
           salary = salaryAt(macc.salary, m) / 12
           phase = enrolled
-            ? 'Guidehouse + last MAcc block'
+            ? 'FM / audit job + last MAcc block'
             : monthIndex(m) < monthIndex(macc.licensed)
-              ? 'Guidehouse / CPA exam'
-              : 'Guidehouse, CPA'
+              ? 'FM / audit job, CPA exam'
+              : 'CPA'
         }
         if (macc.cpaMonths.includes(m)) costs['CPA review & exam fees'] = macc.cpaCost / macc.cpaMonths.length
       }
@@ -516,7 +520,7 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
 
   return {
     key,
-    label: key === 'law' ? 'Law school — Texas Tech, then Austin' : 'MAcc → CPA, Guidehouse — stay in Corpus',
+    label: key === 'law' ? 'Law school — Texas Tech, then Austin' : 'MAcc → CPA — stay in Corpus',
     months,
   }
 }
