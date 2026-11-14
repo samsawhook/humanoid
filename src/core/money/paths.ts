@@ -2,7 +2,7 @@
  * Two paths after the deployment, month by month for twenty years.
  *
  *  LAW — Texas Tech Law, Lubbock. Home in June 2027; start Aug 2027, graduate May 2030, bar July 2030,
- *        then tax or transactional work in Houston from Sep 2030 (your plan, 14 Nov). The
+ *        then tax or transactional work in Austin from Sep 2030 (your plan, 14 Nov). The
  *        Corpus house is let from the move to Lubbock onward.
  *  MACC — Stay in Corpus. Finish the online MAcc at TAMU-CC (6 of 30 hours done; most
  *        of the rest on deployment, the last block Sep–Dec 2027), sit the CPA in 2028,
@@ -106,13 +106,16 @@ export const PATH_ASSUMPTIONS = {
     school: LAW_SCHOOLS.find((s) => s.key === 'ttu')!,
     schoolStart: '2027-08',
     schoolEnd: '2030-05',
-    /** After the bar: a big market, not back to Corpus. Your plan, 14 Nov: tax or transactional work. */
+    /**
+     * After the bar: a big market, not back to Corpus. Your plan, 14 Nov: tax or
+     * transactional work, "probably Austin".
+     */
     moveToMarket: '2030-06',
-    market: 'Houston',
-    /** Family-sized rent within reach of downtown Houston, 2027 dollars. MY ESTIMATE. */
-    marketRent: 2400,
-    /** Childcare and general costs run higher in a big metro than in Corpus. MY ESTIMATE. */
-    marketCostPremium: 300,
+    market: 'Austin',
+    /** Family-sized rent within commuting reach of central Austin, 2027 dollars. MY ESTIMATE. */
+    marketRent: 2700,
+    /** Childcare and general costs run higher in Austin than in Corpus. MY ESTIMATE. */
+    marketCostPremium: 350,
     jobStart: '2030-09',
     movingCost: 3000,
     barCost: 4000,
@@ -138,7 +141,7 @@ export const PATH_ASSUMPTIONS = {
     /** Big-market summers: a 1L stipend, then a 2L summer-associate position. MY ESTIMATE. */
     summerGross: { '2028': 10000, '2029': 45000 } as Record<string, number>,
     /**
-     * PLANNING CASE: tax or transactional work in Houston/Dallas at a mid-size firm or a
+     * PLANNING CASE: tax or transactional work in Austin at a mid-size firm or a
      * Big 4 tax practice — where a JD with a CPA is the profile they hire. Not BigLaw:
      * Texas Tech sends a minority of each class to market-rate firms, so planning on it
      * would be planning on the upside. MY ESTIMATE.
@@ -512,7 +515,7 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
 
   return {
     key,
-    label: key === 'law' ? 'Law school — Texas Tech, then Houston' : 'MAcc → CPA — stay in Corpus',
+    label: key === 'law' ? 'Law school — Texas Tech, then Austin' : 'MAcc → CPA — stay in Corpus',
     months,
   }
 }
