@@ -108,6 +108,19 @@ export const PATH_ASSUMPTIONS = {
      * the base case because her income is out of scope — a sensitivity, not a forecast.
      */
     spouseIncomeLostMonthly: 0,
+    /**
+     * The Corpus house on the law path: let it, or sell it when you leave for Lubbock.
+     * Your two options, 14 Nov. Both are run; 'rent' is the headline.
+     */
+    house: 'rent' as 'rent' | 'sell',
+    /**
+     * Reserve re-enlistment bonus — "10k or something like that", your figure, 14 Nov,
+     * on the law path. Modelled as one payment when you re-enlist, taxed at 22%; many
+     * bonuses pay half up front and the rest on contract anniversaries. CONFIRM the amount
+     * and the schedule with your retention NCO.
+     */
+    reenlistBonus: 10000,
+    reenlistMonth: '2027-09',
     bookStipendAnnual: 1000,
     /** Big-market summers: a 1L stipend, then a 2L summer-associate position. MY ESTIMATE. */
     summerGross: { '2028': 10000, '2029': 45000 } as Record<string, number>,
@@ -306,6 +319,7 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
   let cash = 0
   let debt = 0
   let ut = a.utBalance
+  let sold = false
 
   const law = a.law
   const macc = a.macc
@@ -325,7 +339,7 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
     retirement *= 1 + a.investReturn / 12
     homeValue *= 1 + a.homeAppreciation / 12
     const interest = mortgage * (a.mortgageRate / 12)
-    mortgage = Math.max(0, mortgage - (pAndI - interest))
+    if (!sold) mortgage = Math.max(0, mortgage - (pAndI - interest))
     ut = ut * (1 + a.utRate / 12)
 
     const dep = deployed.rows.find((r) => r.month === m)
@@ -384,8 +398,21 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
           costs[`Rent in ${law.market}`] = law.marketRent * infl
           costs[`${law.market} cost premium (childcare etc.)`] = law.marketCostPremium * infl
         }
-        // The Corpus house stays let for the whole path: you never move back into it.
-        if (monthIndex(m) >= monthIndex(law.schoolStart)) {
+        if (m === law.reenlistMonth && law.reenlistBonus > 0) {
+          income['Re-enlistment bonus'] = law.reenlistBonus
+          summerTax += law.reenlistBonus * 0.22
+        }
+        // Sell on leaving for Lubbock: 11% selling costs, then the mortgage is cleared.
+        if (law.house === 'sell' && m === law.schoolStart) {
+          const proceeds = homeValue * (1 - HOUSE.sellingCostRate) - mortgage
+          if (proceeds >= 0) income['Corpus house — sale, after 11% costs and the mortgage'] = proceeds
+          else costs['Corpus house — sale shortfall brought to closing'] = -proceeds
+          sold = true
+          homeValue = 0
+          mortgage = 0
+        }
+        // Otherwise the house stays let for the whole path: you never move back into it.
+        if (law.house === 'rent' && monthIndex(m) >= monthIndex(law.schoolStart)) {
           income['Corpus house — rent'] = HOUSE.monthlyMarketRent * infl
           costs['Corpus house — management & vacancy'] =
             HOUSE.monthlyMarketRent * infl * (HOUSE.managementRate + HOUSE.vacancyMaintenanceRate)
@@ -422,7 +449,7 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
       costs['Taxes (federal + FICA)'] = tax
 
       // Housing in Corpus whenever you live there; the mortgage is paid in both paths.
-      costs['Mortgage (P&I + escrow)'] = MORTGAGE_PAYMENT
+      if (!sold) costs['Mortgage (P&I + escrow)'] = MORTGAGE_PAYMENT
       costs['Family support (childcare, household)'] = a.familySupportMonthly * infl
       costs['Your spending & home'] = a.personalSpendingMonthly * infl
       costs['Tricare Select Reserve'] = a.tricareMonthly * infl
