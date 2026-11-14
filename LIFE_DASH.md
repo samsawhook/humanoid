@@ -605,6 +605,15 @@ $99.79/mo is the sawhook.com domain, and you are keeping it. Removed from the sa
 moves; still counted in your subscriptions. If it is a lease-to-own plan, its end date
 is worth knowing — it should fall to a normal yearly renewal once paid.
 
+### D35. Phone at $147 — roaming calls stop
+
+The Nov 2026 T-Mobile bill: $100 plan (2 lines, Go5G Military — a good rate), $26.25
+iPhone 14 (6 payments left), $20.71 Protection 360, and $108.39 of international roaming
+voice at $0.50/min plus fees. The plan models $147/mo: calls move to FaceTime / WhatsApp /
+Wi-Fi Calling with Voice Roaming off. If roaming continues, the 15 Dec payday runs about
+$130 short, so this is not optional. "Suspend your line" is dropped as a move — you use it.
+Set AutoPay to stop the past-due cycle.
+
 ---
 
 # Seed context — as of 2026-08-05

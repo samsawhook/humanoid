@@ -317,8 +317,12 @@ export const DEPLOYED_ACTUALS: ObservedCategory[] = [
   {
     key: 'phone',
     label: 'Phone (T-Mobile)',
-    monthly: 173,
-    basis: '$345.78 in September covering two months; nothing posted in October.',
+    monthly: 147,
+    basis:
+      'Nov 2026 bill: $100 plan (2 lines, Go5G Military) + $26.25 iPhone 14 (ends May 2027) + ' +
+      '$20.71 Protection 360 = $147. That bill also had $108.39 of international roaming voice ' +
+      '($0.50/min) and its fees — NOT modelled: calls move to FaceTime / WhatsApp / Wi-Fi ' +
+      'Calling with Voice Roaming off. If roaming continues, the 15 Dec payday runs ~$130 short.',
   },
   {
     key: 'restaurants',

@@ -260,13 +260,6 @@ export const MOVES: Move[] = [
   },
   // Hugedomains ($99.79/mo) is sawhook.com — kept by your choice (2026-11-13), so it is
   // not offered as a saving.
-  {
-    key: 'phone_line',
-    label: 'Suspend your phone line',
-    action: 'Suspend your own line while deployed (SCRA / T-Mobile military suspension). ~$40/mo is my estimate.',
-    basis: 'estimate',
-    apply: trimSpending(40),
-  },
 ]
 
 export interface MoveImpact {
