@@ -1,3 +1,4 @@
+import { TIMELINE } from '@/core/money/rates'
 import { describe, expect, it } from 'vitest'
 import { projectSdp, SDP_CAP, SDP_RATE, SDP_ACCRUAL_TAIL_DAYS, SDP_LAST_DEPOSIT } from '@/core/money/sdp'
 import { projectPaychecks } from '@/core/money/paychecks'
@@ -28,7 +29,7 @@ describe('Savings Deposit Program', () => {
   })
 
   describe('in the live plan', () => {
-    const allocations = allocateAll(projectPaychecks(PLAN_START, '2027-08-01'), OBLIGATIONS)
+    const allocations = allocateAll(projectPaychecks(PLAN_START, TIMELINE.lastPayday), OBLIGATIONS)
     const deposits = allocations.flatMap((a) =>
       a.lines
         .filter((l) => l.key === 'sdp' && l.allocated > 0)
@@ -49,7 +50,7 @@ describe('Savings Deposit Program', () => {
      * cannot. Nothing below it takes a dollar while it is still open and unfilled.
      */
     it('fills before anything that could wait until you are home', () => {
-      for (const a of allocations) {
+      for (const a of allocations.filter((x) => x.paycheck.payDate <= SDP_LAST_DEPOSIT)) {
         const later = a.lines
           .filter((l) => ['emergency_fund', 'debt_paydown_closed', 'future_fund'].includes(l.key))
           .reduce((t, l) => t + l.allocated, 0)
@@ -62,7 +63,9 @@ describe('Savings Deposit Program', () => {
       // moves are what reach it. Whatever is deposited earns.
       const p = projectSdp(deposits)
       expect(p.payout).toBeGreaterThanOrEqual(p.deposited)
-      expect(allMoves().sdpDeposited).toBeGreaterThan(0)
+      // Home in June shuts the window two months early; even all the moves together no
+      // longer reach it. Kept as a floor, not a promise.
+      expect(allMoves().sdpDeposited).toBeGreaterThanOrEqual(0)
     })
   })
 })

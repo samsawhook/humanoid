@@ -614,6 +614,16 @@ Wi-Fi Calling with Voice Roaming off. If roaming continues, the 15 Dec payday ru
 $130 short, so this is not optional. "Suspend your line" is dropped as a move — you use it.
 AutoPay is set for the 21st (done 14 Nov), so it comes out of the 15th cheque.
 
+### D36. Home in June
+
+Your read, 14 Nov: "probably back in June". Leaving theatre 5 Jun 2027; FSA, IDP, ODP
+and SDP deposits stop there. CZTE covers every month with a day in the zone, so June
+is still tax-free. Released ~30 Jun (my estimate: demob plus leave), so the last
+active-duty paycheck is 1 Jul. Two fewer deployed paychecks: coming-home cash falls to
+~$1,355 (the June emergency empties the fund just before the end), payable debt
+~$22.0k, and the SDP gets nothing. In the 20-year model the MAcc path starts work in
+September 2027; law moves to Lubbock in August.
+
 ---
 
 # Seed context — as of 2026-08-05

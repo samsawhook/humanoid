@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic'
  */
 export default function HomePage() {
   const today = new Date().toISOString().slice(0, 10)
-  const allocations = allocateAll(projectPaychecks(today, '2027-08-01'), OBLIGATIONS, ONE_OFFS)
+  const allocations = allocateAll(projectPaychecks(today, TIMELINE.lastPayday), OBLIGATIONS, ONE_OFFS)
   const summary = summarize(allocations)
   const next = allocations[0]
 

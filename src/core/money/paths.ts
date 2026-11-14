@@ -1,7 +1,7 @@
 /**
  * Two paths after the deployment, month by month for twenty years.
  *
- *  LAW — Texas Tech Law, Lubbock. Start Aug 2027, graduate May 2030, bar July 2030,
+ *  LAW — Texas Tech Law, Lubbock. Home in June 2027; start Aug 2027, graduate May 2030, bar July 2030,
  *        first legal job Sep 2030. The Corpus house is let while you are in Lubbock and
  *        you move back into it after graduating.
  *  MACC — Stay in Corpus. Finish the online MAcc at TAMU-CC (6 of 30 hours done; most
@@ -9,7 +9,7 @@
  *        start as a staff accountant Jan 2028.
  *
  * Both paths start from the same place: the deployment plan in briefing.ts, through
- * July 2027. Everything after that is assumption, collected in PATH_ASSUMPTIONS so each
+ * the last active-duty payday (1 Jul 2027 — home in June). Everything after that is assumption, collected in PATH_ASSUMPTIONS so each
  * is a one-line edit, and every assumption that is mine rather than yours says so.
  *
  * SCOPE. As in lawschool.ts, this is YOUR side of the ledger. Your spouse's income is
@@ -32,7 +32,6 @@ type Anchor = [month: string, annual: number]
 export const PATH_ASSUMPTIONS = {
   startMonth: '2026-12',
   months: 240,
-  homeMonth: '2027-08',
 
   /**
    * Your contribution to the family after you are home: childcare and household. Today's
@@ -92,7 +91,7 @@ export const PATH_ASSUMPTIONS = {
 
   law: {
     school: LAW_SCHOOLS.find((s) => s.key === 'ttu')!,
-    schoolStart: '2027-09',
+    schoolStart: '2027-08',
     schoolEnd: '2030-05',
     moveBack: '2030-06',
     jobStart: '2030-09',
@@ -120,13 +119,14 @@ export const PATH_ASSUMPTIONS = {
     enrolledMonths: ['2027-09', '2027-10', '2027-11', '2027-12'],
     /** Online-only Chapter 33 housing: half the national average, before the 80% tier. MY ESTIMATE. */
     onlineMhaFull: 1170,
-    jobStart: '2028-01',
+    /** Home in June: job search over the summer, start in September. MY ESTIMATE. */
+    jobStart: '2027-09',
     /** CPA review course and exam fees, spread over the exam months. */
     cpaCost: 3500,
     cpaMonths: ['2028-01', '2028-02', '2028-03', '2028-04', '2028-05', '2028-06'],
     /** Corpus Christi staff accountant → licensed CPA → senior → manager. MY ESTIMATE. */
     salary: [
-      ['2028-01', 58000],
+      ['2027-09', 58000],
       ['2029-06', 65000],
       ['2031-01', 75000],
       ['2033-01', 88000],
@@ -249,6 +249,8 @@ function deployedMonths(): { rows: DeployedMonth[]; comingHomeCash: number; debt
 export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection {
   const deployed = deployedMonths()
   const months: PathMonth[] = []
+  /** The first month with no active-duty pay: everything after is path-specific. */
+  const homeMonth = addMonths(deployed.rows.at(-1)!.month, 1)
 
   const chargeOffs =
     a.chargeOffs ||
@@ -270,7 +272,7 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
   for (let i = 0; i < a.months; i++) {
     const m = addMonths(a.startMonth, i)
     const year = Number(m.slice(0, 4))
-    const infl = Math.pow(1 + a.inflation, (monthIndex(m) - monthIndex(a.homeMonth)) / 12)
+    const infl = Math.pow(1 + a.inflation, (monthIndex(m) - monthIndex(homeMonth)) / 12)
     const income: Record<string, number> = {}
     const costs: Record<string, number> = {}
     let invested = 0
@@ -299,7 +301,7 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
       cash = dep.cash
       debt = dep.debt
     } else {
-      if (m === a.homeMonth) {
+      if (m === homeMonth) {
         cash = deployed.comingHomeCash
         debt = deployed.debtLeft
       }
@@ -341,14 +343,17 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
           salary = salaryAt(law.salary, m) / 12
         }
       } else {
-        if (macc.enrolledMonths.includes(m)) {
-          phase = 'MAcc (final block)'
-          income['GI Bill housing (online)'] = macc.onlineMhaFull * tier
-        } else if (monthIndex(m) < monthIndex(macc.jobStart)) {
-          phase = 'Home — finishing MAcc'
+        const enrolled = macc.enrolledMonths.includes(m)
+        if (enrolled) income['GI Bill housing (online)'] = macc.onlineMhaFull * tier
+        if (monthIndex(m) < monthIndex(macc.jobStart)) {
+          phase = 'Home — job search'
         } else {
-          phase = monthIndex(m) < monthIndex('2029-06') ? 'Staff accountant / CPA exam' : 'CPA'
           salary = salaryAt(macc.salary, m) / 12
+          phase = enrolled
+            ? 'Staff accountant + last MAcc block'
+            : monthIndex(m) < monthIndex('2029-06')
+              ? 'Staff accountant / CPA exam'
+              : 'CPA'
         }
         if (macc.cpaMonths.includes(m)) costs['CPA review & exam fees'] = macc.cpaCost / macc.cpaMonths.length
       }

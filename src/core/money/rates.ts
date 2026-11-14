@@ -54,11 +54,23 @@ export const TIMELINE = {
   /** ODP — 60 days from pre-mob start (2026-07-31). Confirmed. */
   odpStart: '2026-09-29' as LocalDate,
   /**
-   * Expected return. 400-day orders, but you said last time ran 10–11 months, so this
-   * is the 11-month read. `date_confidence: low` — it is a planning assumption, not a
-   * fact, and the system treats self-imposed dates as movable.
+   * Leaving theatre. Your read, 2026-11-14: "probably back in June". Was the 11-month
+   * read (4 Aug). FSA, IDP and ODP stop here, and so do SDP deposits.
+   * `date_confidence: low` — a planning assumption, not a fact.
    */
-  expectedReturn: '2027-08-04' as LocalDate,
+  expectedReturn: '2027-06-05' as LocalDate,
+  /**
+   * CZTE covers every month with a day in the zone, so all of June's pay is still
+   * tax-free. From July it is taxed.
+   */
+  czteEnd: '2027-06-30' as LocalDate,
+  /**
+   * Released from active duty: demob plus accrued leave, about four weeks after landing.
+   * MY ESTIMATE. All active-duty pay stops here; drill pay resumes.
+   */
+  refrad: '2027-06-30' as LocalDate,
+  /** The last active-duty payday — the end of every deployed-pay projection. */
+  lastPayday: '2027-07-01' as LocalDate,
   /** Hard ceiling from the orders. */
   ordersMaxEnd: '2027-10-04' as LocalDate,
 } as const

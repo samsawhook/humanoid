@@ -140,7 +140,10 @@ function periodFor(scheduled: LocalDate): { start: LocalDate; end: LocalDate } {
  * triggers when the period overlaps the CZTE window at all.
  */
 function czteAppliesTo(periodEnd: LocalDate): boolean {
-  return compareLocalDates(periodEnd, TIMELINE.czteStart) >= 0
+  return (
+    compareLocalDates(periodEnd, TIMELINE.czteStart) >= 0 &&
+    compareLocalDates(periodEnd, TIMELINE.czteEnd) <= 0
+  )
 }
 
 export function projectPaycheck(

@@ -235,7 +235,7 @@ describe('allocation', () => {
 describe('the real plan', () => {
   // Re-based 2026-11-11. The August scenario these tests used to pin is in git history.
   const allocations = allocateAll(
-    projectPaychecks(PLAN_START, '2027-08-01'),
+    projectPaychecks(PLAN_START, TIMELINE.lastPayday),
     OBLIGATIONS,
     ONE_OFFS,
   )
@@ -362,7 +362,7 @@ describe('the real plan', () => {
    * at all — the plan looked like it was answering a question it was quietly ignoring.
    */
   it('lets the order between the waterfall lines actually decide who gets the slack', () => {
-    const pays = projectPaychecks(PLAN_START, '2027-08-01')
+    const pays = projectPaychecks(PLAN_START, TIMELINE.lastPayday)
     // Demote the cash buffer below the open cards: the cards get the slack instead.
     const bufferLast = OBLIGATIONS.map((o) =>
       o.key === 'emergency_starter' ? { ...o, priority: 80 } : o,
@@ -370,7 +370,9 @@ describe('the real plan', () => {
     const demoted = balanceClearedOn(allocateAll(pays, bufferLast, ONE_OFFS), bufferLast)
 
     expect(demoted.open_cards!.paid).toBeGreaterThan(cleared.open_cards!.paid)
-    expect(demoted.emergency_fund?.paid ?? 0).toBeLessThan(cleared.emergency_fund?.paid ?? 0)
+    const starter = (run: ReturnType<typeof allocateAll>) =>
+      run.reduce((t, a) => t + (a.lines.find((l) => l.key === 'emergency_starter')?.allocated ?? 0), 0)
+    expect(starter(allocateAll(pays, bufferLast, ONE_OFFS))).toBeLessThan(starter(allocations))
   })
 
   it('measures the pot the waterfall competes for, excluding the waterfall itself', () => {
@@ -394,7 +396,10 @@ describe('the real plan', () => {
     expect(cleared.car_payoff?.clearedOn).toBe('2026-11-13')
     expect(cleared.student_loan_past_due).toBeUndefined()
     expect(cleared.late_payments?.clearedOn).toBe('2027-01-15')
-    expect(cleared.emergency_fund?.paid).toBe(1000)
+    // The $1,000 starter buffer is funded by March (and refilled after February's draw).
+    expect(
+      allocations.reduce((t, a) => t + (a.lines.find((l) => l.key === 'emergency_starter')?.allocated ?? 0), 0),
+    ).toBeGreaterThanOrEqual(1000)
     // The BACKSTOP case — student loan cured from cash, no deferment — after Christmas,
     // two emergencies and insurance: the open cards are reached but not cleared before
     // homecoming, and nothing is left for the boat or the SDP. The deferment move is what
@@ -526,7 +531,7 @@ describe('deductions', () => {
 
   it('takes SGLI in every paycheck, deployed or not', () => {
     // Unlike the meal collection, this never switches off.
-    for (const p of projectPaychecks('2026-08-15', '2027-08-01')) {
+    for (const p of projectPaychecks('2026-08-15', TIMELINE.lastPayday)) {
       expect(p.deductions.some((d) => d.key === 'sglv')).toBe(true)
     }
   })
@@ -540,7 +545,7 @@ describe('deductions', () => {
 })
 
 describe('Expedition liability insurance', () => {
-  const all = allocateAll(projectPaychecks(PLAN_START, '2027-08-01'), OBLIGATIONS, ONE_OFFS)
+  const all = allocateAll(projectPaychecks(PLAN_START, TIMELINE.lastPayday), OBLIGATIONS, ONE_OFFS)
   it('starts the month after the car is paid off, never alongside the loan', () => {
     const paidOff = balanceClearedOn(all, OBLIGATIONS).car_payoff!.clearedOn!
     for (const a of all) {
@@ -555,7 +560,7 @@ describe('Expedition liability insurance', () => {
 })
 
 describe('clearance-first order (2026-11-12 rewrite)', () => {
-  const all = allocateAll(projectPaychecks(PLAN_START, '2027-08-01'), OBLIGATIONS, ONE_OFFS)
+  const all = allocateAll(projectPaychecks(PLAN_START, TIMELINE.lastPayday), OBLIGATIONS, ONE_OFFS)
   const c = balanceClearedOn(all, OBLIGATIONS)
   it('needs no cash to make the federal loan current — forbearance did it — and pays nothing until Feb', () => {
     expect(c.student_loan_past_due).toBeUndefined()

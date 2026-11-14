@@ -1,3 +1,4 @@
+import { TIMELINE } from '@/core/money/rates'
 import { describe, expect, it } from 'vitest'
 import { projectPaychecks } from '@/core/money/paychecks'
 import { allocateAll, summarize, type OneOff } from '@/core/money/allocation'
@@ -58,7 +59,7 @@ describe('drill back pay', () => {
 })
 
 describe('one-off inflows', () => {
-  const pays = projectPaychecks(PLAN_START, '2027-08-01')
+  const pays = projectPaychecks(PLAN_START, TIMELINE.lastPayday)
   const windfall: OneOff = { key: 'refund', label: 'Test refund', date: '2026-12-20', amount: 1000 }
   const withOneOffs = allocateAll(pays, OBLIGATIONS, [windfall])
   const without = allocateAll(pays, OBLIGATIONS)

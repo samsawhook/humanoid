@@ -1,3 +1,4 @@
+import { TIMELINE } from '@/core/money/rates'
 import { describe, expect, it } from 'vitest'
 import {
   EXPENSE_CATEGORIES,
@@ -118,7 +119,7 @@ describe('balance sheet', () => {
   })
 
   it('applies projected changes without letting a balance go negative', () => {
-    const projected = projectedBalanceSheet('2027-08-04', OPENING_BALANCE_SHEET, [
+    const projected = projectedBalanceSheet(TIMELINE.expectedReturn, OPENING_BALANCE_SHEET, [
       { label: 'Car loan', delta: -99999 },
       { label: 'Emergency Savings', delta: 5000 },
     ])

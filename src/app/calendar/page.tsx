@@ -19,7 +19,7 @@ const TODAY = '2026-08-05'
  * changes — are spans and points, not days.
  */
 export default function CalendarPage() {
-  const allocations = allocateAll(projectPaychecks(TODAY, '2027-08-01'), OBLIGATIONS, ONE_OFFS)
+  const allocations = allocateAll(projectPaychecks(TODAY, TIMELINE.lastPayday), OBLIGATIONS, ONE_OFFS)
   const admin = adminItemsFor(allocations)
 
   const eras = [

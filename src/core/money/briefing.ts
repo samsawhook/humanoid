@@ -37,7 +37,7 @@ import { projectSdp } from './sdp'
 import { TIMELINE } from './rates'
 import { localDaysBetween } from '../time/localDay'
 
-export const BRIEFING_END: LocalDate = '2027-08-01'
+export const BRIEFING_END: LocalDate = TIMELINE.lastPayday
 
 /** What each Nth transfer actually invests; anything above it is a transfer fee. */
 const NTH_PRINCIPAL = 500

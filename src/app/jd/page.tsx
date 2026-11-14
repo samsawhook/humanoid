@@ -47,7 +47,7 @@ export default function JdPage() {
   const opening = balanceSheet('2026-08-05', OPENING_BALANCE_SHEET)
 
   // What the deployment actually does to the sheet, taken from the cash-flow model.
-  const allocations = allocateAll(projectPaychecks('2026-08-15', '2027-08-01'), OBLIGATIONS, ONE_OFFS)
+  const allocations = allocateAll(projectPaychecks('2026-08-15', TIMELINE.lastPayday), OBLIGATIONS, ONE_OFFS)
   const cleared = balanceClearedOn(allocations, OBLIGATIONS)
   const paid = (key: string) =>
     allocations.reduce((s, a) => s + (a.lines.find((l) => l.key === key)?.allocated ?? 0), 0)
@@ -69,7 +69,7 @@ export default function JdPage() {
   // Same paydown the budget runs: live accounts in order, dismissed ones untouched.
   const paydown = simulatePaydown(debtPaid / allocations.length, allocations.length)
 
-  const projected = projectedBalanceSheet('2027-08-04', OPENING_BALANCE_SHEET, [
+  const projected = projectedBalanceSheet(TIMELINE.expectedReturn, OPENING_BALANCE_SHEET, [
     { label: 'Car loan', delta: -(cleared.car_payoff?.paid ?? 0) },
     { label: 'Mortgage', delta: -mortgagePrincipal },
     { label: 'Chase', delta: -agreementPaid },

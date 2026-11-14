@@ -52,7 +52,7 @@ const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', curren
 const round0 = (n: number) => Math.round(n)
 
 const HORIZON_START = PLAN_START
-const HORIZON_END = '2027-08-01'
+const HORIZON_END = TIMELINE.lastPayday
 
 /** Fixed colour per obligation — by entity, never by rank, so a filter never repaints. */
 const COLOR: Record<string, string> = {
