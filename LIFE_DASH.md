@@ -612,7 +612,7 @@ iPhone 14 (6 payments left), $20.71 Protection 360, and $108.39 of international
 voice at $0.50/min plus fees. The plan models $147/mo: calls move to FaceTime / WhatsApp /
 Wi-Fi Calling with Voice Roaming off. If roaming continues, the 15 Dec payday runs about
 $130 short, so this is not optional. "Suspend your line" is dropped as a move — you use it.
-Set AutoPay to stop the past-due cycle.
+AutoPay is set for the 21st (done 14 Nov), so it comes out of the 15th cheque.
 
 ---
 
