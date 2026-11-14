@@ -2,8 +2,8 @@
  * Two paths after the deployment, month by month for twenty years.
  *
  *  LAW — Texas Tech Law, Lubbock. Home in June 2027; start Aug 2027, graduate May 2030, bar July 2030,
- *        first legal job Sep 2030. The Corpus house is let while you are in Lubbock and
- *        you move back into it after graduating.
+ *        then tax or transactional work in Houston from Sep 2030 (your plan, 14 Nov). The
+ *        Corpus house is let from the move to Lubbock onward.
  *  MACC — Stay in Corpus. Finish the online MAcc at TAMU-CC (6 of 30 hours done; most
  *        of the rest on deployment, the last block Sep–Dec 2027), sit the CPA in 2028,
  *        start as a staff accountant Jan 2028.
@@ -93,7 +93,13 @@ export const PATH_ASSUMPTIONS = {
     school: LAW_SCHOOLS.find((s) => s.key === 'ttu')!,
     schoolStart: '2027-08',
     schoolEnd: '2030-05',
-    moveBack: '2030-06',
+    /** After the bar: a big market, not back to Corpus. Your plan, 14 Nov: tax or transactional work. */
+    moveToMarket: '2030-06',
+    market: 'Houston',
+    /** Family-sized rent within reach of downtown Houston, 2027 dollars. MY ESTIMATE. */
+    marketRent: 2400,
+    /** Childcare and general costs run higher in a big metro than in Corpus. MY ESTIMATE. */
+    marketCostPremium: 300,
     jobStart: '2030-09',
     movingCost: 3000,
     barCost: 4000,
@@ -103,15 +109,36 @@ export const PATH_ASSUMPTIONS = {
      */
     spouseIncomeLostMonthly: 0,
     bookStipendAnnual: 1000,
-    summerGross: { '2028': 8000, '2029': 30000 } as Record<string, number>,
-    /** Corpus Christi / regional practice. MY ESTIMATE. */
+    /** Big-market summers: a 1L stipend, then a 2L summer-associate position. MY ESTIMATE. */
+    summerGross: { '2028': 10000, '2029': 45000 } as Record<string, number>,
+    /**
+     * PLANNING CASE: tax or transactional work in Houston/Dallas at a mid-size firm or a
+     * Big 4 tax practice — where a JD with a CPA is the profile they hire. Not BigLaw:
+     * Texas Tech sends a minority of each class to market-rate firms, so planning on it
+     * would be planning on the upside. MY ESTIMATE.
+     */
     salary: [
-      ['2030-09', 80000],
-      ['2032-09', 95000],
-      ['2034-09', 115000],
-      ['2037-09', 135000],
-      ['2041-09', 160000],
-      ['2046-12', 190000],
+      ['2030-09', 150000],
+      ['2032-09', 175000],
+      ['2034-09', 205000],
+      ['2037-09', 245000],
+      ['2041-09', 295000],
+      ['2046-12', 350000],
+    ] as Anchor[],
+    /**
+     * UPSIDE: a market-rate (BigLaw) tax or transactional seat — the Cravath scale, then
+     * the usual exit to in-house or partnership around year seven. MY ESTIMATE.
+     */
+    salaryBigLaw: [
+      ['2030-09', 235000],
+      ['2031-09', 245000],
+      ['2032-09', 270000],
+      ['2033-09', 305000],
+      ['2034-09', 350000],
+      ['2036-09', 410000],
+      ['2037-09', 360000],
+      ['2041-09', 430000],
+      ['2046-12', 520000],
     ] as Anchor[],
   },
   macc: {
@@ -342,21 +369,27 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
             summerTax = (summer / 3) * 0.22
           }
           costs['Rent in Lubbock'] = law.school.monthlyFamilyRent * infl
-          // The Corpus house, let.
+          if (m === law.schoolStart) costs['Moving to Lubbock'] = law.movingCost
+          if (law.spouseIncomeLostMonthly > 0)
+            costs['Spouse income lost by the move'] = law.spouseIncomeLostMonthly
+        } else {
+          if (monthIndex(m) < monthIndex(law.jobStart)) {
+            phase = 'Bar study'
+            if (m === '2030-06') costs['Bar exam & prep course'] = law.barCost
+          } else {
+            phase = `Attorney — ${law.market}`
+            salary = salaryAt(law.salary, m) / 12
+          }
+          if (m === law.moveToMarket) costs[`Moving to ${law.market}`] = law.movingCost
+          costs[`Rent in ${law.market}`] = law.marketRent * infl
+          costs[`${law.market} cost premium (childcare etc.)`] = law.marketCostPremium * infl
+        }
+        // The Corpus house stays let for the whole path: you never move back into it.
+        if (monthIndex(m) >= monthIndex(law.schoolStart)) {
           income['Corpus house — rent'] = HOUSE.monthlyMarketRent * infl
           costs['Corpus house — management & vacancy'] =
             HOUSE.monthlyMarketRent * infl * (HOUSE.managementRate + HOUSE.vacancyMaintenanceRate)
           costs['Corpus house — non-homestead tax & landlord insurance'] = HOUSE.monthlyRentalTaxInsuranceUplift
-          if (m === law.schoolStart) costs['Moving to Lubbock'] = law.movingCost
-          if (law.spouseIncomeLostMonthly > 0)
-            costs['Spouse income lost by the move'] = law.spouseIncomeLostMonthly
-        } else if (monthIndex(m) < monthIndex(law.jobStart)) {
-          phase = 'Bar study'
-          if (m === law.moveBack) costs['Moving back to Corpus'] = law.movingCost
-          if (m === '2030-06') costs['Bar exam & prep course'] = law.barCost
-        } else {
-          phase = 'Attorney'
-          salary = salaryAt(law.salary, m) / 12
         }
       } else {
         const enrolled = macc.enrolledMonths.includes(m)
@@ -438,7 +471,7 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
 
   return {
     key,
-    label: key === 'law' ? 'Law school — Texas Tech, Lubbock' : 'MAcc → CPA — stay in Corpus',
+    label: key === 'law' ? 'Law school — Texas Tech, then Houston' : 'MAcc → CPA — stay in Corpus',
     months,
   }
 }
