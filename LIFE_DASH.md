@@ -634,6 +634,14 @@ of salary above $85k. The house upgrade happens "when cash allows" — debt gone
 and a reserve in hand — with a VA loan, keeping 628 Chamberlain as a rental. Your GAO
 supervisor will sign the CPA experience verification. Not Guidehouse.
 
+### D38. A third path: night law in Houston
+
+The University of Houston Law Center's part-time evening JD (four years, public, so
+Hazlewood covers tuition) while working full time in Houston and sitting the CPA —
+then tax or transactional law from Sep 2031. Modelled as Path C beside full-time law in
+Lubbock and the CPA path in Corpus. On the planning case it finishes 20 years highest
+and borrows far less than Lubbock, because the paycheck never stops. The cost is time.
+
 ---
 
 # Seed context — as of 2026-08-05

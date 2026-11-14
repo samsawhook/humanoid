@@ -24,7 +24,7 @@ import { DEBTS } from './debts'
 import { HOUSE, LAW_SCHOOLS, POST_911_TIER, RETIREMENT_ACCOUNTS } from './lawschool'
 import { MORTGAGE_PAYMENT } from './obligations'
 
-export type PathKey = 'law' | 'macc'
+export type PathKey = 'law' | 'macc' | 'night'
 
 /** A salary path as dated anchors, interpolated linearly in between. */
 type Anchor = [month: string, annual: number]
@@ -52,7 +52,7 @@ export const PATH_ASSUMPTIONS = {
    */
   family: {
     births: ['2025-11', '2028-06', '2030-08'],
-    childcare: { corpus: 900, lubbock: 850, austin: 1400 } as Record<string, number>,
+    childcare: { corpus: 900, lubbock: 850, austin: 1400, houston: 1200 } as Record<string, number>,
     under5Other: 250,
     schoolAge: 500,
     birthCost: 1500,
@@ -74,9 +74,9 @@ export const PATH_ASSUMPTIONS = {
    * entitlement limit and no down payment. The new home must be your primary residence.
    */
   upgrade: {
-    price: { corpus: 375000, austin: 550000 } as Record<string, number>,
+    price: { corpus: 375000, austin: 550000, houston: 450000 } as Record<string, number>,
     rate: 0.0625,
-    taxRate: { corpus: 0.021, austin: 0.019 } as Record<string, number>,
+    taxRate: { corpus: 0.021, austin: 0.019, houston: 0.022 } as Record<string, number>,
     insuranceMonthly: 250,
     closingRate: 0.03,
     moveAndFurnish: 8000,
@@ -249,6 +249,34 @@ export const PATH_ASSUMPTIONS = {
      * verification (your word, 14 Nov), so the experience year is already met.
      */
     licensed: '2028-09',
+  },
+  /**
+   * PATH C — Houston, working by day, law school at night. The University of Houston Law
+   * Center's part-time evening JD: four years, and a public school, so Hazlewood covers
+   * tuition as on the other law path. You keep a full-time salary throughout, sit the CPA
+   * in 2028 as on the CPA path, and switch to tax or transactional law after the bar.
+   * The cost is time: work, night school and a family of five at once. MY ESTIMATES
+   * throughout; the programme's exact length and schedule need checking with UH.
+   */
+  night: {
+    school: LAW_SCHOOLS.find((s) => s.key === 'uh')!,
+    move: '2027-08',
+    schoolStart: '2027-08',
+    schoolEnd: '2031-05',
+    /**
+     * Part-time GI Bill: housing is paid at the rate of pursuit — about 80% for an evening
+     * load against a full-time 12 hours — on top of the 80% tier. Entitlement is charged at
+     * the same rate, so four part-time years use ~29 of your 36 months. MY ESTIMATE.
+     */
+    rateOfPursuit: 0.8,
+    rent: 2300,
+    costPremium: 100,
+    movingCost: 3000,
+    barCost: 4000,
+    /** Financial-management / audit work in Houston pays a little over Corpus. MY ESTIMATE. */
+    dayJobScale: 1.06,
+    /** Tax or transactional law from Sep 2031: the law path's ladder, one year later. */
+    lawyerStart: '2031-09',
   },
 }
 
@@ -498,6 +526,38 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
             HOUSE.monthlyMarketRent * infl * (HOUSE.managementRate + HOUSE.vacancyMaintenanceRate)
           costs['Corpus house — non-homestead tax & landlord insurance'] = HOUSE.monthlyRentalTaxInsuranceUplift
         }
+      } else if (key === 'night') {
+        const nt = a.night
+        const inSchool = between(m, nt.schoolStart, nt.schoolEnd)
+        const monthNo = Number(m.slice(5, 7))
+        if (inSchool && (monthNo >= 9 || monthNo <= 5))
+          income['GI Bill housing (MHA, part-time)'] = nt.school.monthlyMha * tier * nt.rateOfPursuit * infl
+        if (inSchool && monthNo === 9) income['GI Bill book stipend'] = a.law.bookStipendAnnual * tier
+        if (monthIndex(m) >= monthIndex(nt.lawyerStart)) {
+          // The law path's salary ladder, a year later.
+          salary = salaryAt(a.law.salary, addMonths(m, -12)) / 12
+          phase = 'Attorney \u2014 Houston'
+        } else if (monthIndex(m) >= monthIndex(macc.jobStart)) {
+          salary = (salaryAt(macc.salary, m) * nt.dayJobScale) / 12
+          phase = inSchool ? 'Day job + night law' : 'Day job, bar'
+        } else {
+          phase = inSchool ? 'Night law + job search' : 'Home \u2014 job search'
+        }
+        if (macc.cpaMonths.includes(m)) costs['CPA review & exam fees'] = macc.cpaCost / macc.cpaMonths.length
+        if (m === '2031-06') costs['Bar exam & prep course'] = nt.barCost
+        if (m === nt.move) costs['Moving to Houston'] = nt.movingCost
+        if (monthIndex(m) >= monthIndex(nt.move)) {
+          if (!upgraded) costs['Rent in Houston'] = nt.rent * infl
+          costs['Houston cost premium (general)'] = nt.costPremium * infl
+          income['Corpus house \u2014 rent'] = HOUSE.monthlyMarketRent * infl
+          costs['Corpus house \u2014 management & vacancy'] =
+            HOUSE.monthlyMarketRent * infl * (HOUSE.managementRate + HOUSE.vacancyMaintenanceRate)
+          costs['Corpus house \u2014 non-homestead tax & landlord insurance'] = HOUSE.monthlyRentalTaxInsuranceUplift
+        }
+        if (m === a.law.reenlistMonth && a.law.reenlistBonus > 0) {
+          income['Re-enlistment bonus'] = a.law.reenlistBonus
+          summerTax += a.law.reenlistBonus * 0.22
+        }
       } else {
         const enrolled = macc.enrolledMonths.includes(m)
         if (enrolled) income['GI Bill housing (online)'] = macc.onlineMhaFull * tier
@@ -530,7 +590,11 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
 
       // Where the family lives this month — it sets childcare and the upgrade market.
       const loc =
-        key === 'law'
+        key === 'night'
+          ? monthIndex(m) >= monthIndex(a.night.move)
+            ? 'houston'
+            : 'corpus'
+          : key === 'law'
           ? monthIndex(m) >= monthIndex(law.moveToMarket)
             ? 'austin'
             : monthIndex(m) >= monthIndex(law.schoolStart)
@@ -633,7 +697,12 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
 
   return {
     key,
-    label: key === 'law' ? 'Law school — Texas Tech, then Austin' : 'MAcc → CPA — stay in Corpus',
+    label:
+      key === 'law'
+        ? 'Law school — Texas Tech, then Austin'
+        : key === 'night'
+          ? 'Night law — UH part-time, working in Houston'
+          : 'MAcc → CPA — stay in Corpus',
     months,
   }
 }

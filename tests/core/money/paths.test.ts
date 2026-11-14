@@ -30,4 +30,13 @@ describe('law vs MAcc paths', () => {
     expect(federalTax(30000, 2026)).toBe(0)
     expect(federalTax(60000, 2026)).toBeCloseTo(2480 + (60000 - 32200 - 24800) * 0.12, 0)
   })
+
+  it('runs night law in Houston: a salary throughout, and far less borrowing than full-time law', () => {
+    const night = projectPath('night')
+    expect(night.months).toHaveLength(240)
+    const low = (p: typeof law) => Math.min(...p.months.map((m) => m.cash))
+    expect(low(night)).toBeGreaterThan(low(law))
+    expect(night.months.find((m) => m.month === '2029-03')!.income['Salary']).toBeGreaterThan(0)
+    expect(night.months.find((m) => m.month === '2029-03')!.income['GI Bill housing (MHA, part-time)']).toBeGreaterThan(0)
+  })
 })
