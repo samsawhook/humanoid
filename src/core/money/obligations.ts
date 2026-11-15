@@ -186,6 +186,15 @@ export const AUTO_LIABILITY_MONTHLY = 100
  */
 export const ALL_ONE_OFFS: OneOff[] = [
   {
+    key: 'anniversary_robe',
+    label: '4th anniversary — a good robe',
+    date: '2026-11-16',
+    amount: -200,
+    note:
+      'Your call, 15 Nov: $200, paid with the $200 November nanny top-up, which is not ' +
+      'needed this month because she has been out of town.',
+  },
+  {
     key: 'drill_back_pay',
     label: '7 MUTAs + 3 duty days — back pay',
     /**
@@ -464,7 +473,12 @@ export const OBLIGATIONS: Obligation[] = [
      * `support_home_extras_2027`. This is what keeps every bill paid even if the student
      * loan deferment is refused.
      */
-    activeTo: '2026-11-30',
+    /**
+     * November's $200 goes to the anniversary robe instead (your call, 15 Nov: she has
+     * been out of town, so the nanny top-up is not needed). See the `anniversary_robe`
+     * one-off. So the line ends before the 15 Nov cheque.
+     */
+    activeTo: '2026-11-14',
     /** Below your own spending: this is the line that flexes when a payday is tight. */
     priority: 31,
     kind: 'living',
