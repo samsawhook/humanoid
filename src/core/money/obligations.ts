@@ -165,8 +165,12 @@ export const MORTGAGE_CATCHUP_LAST = '2026-12-15' as const
 export const MORTGAGE_ARREARS_BALANCE =
   Math.round(MORTGAGE_ARREARS_PAYMENTS_LEFT * MORTGAGE_PAYMENT * 100) / 100
 
-/** Your figure, 2026-11-11: "roughly $850 left". It pays off and the line disappears. */
-export const CAR_LOAN_BALANCE = 850
+/**
+ * PAID OFF, 2026-11-18: $794.21 to Westlake (your figure). Was "roughly $850 left" on
+ * 11 Nov. Kept as the payoff amount so the 15 Nov cheque shows what actually left.
+ * Next: the lien release / title from Westlake, then liability-only insurance.
+ */
+export const CAR_LOAN_BALANCE = 794.21
 /** Monthly instalment as Monarch saw it drafting in November. Was $330 in the August plan. */
 export const CAR_PAYMENT = 355
 
