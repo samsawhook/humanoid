@@ -321,7 +321,7 @@ export function stressTest(cases: StressCase[] = STRESS_CASES) {
 
 /** Where the money goes, grouped into the six things a person thinks in. */
 export const BUCKETS = [
-  { key: 'housing', label: 'Mortgage', keys: ['mortgage_current', 'arrears_catchup_payment', 'mortgage_arrears'] },
+  { key: 'housing', label: 'Mortgage', keys: ['mortgage_current', 'arrears_catchup_payment', 'mortgage_arrears', 'lawn_winter', 'lawn_spring'] },
   { key: 'home', label: 'Sent home', keys: ['support_home_deployed', 'support_home_extras', 'support_home_extras_2027', 'childcare', 'christmas'] },
   { key: 'you', label: 'Your spending', keys: ['living_deployed', 'boat', 'auto_liability'] },
   {

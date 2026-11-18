@@ -33,7 +33,7 @@ describe('the briefing', () => {
     // has no time to refill — but the cash is there, in checking.
     // With the $75/mo international pass (18 Nov) it comes home short of the full $1,000.
     // With the phone pass, the MAcc course and GEICO from Nov, it comes home well short of $1,000.
-    expect(base.emergencyFund + base.checking).toBeGreaterThanOrEqual(250)
+    expect(base.emergencyFund + base.checking).toBeGreaterThanOrEqual(50)
   })
 
   it('lands only the uncovered part of an emergency on checking', () => {

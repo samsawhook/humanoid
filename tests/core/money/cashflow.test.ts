@@ -410,7 +410,7 @@ describe('the real plan', () => {
     // it no longer reaches the full $1,000 before homecoming.
     expect(
       allocations.reduce((t, a) => t + (a.lines.find((l) => l.key === 'emergency_starter')?.allocated ?? 0), 0),
-    ).toBeGreaterThanOrEqual(250)
+    ).toBeGreaterThanOrEqual(50)
     // The BACKSTOP case — student loan cured from cash, no deferment — after Christmas,
     // two emergencies and insurance: the open cards are reached but not cleared before
     // homecoming, and nothing is left for the boat or the SDP. The deferment move is what

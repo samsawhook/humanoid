@@ -49,8 +49,12 @@ export const EMERGENCY_FUND_TARGET = 4500
 export const STARTER_BUFFER = 1000
 
 /** Your figure, 2026-11-11, after seeing what December can carry. */
-/** $500 → $400 on 18 Nov (your call), to make room for GEICO starting now. */
-export const CHRISTMAS_BUDGET = 400
+/**
+ * $500 → $400 on 18 Nov (your call) for GEICO, then → $300 the same day to fit the lawn
+ * service: the 15 Dec cheque carries the catch-up, and December's own spending is already
+ * cut as far as it goes.
+ */
+export const CHRISTMAS_BUDGET = 300
 
 /**
  * Boat restoration still to pay. "$3k total including the $750" (your estimate,
@@ -205,6 +209,10 @@ export const AUTO_LIABILITY_MONTHLY = Math.round(((AUTO_LIABILITY_BIWEEKLY * 26)
  * does not exist to the plan.
  */
 export const ALL_ONE_OFFS: OneOff[] = [
+  // Lawn (18 Nov): $100 less personal spending each month March–May.
+  { key: 'spend_trim_lawn_03', label: '$100 less personal spending (lawn)', date: '2027-03-12', amount: 100 },
+  { key: 'spend_trim_lawn_04', label: '$100 less personal spending (lawn)', date: '2027-04-12', amount: 100 },
+  { key: 'spend_trim_lawn_05', label: '$100 less personal spending (lawn)', date: '2027-05-12', amount: 100 },
   // 18 Nov, your call: ~$40 less personal spending on each of the 15 Nov and 1 Dec
   // paychecks, so the December cuts can be spread across both December paychecks.
   { key: 'spend_trim_nov', label: '$40 less personal spending (Nov 15 paycheck)', date: '2026-11-25', amount: 40 },
@@ -613,6 +621,36 @@ export const OBLIGATIONS: Obligation[] = [
     execution: 'manual',
     howTo: 'Christmas, a trip, a specific problem. Not a standing transfer.',
     note: SENT_HOME.extrasBasis,
+  },
+  /**
+   * Lawn service — your figures, 18 Nov: about $70 every two to three weeks, a Texas
+   * neighbourhood lawn. Frequency math: dormant-ish Dec–Feb, every ~4 weeks (~$76/mo);
+   * growing season from March, every 2 weeks (~$152/mo). Budgeted only until you are home
+   * in June — you mow from then (your call). Paid by hand per cut (Cash App).
+   */
+  {
+    key: 'lawn_winter',
+    label: 'Lawn service (every ~4 weeks)',
+    amountPerPaycheck: 38,
+    payDays: 'both',
+    activeFrom: '2026-12-01',
+    activeTo: '2027-02-28',
+    priority: 30,
+    kind: 'living',
+    execution: 'manual',
+    howTo: 'Cash App, ~$70 a cut.',
+  },
+  {
+    key: 'lawn_spring',
+    label: 'Lawn service (every ~2 weeks)',
+    amountPerPaycheck: 76,
+    payDays: 'both',
+    activeFrom: '2027-03-01',
+    activeTo: '2027-05-31',
+    priority: 30,
+    kind: 'living',
+    execution: 'manual',
+    howTo: 'Cash App, ~$70 a cut. You mow from June.',
   },
   {
     key: 'christmas',

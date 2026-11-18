@@ -81,6 +81,8 @@ const LINE_HOME: Record<string, string> = {
   mortgage_current: 'home',
   arrears_catchup_payment: 'home',
   mortgage_arrears: 'home',
+  lawn_winter: 'home',
+  lawn_spring: 'home',
   auto_liability: 'car',
   car_payoff_now: 'car',
   car_payoff: 'car',

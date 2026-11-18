@@ -48,7 +48,7 @@ export const ACTUALS: Actual[] = [
   {
     date: '2026-11-09',
     amount: 25,
-    description: 'Mastercard payment',
+    description: 'Mastercard payment — card ending 28 (likely Brightway)',
     lineKey: 'card_minimums_open',
     payday: '2026-11-15',
     status: 'posted',
