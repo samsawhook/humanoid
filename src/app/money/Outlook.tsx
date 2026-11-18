@@ -533,6 +533,42 @@ function Scenarios({ ledger, groups }: { ledger: Ledger; groups: Group[] }) {
 
 type View = 'paychecks' | 'scenarios' | 'balances' | 'briefing'
 
+/** Line icons, 24×24, drawn in the text colour. */
+const ICON: Record<View, React.ReactNode> = {
+  // A banknote: pay coming in and going out.
+  paychecks: (
+    <>
+      <rect x="2.5" y="6" width="19" height="12" rx="2" />
+      <circle cx="12" cy="12" r="2.5" />
+      <path d="M6 9.5v5M18 9.5v5" />
+    </>
+  ),
+  // A fork in the road: the paths home.
+  scenarios: (
+    <>
+      <path d="M12 21v-7" />
+      <path d="M12 14 6 8M12 14l6-6" />
+      <path d="M3.5 8.5 6 6l2.5 2.5M15.5 8.5 18 6l2.5 2.5" />
+    </>
+  ),
+  // Scales: what you own against what you owe.
+  balances: (
+    <>
+      <path d="M12 4v16M7 20h10" />
+      <path d="M5 7h14" />
+      <path d="M5 7 2.5 13a2.6 2.6 0 0 0 5 0L5 7ZM19 7l-2.5 6a2.6 2.6 0 0 0 5 0L19 7Z" />
+    </>
+  ),
+  // A clipboard: the to-do list and the notes.
+  briefing: (
+    <>
+      <rect x="5" y="4.5" width="14" height="17" rx="2" />
+      <path d="M9 3h6v3H9z" />
+      <path d="M8.5 11h7M8.5 14.5h7M8.5 18h4" />
+    </>
+  ),
+}
+
 const NAV: { key: View; label: string; hint: string }[] = [
   { key: 'paychecks', label: 'Paycheck allocation', hint: 'Every payday to the end of the deployment' },
   { key: 'scenarios', label: 'Return scenarios', hint: 'First year home, by path' },
@@ -580,7 +616,12 @@ export function MoneyShell({
       <nav className="mnav" aria-label="Money views">
         {NAV.map((n) => (
           <button key={n.key} className={n.key === view ? 'on' : ''} onClick={() => setView(n.key)} aria-current={n.key === view} title={n.hint}>
-            <span>{n.label}</span>
+            <span className="mnav-row">
+              <svg className="mnav-ic" viewBox="0 0 24 24" aria-hidden fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
+                {ICON[n.key]}
+              </svg>
+              {n.label}
+            </span>
             <small>{n.hint}</small>
           </button>
         ))}
