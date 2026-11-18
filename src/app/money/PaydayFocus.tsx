@@ -589,7 +589,7 @@ function Benchmarks({ st }: { st: PaycheckStatement }) {
       <summary>
         <div className="sec-top">
           <span className="sec-name">How this month compares</span>
-          <span className="sec-amt ln-dim" style={{ fontWeight: 400, fontSize: 12.5 }}>% of gross</span>
+          <span className="sec-amt ln-dim" style={{ fontWeight: 400, fontSize: 12.5 }}>% of gross · scroll sideways →</span>
         </div>
       </summary>
       <div className="tablewrap">
@@ -600,8 +600,11 @@ function Benchmarks({ st }: { st: PaycheckStatement }) {
               <th>You</th>
               <th>Typical, age 25–34</th>
               <th>Advisor rule</th>
-              <th>Your target</th>
-              <th>Status</th>
+              <th>Robo, tuned to you</th>
+              <th>Dave Ramsey</th>
+              <th>Robert Kiyosaki</th>
+              <th>Plan target</th>
+              <th>Status vs plan</th>
             </tr>
           </thead>
           <tbody>
@@ -614,6 +617,23 @@ function Benchmarks({ st }: { st: PaycheckStatement }) {
                 <td className="b-you">{r.you.toFixed(1)}%</td>
                 <td>{r.typical}</td>
                 <td>{r.advisor}</td>
+                <td>
+                  <div className="v-pct">
+                    {r.robo.pct}%
+                    {r.robo.status !== 'info' && (
+                      <span className={`chip chip-${BENCH_CHIP[r.robo.status].cls} v-chip`}>{BENCH_CHIP[r.robo.status].text}</span>
+                    )}
+                  </div>
+                  <div className="v-why">{r.robo.why}</div>
+                </td>
+                <td>
+                  <div className="v-pct">{r.ramsey.pct}%</div>
+                  <div className="v-why">{r.ramsey.why}</div>
+                </td>
+                <td>
+                  <div className="v-pct">{r.kiyosaki.pct}%</div>
+                  <div className="v-why">{r.kiyosaki.why}</div>
+                </td>
                 <td>{r.target}</td>
                 <td>
                   <span className={`chip chip-${BENCH_CHIP[r.status].cls}`} style={{ marginTop: 0 }}>{BENCH_CHIP[r.status].text}</span>
@@ -621,9 +641,30 @@ function Benchmarks({ st }: { st: PaycheckStatement }) {
                 </td>
               </tr>
             ))}
+            <tr className="b-total">
+              <td>Total</td>
+              <td className="b-you" title="Over 100% because investing counts the Army's match, which is on top of your pay">
+                {rows.reduce((t, r) => t + r.you, 0).toFixed(0)}%<div className="v-why">incl. match</div>
+              </td>
+              <td />
+              <td />
+              <td>{rows.reduce((t, r) => t + r.robo.pct, 0)}%</td>
+              <td>{rows.reduce((t, r) => t + r.ramsey.pct, 0)}%</td>
+              <td>{rows.reduce((t, r) => t + r.kiyosaki.pct, 0)}%</td>
+              <td />
+              <td />
+            </tr>
           </tbody>
         </table>
       </div>
+      <p className="b-note">
+        <strong>Robo</strong>: what an automated planner would set from your profile alone — not from this plan: deployed and
+        tax-free to July, a household to run, ~$18k of card-rate debt, little cash, and an uncertain income from August. Match
+        first, runway second, highest-rate debt third, then investing. <strong>Ramsey</strong> and <strong>Kiyosaki</strong>:
+        paraphrased from their published advice and applied to you — not quotes. Ramsey&rsquo;s Baby Steps: $1,000 starter fund, then
+        the debt snowball with all investing paused. Kiyosaki: buy assets that pay you, treat the house and car as liabilities, and
+        don&rsquo;t hold savings in dollars. Each of the three sums to 100% of gross.
+      </p>
       <p className="b-note">
         Typical: US households with a head aged 25–34, approximate (BLS Consumer Expenditure Survey, Fed debt-service ratio,
         Vanguard How America Saves). Your gross includes untaxed BAH and BAS, so every share reads a little low against a civilian

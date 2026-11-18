@@ -28,6 +28,81 @@ export interface BenchRow {
   status: BenchStatus
   /** One line on the status. */
   verdict: string
+  /** The three outside voices: an allocation each, as % of gross, with the reason. */
+  robo: Voice & { status: BenchStatus }
+  ramsey: Voice
+  kiyosaki: Voice
+}
+
+export interface Voice {
+  /** Allocation, % of gross. */
+  pct: number
+  why: string
+  min?: number
+  max?: number
+}
+
+/**
+ * Three other opinions, each a full allocation that sums to 100% of gross.
+ *
+ * ROBO — what an automated planner would set from your profile alone, NOT from this plan:
+ * 31, deployed and tax-free until July, one child and a household to run, ~$18k of
+ * consumer debt at card rates, ~$250 of cash, and an uncertain income from August. Its
+ * order: take the free match; build a runway for the return; clear card-rate debt (a
+ * guaranteed ~25%) before investing past the match; keep any single private holding small.
+ *
+ * RAMSEY and KIYOSAKI — paraphrased from their published advice and applied to you. Not
+ * quotes, and neither has seen your numbers. Ramsey: Baby Step 1 ($1,000), then Step 2
+ * (debt snowball, smallest balance first, all investing paused). Kiyosaki: buy assets that
+ * pay you, treat the house and car as liabilities, bad debt out, good debt only for
+ * cash-flowing assets, and be wary of holding savings in dollars.
+ */
+export const VOICES: Record<string, { robo: Voice; ramsey: Voice; kiyosaki: Voice }> = {
+  deductions: {
+    robo: { pct: 5, why: 'Fixed. Tax-free pay is the best Roth money you will ever have.' },
+    ramsey: { pct: 5, why: 'Fixed.' },
+    kiyosaki: { pct: 5, why: 'A legal tax edge — exactly what he preaches. Use it.' },
+  },
+  home: {
+    robo: { pct: 17, max: 25, why: 'Mortgage only; hold it under 25%. No upgrade until the return settles.' },
+    ramsey: { pct: 17, why: 'Under his 25%-of-take-home line. Catch up, never miss again.' },
+    kiyosaki: { pct: 17, why: '"Your house is a liability." Don’t upgrade; rent it out when you move.' },
+  },
+  car: {
+    robo: { pct: 2, max: 5, why: 'Insurance and fuel. No new car payment.' },
+    ramsey: { pct: 2, why: 'Paid off — keep it that way. Cash cars only.' },
+    kiyosaki: { pct: 2, why: 'A liability. Insurance only; no car payment.' },
+  },
+  sent: {
+    robo: { pct: 33, max: 35, why: 'Essential: the household runs on it. Supplemental is the flex.' },
+    ramsey: { pct: 30, why: 'The Four Walls first — food, utilities, shelter, care. Extras wait.' },
+    kiyosaki: { pct: 30, why: 'Support the family; pay for extras from asset income, not pay.' },
+  },
+  personal: {
+    robo: { pct: 7, max: 8, why: 'Deployed costs are low; hold the line.' },
+    ramsey: { pct: 3, why: '"Rice and beans" until the debt is gone.' },
+    kiyosaki: { pct: 5, why: 'Pay yourself first; luxuries come from what your assets earn.' },
+  },
+  debt: {
+    robo: { pct: 15, min: 15, why: 'Avalanche: highest rate first. Paying 25% debt beats any return.' },
+    ramsey: { pct: 35, why: 'Snowball everything into Credit One, then Brightway, then Platinum…' },
+    kiyosaki: { pct: 13, why: 'Kill bad (consumer) debt — but keep buying assets meanwhile.' },
+  },
+  invest: {
+    robo: {
+      pct: 6,
+      min: 5.5,
+      max: 9,
+      why: 'TSP 5% for the full match, nothing more yet. Nth: one private stake — keep it small until the cards are gone.',
+    },
+    ramsey: { pct: 0, why: 'Pause all investing, the match included, until debt-free. Then 15% to Roth.' },
+    kiyosaki: { pct: 25, why: 'Buy assets: the Nth business stake, a rental down payment, silver. Light on the TSP.' },
+  },
+  cash: {
+    robo: { pct: 15, min: 12, why: 'Build 3 months of runway before August — income after the return is uncertain.' },
+    ramsey: { pct: 8, why: 'Baby Step 1: $1,000 starter fund now. Then everything to debt.' },
+    kiyosaki: { pct: 3, why: '"Savers are losers": a small buffer; hold the rest in real assets.' },
+  },
 }
 
 interface Rule {
@@ -130,6 +205,8 @@ export function benchmarkRows(st: PaycheckStatement): BenchRow[] {
   const homeAndDebt = r1(you.home! + you.debt!)
   return RULES.map((r) => {
     const v = you[r.key]!
+    /** The share without one-time payments (a payoff, a catch-up), when there are any. */
+    let adj = v
     let status: BenchStatus = 'info'
     let verdict = r.fixed ?? ''
     if (r.fixed) status = r.key === 'sent' ? 'fixed' : 'info'
@@ -145,11 +222,39 @@ export function benchmarkRows(st: PaycheckStatement): BenchRow[] {
       const payoff = st.spending.find((x) => x.key === 'car')?.lines.find((l) => l.key.startsWith('car_payoff'))
       if (payoff && payoff.amount > 0) {
         const without = pct((st.spending.find((x) => x.key === 'car')?.total ?? 0) - payoff.amount)
+        adj = without
         verdict += ` · includes the one-time $${payoff.amount.toFixed(2)} payoff; ${without}% without it`
         if (r.max !== undefined && without <= r.max) status = 'on'
       }
     }
+    if (r.key === 'home') {
+      const extra = (st.spending.find((x) => x.key === 'home')?.lines ?? [])
+        .filter((l) => l.key === 'arrears_catchup_payment' || l.key === 'mortgage_arrears')
+        .reduce((t, l) => t + l.amount, 0)
+      if (extra > 0) {
+        const without = pct((st.spending.find((x) => x.key === 'home')?.total ?? 0) - extra)
+        adj = without
+        verdict += ` · includes a $${extra.toFixed(2)} catch-up payment; ${without}% without it`
+        if (r.max !== undefined && without <= r.max) status = 'on'
+      }
+    }
     if (r.key === 'invest') verdict += ` · incl. ${pct(match)}% match`
-    return { key: r.key, label: r.label, you: v, typical: r.typical, advisor: r.advisor, target: r.target, status, verdict }
+    const vo = VOICES[r.key]!
+    const rb = vo.robo
+    const roboStatus: BenchStatus =
+      rb.max !== undefined && adj > rb.max ? 'over' : rb.min !== undefined && v < rb.min ? 'under' : rb.max !== undefined || rb.min !== undefined ? 'on' : 'info'
+    return {
+      key: r.key,
+      label: r.label,
+      you: v,
+      typical: r.typical,
+      advisor: r.advisor,
+      target: r.target,
+      status,
+      verdict,
+      robo: { ...rb, status: roboStatus },
+      ramsey: vo.ramsey,
+      kiyosaki: vo.kiyosaki,
+    }
   })
 }

@@ -9,6 +9,7 @@
  */
 
 import type { LocalDate } from '../types'
+import { LAWN_KEYS } from './obligations'
 
 export const CHECKING = 'WF Joint Checking'
 export const SAVINGS = 'Savings (buffer)'
@@ -92,8 +93,9 @@ export const PAYMENT_INFO: Record<string, PaymentInfo> = {
     when: 'once the settlement letter is in hand',
   },
   car_payoff_now: { from: CHECKING, to: 'Westlake', how: 'manual', when: 'done' },
-  lawn_winter: { from: CHECKING, to: 'Lawn service (Cash App)', how: 'manual', when: '~$83 a cut, every ~6 weeks' },
-  lawn_spring: { from: CHECKING, to: 'Lawn service (Cash App)', how: 'manual', when: '~$83 a cut, every ~3 weeks' },
+  ...Object.fromEntries(
+    LAWN_KEYS.map((k) => [k, { from: CHECKING, to: 'Lawn service (Cash App)', how: 'manual' as const, when: 'the day it is cut' }]),
+  ),
   emergency_starter: { from: CHECKING, to: SAVINGS, how: 'manual', when: 'on payday' },
   emergency_fund: { from: CHECKING, to: SAVINGS, how: 'manual', when: 'on payday' },
   sdp: { from: CHECKING, to: 'SDP (finance)', how: 'manual', when: 'by allotment' },
@@ -124,7 +126,7 @@ export const SPENDING_INFO: Record<string, PaymentInfo> = {
   software: { from: CHECKING, to: 'Subscriptions (Claude, Apple, Hugedomains…)', how: 'automatic', when: 'as they renew' },
   personal_local: { from: CHECKING, to: 'Debit card, Cash App', how: 'automatic', when: 'as you spend' },
   entertainment: { from: CHECKING, to: 'Debit card', how: 'automatic', when: 'as you spend' },
-  home_services: { from: CHECKING, to: 'HVAC plan, lawn', how: 'automatic', when: 'as billed' },
+  home_services: { from: CHECKING, to: 'HVAC plan', how: 'automatic', when: 'as billed' },
   fuel: { from: CHECKING, to: 'Debit card', how: 'automatic', when: 'as you spend' },
 }
 

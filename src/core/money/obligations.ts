@@ -24,6 +24,7 @@
  * order", and the answer is yours.
  */
 
+import type { LocalDate } from '../types'
 import type { Obligation, OneOff } from './allocation'
 import type { WindfallClaim } from './windfall'
 import { backPay, EXPECTED_BACK_PAY } from './drillPay'
@@ -427,6 +428,23 @@ export const BACK_PAY_CLAIMS: WindfallClaim[] = [
   },
 ]
 
+/**
+ * One lawn cut per entry, on the paycheck whose window it falls in. From the statements:
+ * 15 Aug, 23 Sep, 12 Nov — about every 6 weeks in the cool months; from March, every ~3.
+ */
+export const LAWN_CUTS: { payday: LocalDate; amount: number; note: string }[] = [
+  { payday: '2026-11-15', amount: 80, note: 'paid 12 Nov' },
+  { payday: '2026-12-15', amount: 70, note: '~23 Dec' },
+  { payday: '2027-02-01', amount: 70, note: '~3 Feb' },
+  { payday: '2027-03-01', amount: 70, note: '~3 Mar' },
+  { payday: '2027-03-15', amount: 70, note: '~24 Mar' },
+  { payday: '2027-04-15', amount: 70, note: '~14 Apr' },
+  { payday: '2027-05-01', amount: 70, note: '~5 May' },
+  { payday: '2027-05-15', amount: 70, note: '~26 May' },
+]
+export const lawnKey = (payday: string) => `lawn_${payday.replace(/-/g, '_')}`
+export const LAWN_KEYS = LAWN_CUTS.map((c) => lawnKey(c.payday))
+
 export const OBLIGATIONS: Obligation[] = [
   {
     key: 'mortgage_current',
@@ -643,36 +661,24 @@ export const OBLIGATIONS: Obligation[] = [
     note: SENT_HOME.extrasBasis,
   },
   /**
-   * Lawn service — your figures, 18 Nov: about $70 every two to three weeks, a Texas
-   * neighbourhood lawn. BEST ESTIMATE from the statements: since August it has run about
-   * every 6 weeks at $70–100 (15 Aug $70, 23 Sep $100, 11 Nov $80 — avg ~$83), so ~$57/mo
-   * through winter; from March the grass grows, so every ~3 weeks (~$120/mo). Budgeted
-   * only until you are home in June — you mow from then (your call). Cash App per cut.
+   * Lawn service — $70 a cut or nothing (your call, 18 Nov). Cuts fall on the paycheck
+   * whose window they land in: last cut 12 Nov ($80, Cash App); every ~6 weeks through
+   * winter, every ~3 weeks from March, none from June (you mow). See LAWN_CUTS.
    */
-  {
-    key: 'lawn_winter',
-    label: 'Lawn service (every ~6 weeks)',
-    amountPerPaycheck: 28.5,
-    payDays: 'both',
-    activeFrom: '2026-12-01',
-    activeTo: '2027-02-28',
-    priority: 30,
-    kind: 'living',
-    execution: 'manual',
-    howTo: 'Cash App, ~$70 a cut.',
-  },
-  {
-    key: 'lawn_spring',
-    label: 'Lawn service (every ~3 weeks)',
-    amountPerPaycheck: 60,
-    payDays: 'both',
-    activeFrom: '2027-03-01',
-    activeTo: '2027-05-31',
-    priority: 30,
-    kind: 'living',
-    execution: 'manual',
-    howTo: 'Cash App, ~$70 a cut. You mow from June.',
-  },
+  ...LAWN_CUTS.map(
+    (c): Obligation => ({
+      key: lawnKey(c.payday),
+      label: `Lawn cut (${c.note})`,
+      amountPerPaycheck: c.amount,
+      payDays: c.payday.endsWith('-01') ? 'first' : 'fifteenth',
+      activeFrom: c.payday,
+      activeTo: c.payday,
+      priority: 30,
+      kind: 'living',
+      execution: 'manual',
+      howTo: `Cash App, $${c.amount}, the day it's cut.`,
+    }),
+  ),
   {
     key: 'christmas',
     label: 'Christmas',

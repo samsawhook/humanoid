@@ -26,3 +26,12 @@ describe('benchmarks', () => {
     expect(rows.find((r) => r.key === 'invest')!.verdict).toMatch(/match/)
   })
 })
+
+describe('outside voices', () => {
+  it('each is a full allocation: robo, Ramsey and Kiyosaki sum to 100% of gross', async () => {
+    const { VOICES } = await import('@/core/money/benchmarks')
+    for (const who of ['robo', 'ramsey', 'kiyosaki'] as const) {
+      expect(Object.values(VOICES).reduce((t, v) => t + v[who].pct, 0)).toBe(100)
+    }
+  })
+})

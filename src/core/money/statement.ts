@@ -97,8 +97,6 @@ const LINE_HOME: Record<string, string> = {
   mortgage_current: 'home',
   arrears_catchup_payment: 'home',
   mortgage_arrears: 'home',
-  lawn_winter: 'home',
-  lawn_spring: 'home',
   auto_liability: 'car',
   car_payoff_now: 'car',
   car_payoff: 'car',
@@ -126,7 +124,7 @@ const LINE_HOME: Record<string, string> = {
 
 /** "Your own spending (deployed)" broken into the categories you think in. */
 const LIVING_SPLIT: { sub: string; label: string; section: string; keys: string[] }[] = [
-  { sub: 'home_services', label: 'Home services (HVAC, lawn)', section: 'home', keys: ['home_improvement'] },
+  { sub: 'home_services', label: 'Home services (HVAC plan)', section: 'home', keys: ['home_improvement'] },
   { sub: 'fuel', label: 'Fuel', section: 'car', keys: ['gas'] },
   { sub: 'phone', label: 'Phone (T-Mobile)', section: 'personal', keys: ['phone'] },
   { sub: 'software', label: 'Software & subscriptions', section: 'personal', keys: ['subscriptions'] },
@@ -301,7 +299,7 @@ export function paycheckStatement(a: Allocation, next: Allocation | undefined, a
 
   for (const l of a.lines) {
     if (l.allocated <= 0 && l.shortfall <= 0) continue
-    const sec = LINE_HOME[l.key] ?? (l.key === 'living_deployed' ? 'living' : 'other')
+    const sec = LINE_HOME[l.key] ?? (l.key.startsWith('lawn_') ? 'home' : l.key === 'living_deployed' ? 'living' : 'other')
     if (sec === 'save') {
       toSavings += l.allocated
       continue
