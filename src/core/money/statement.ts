@@ -89,7 +89,7 @@ const LINE_HOME: Record<string, string> = {
   support_home_deployed: 'sent',
   support_home_extras: 'sent',
   support_home_extras_2027: 'sent',
-  christmas: 'personal',
+  christmas: 'sent',
   boat: 'personal',
   card_minimums_open: 'debt',
   card_minimums_closed: 'debt',
@@ -125,6 +125,8 @@ const LIVING_SPLIT: { sub: string; label: string; section: string; keys: string[
 /** One-offs by key prefix. */
 const ONE_OFF_HOME: [RegExp, string, string][] = [
   [/^macc_/, 'personal', 'Education'],
+  // November's supplemental went to the robe (your call, 15 Nov), so it stays supplemental.
+  [/^anniversary_robe/, 'sent', 'Supplemental'],
   [/^anniversary_|^gift_/, 'personal', 'Gifts'],
   [/^geico_start/, 'car', ''],
   [/^emergency_/, 'emergency', ''],
@@ -271,7 +273,7 @@ export function paycheckStatement(a: Allocation, next: Allocation | undefined, a
       l.key === 'support_home_extras' || l.key === 'support_home_extras_2027'
         ? 'Supplemental'
         : l.key === 'christmas'
-          ? 'Gifts — Christmas'
+          ? 'Supplemental — Christmas'
           : l.label
     push(sec, { ...baseLine(l.key, label, l.allocated, l.shortfall), byHand: l.execution === 'manual' })
   }
