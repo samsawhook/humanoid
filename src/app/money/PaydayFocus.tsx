@@ -3,6 +3,7 @@ import { EARLY_PAY_BUSINESS_DAYS } from '@/core/money/statements'
 import { BUCKETS } from '@/core/money/briefing'
 import { ACTUALS, ACTUALS_AS_OF, actualsFor, spentOn, type Actual } from '@/core/money/actuals'
 import { PAYMENT_INFO, scheduledFor, CHECKING, SAVINGS, type PaymentInfo, type Scheduled } from '@/core/money/execution'
+import { nov1Statement, NOV1 } from '@/core/money/reconstruct'
 import { combineStatements, paycheckStatement, type PaycheckStatement, type StatementLine, type StatementSection } from '@/core/money/statement'
 
 /**
@@ -197,56 +198,85 @@ function pct(n: number, gross: number) {
   return gross > 0 ? `${((n / gross) * 100).toFixed(1)}%` : ''
 }
 
-function lineStatus(l: StatementLine, spendable: string): { text: string; cls: string } {
-  if (l.nonCash || l.amount <= 0) return { text: '', cls: 'muted' }
+/**
+ * One bar per line, two readings that cannot be confused:
+ *   its LENGTH is the line's share of gross pay (blue), and
+ *   the GREEN part from the left is how much of it has actually gone out.
+ */
+function ShareBar({ amount, gross, spent, showPaid }: { amount: number; gross: number; spent?: number; showPaid: boolean }) {
+  if (gross <= 0 || amount <= 0) return null
+  const share = Math.min(100, (amount / gross) * 100)
+  const paid = showPaid && spent !== undefined ? Math.max(0, Math.min(1, spent / amount)) : 0
+  return (
+    <div className="sbar" aria-hidden>
+      <div className="sbar-share" style={{ width: `max(${share}%, 3px)` }}>
+        {paid > 0 && <div className="sbar-paid" style={{ width: `${paid * 100}%` }} />}
+      </div>
+    </div>
+  )
+}
+
+type Chip = { text: string; cls: 'paid' | 'todo' | 'sched' | 'auto' | 'warn' | 'over' }
+
+function lineChip(l: StatementLine, spendable: string): Chip | null {
+  if (l.nonCash || l.amount <= 0) return null
   const spent = l.spent ?? 0
-  if (l.todo) return { text: `To do: ${l.todo}`, cls: 'todo' }
-  if (spent > l.amount + 0.5) return { text: `${usd(spent)} spent — over by ${usd(spent - l.amount)}`, cls: 'warn' }
-  if (spent >= l.amount - 0.5) return { text: '✓ paid', cls: 'good' }
-  if (l.scheduled) return { text: `Scheduled ${nice(l.scheduled.date)} (${l.scheduled.by})`, cls: 'sched' }
-  if (l.info?.unconfirmed) return { text: 'Unconfirmed: may not be going out. Check.', cls: 'warn' }
+  if (l.todo) return { text: `To do · ${l.todo}`, cls: 'todo' }
+  if (spent > l.amount + 0.5) return { text: `Over by ${usd(spent - l.amount)} · ${usd(spent)} spent`, cls: 'over' }
+  if (spent >= l.amount - 0.5) return { text: '✓ Paid', cls: 'paid' }
+  if (l.scheduled) return { text: `◷ Scheduled ${nice(l.scheduled.date)} (${l.scheduled.by})`, cls: 'sched' }
+  if (l.info?.unconfirmed) return { text: '⚠ Unconfirmed — may not be going out', cls: 'warn' }
   if (l.info?.how === 'automatic') {
-    return { text: spent > 0 ? `${usd(spent)} so far · auto, ${l.info.when}` : `Auto · ${l.info.when}`, cls: 'muted' }
+    return { text: spent > 0 ? `Auto · ${usd(spent)} so far` : `Auto · ${l.info.when}`, cls: 'auto' }
   }
-  if (!l.info && !l.byHand) return { text: spent > 0 ? `${usd(spent)} so far` : '', cls: 'muted' }
-  if (l.info?.when === 'done') return { text: '', cls: 'muted' }
+  if (!l.info && !l.byHand) return spent > 0 ? { text: `${usd(spent)} so far`, cls: 'auto' } : null
+  if (l.info?.when === 'done') return null
   const so = spent > 0 ? `${usd(spent)} done · ` : ''
-  return { text: `${so}To do: ${usd(l.amount - spent)}${l.date ? '' : ` from ~${nice(spendable)}`}`, cls: 'todo' }
+  return { text: `To do · ${so}${usd(l.amount - spent)}${l.date ? '' : ` from ${nice(spendable)}`}`, cls: 'todo' }
 }
 
 function Line({ l, gross, spendable, showActuals }: { l: StatementLine; gross: number; spendable: string; showActuals: boolean }) {
-  const st = lineStatus(l, spendable)
+  const chip = showActuals || l.scheduled || l.todo || l.info ? lineChip(l, spendable) : null
+  const todo = chip?.cls === 'todo'
   return (
-    <div className="payrow payline">
-      <span className="payline-name">
-        <span className={st.cls === 'todo' ? 'todo-label' : undefined}>{l.label}</span>
-        {l.date && <span className="muted"> · {nice(l.date)}</span>}
-        {l.info && (
-          <span className="payline-acct">
-            {l.info.from} → {l.info.to}
-          </span>
-        )}
-        {(l.note || l.info?.note) && <span className="payline-acct">{l.note ?? l.info?.note}</span>}
-        {st.text && <span className={`payline-status ${st.cls}`}>{st.text}</span>}
-        {l.txns.map((t, k) => (
-          <span className="payline-txn" key={k}>
-            {nice(t.date)} · {t.description} · {usd(t.amount)}
-            {t.status === 'pending' ? ' · pending' : ''}
-          </span>
-        ))}
-        {(l.short ?? 0) > 0 && <span className="payline-status bad">short {usd(l.short!)}</span>}
-      </span>
-      <span className="paybar-cell">
-        {showActuals && !l.nonCash && l.amount > 0 && (l.spent ?? 0) >= 0 && l.spent !== undefined && (
-          <Progress budget={l.amount} spent={l.spent} />
-        )}
-      </span>
-      <span className="paypct">{l.nonCash ? '' : pct(l.amount, gross)}</span>
-      <span className={`payamt ${l.nonCash ? 'muted' : ''}`}>
-        {l.nonCash ? '(' : ''}
-        {usd(l.amount)}
-        {l.nonCash ? ')' : ''}
-      </span>
+    <div className={`ln${todo ? ' ln-todo' : ''}`}>
+      <div className="ln-top">
+        <div className="ln-name">
+          {l.label}
+          {l.date && <span className="ln-dim"> · {nice(l.date)}</span>}
+        </div>
+        <div className={`ln-amt${l.nonCash ? ' ln-dim' : ''}`}>
+          {l.nonCash ? `(${usd(l.amount)})` : usd(l.amount)}
+          {!l.nonCash && <span className="ln-pct">{pct(l.amount, gross)}</span>}
+        </div>
+      </div>
+      {!l.nonCash && <ShareBar amount={l.amount} gross={gross} spent={l.spent} showPaid={showActuals} />}
+      {(l.info || l.note) && (
+        <div className="ln-meta">
+          {l.info && (
+            <span>
+              {l.info.from} → {l.info.to}
+            </span>
+          )}
+          {(l.note ?? l.info?.note) && <span>{l.note ?? l.info?.note}</span>}
+        </div>
+      )}
+      {chip && <span className={`chip chip-${chip.cls}`}>{chip.text}</span>}
+      {(l.short ?? 0) > 0 && <span className="chip chip-over">Short {usd(l.short!)}</span>}
+      {l.txns.length > 0 && (
+        <ul className="txns">
+          {l.txns.map((t, k) => (
+            <li key={k}>
+              <span className="txn-date">{nice(t.date)}</span>
+              <span className="txn-desc">
+                {t.description}
+                {t.status === 'pending' && <em> pending</em>}
+              </span>
+              <span className="txn-amt">{usd(t.amount)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
@@ -258,6 +288,7 @@ function Section({
   showActuals,
   sign = '−',
   open = false,
+  bar = true,
 }: {
   sec: StatementSection
   gross: number
@@ -265,38 +296,50 @@ function Section({
   showActuals: boolean
   sign?: string
   open?: boolean
+  bar?: boolean
 }) {
   const out = sec.lines.filter((l) => !l.nonCash && l.amount > 0 && l.spent !== undefined)
   const budget = out.reduce((s, l) => s + l.amount, 0)
   const spent = out.reduce((s, l) => s + Math.min(l.spent ?? 0, l.amount), 0)
+  const todos = sec.lines.filter((l) => lineChip(l, spendable)?.cls === 'todo').length
   return (
-    <details className="paycat" open={open}>
-      <summary className="payrow">
-        <span className="paycat-name">{sec.label}</span>
-        <span className="paybar-cell">{showActuals && budget > 0 && <Progress budget={budget} spent={spent} />}</span>
-        <span className="paypct">{pct(sec.total, gross)}</span>
-        <span className="payamt">
-          {sign}
-          {usd(Math.abs(sec.total))}
-        </span>
+    <details className="sec" open={open}>
+      <summary>
+        <div className="sec-top">
+          <span className="sec-name">
+            {sec.label}
+            {todos > 0 && <span className="sec-todo">{todos} to do</span>}
+          </span>
+          <span className="sec-amt">
+            {sign}
+            {usd(Math.abs(sec.total))}
+            <span className="ln-pct">{pct(sec.total, gross)}</span>
+          </span>
+        </div>
+        {bar && sec.total > 0 && (
+          <ShareBar amount={budget || sec.total} gross={gross} spent={spent} showPaid={showActuals} />
+        )}
       </summary>
-      {sec.lines.map((l) => (
-        <Line key={l.key} l={l} gross={gross} spendable={spendable} showActuals={showActuals} />
-      ))}
+      <div className="sec-body">
+        {sec.lines.map((l) => (
+          <Line key={l.key} l={l} gross={gross} spendable={spendable} showActuals={showActuals} />
+        ))}
+      </div>
     </details>
   )
 }
 
-function Total({ label, amount, gross, note }: { label: string; amount: number; gross: number; note?: string }) {
+function Total({ label, amount, gross, note, strong }: { label: string; amount: number; gross: number; note?: string; strong?: boolean }) {
   return (
-    <div className="payrow paytotal">
-      <span>
-        {label}
-        {note && <span className="payline-acct">{note}</span>}
-      </span>
-      <span />
-      <span className="paypct">{pct(amount, gross)}</span>
-      <span className={`payamt ${amount < 0 ? 'bad' : ''}`}>{usd(amount)}</span>
+    <div className={`tot${strong ? ' tot-strong' : ''}`}>
+      <div>
+        <div className="tot-label">{label}</div>
+        {note && <div className="tot-note">{note}</div>}
+      </div>
+      <div className={`tot-amt${amount < 0 ? ' neg' : ''}`}>
+        {usd(amount)}
+        <span className="ln-pct">{pct(amount, gross)}</span>
+      </div>
     </div>
   )
 }
@@ -325,48 +368,42 @@ function PaydayCard({
 }) {
   const g = st.gross.total
   return (
-    <div className="panel payday">
-      <div className="payday-head">
+    <article className="pcard">
+      <header className="pcard-head">
         <div>
-          <div className="muted payday-tag">{tag}</div>
-          <div className="payday-title">{title}</div>
-          <div className="muted" style={{ fontSize: 12.5 }}>
-            {subtitle} · take-home {usd(st.takeHome)}
-          </div>
+          <div className="pcard-tag">{tag}</div>
+          <div className="pcard-title">{title}</div>
+          <div className="pcard-sub">{subtitle}</div>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div className="payday-title">{usd(g)}</div>
-          <div className="muted" style={{ fontSize: 12.5 }}>gross</div>
+        <div className="pcard-gross">
+          <div className="pcard-big">{usd(g)}</div>
+          <div className="pcard-sub">gross · take-home {usd(st.takeHome)}</div>
         </div>
-      </div>
+      </header>
 
-      <div className="payrow payhdr">
-        <span />
-        <span />
-        <span className="paypct">% gross</span>
-        <span className="payamt">$</span>
-      </div>
-      <Section sec={st.gross} gross={g} spendable={spendable} showActuals={false} sign="" open={false} />
-      <Section sec={st.deductions} gross={g} spendable={spendable} showActuals={false} open={false} />
-      <Total label="Net income" amount={st.netIncome} gross={g} />
+      <Section sec={st.gross} gross={g} spendable={spendable} showActuals={false} sign="" bar={false} />
+      <Section sec={st.deductions} gross={g} spendable={spendable} showActuals={false} bar={false} />
+      <Total label="Net income" amount={st.netIncome} gross={g} strong />
       {st.spending.map((sec) => (
         <Section key={sec.key} sec={sec} gross={g} spendable={spendable} showActuals={showActuals} />
       ))}
-      <Total label="Free cash flow" amount={st.freeCashFlow} gross={g} note="Net income less home, car, sent home, personal and debt." />
+      <Total label="Free cash flow" amount={st.freeCashFlow} gross={g} note="After home, car, sent home, personal and debt" strong />
       <Section sec={st.investing} gross={g} spendable={spendable} showActuals={showActuals} />
-      <Section sec={st.netCash} gross={g} spendable={spendable} showActuals={false} sign={st.netCash.total < 0 ? '−' : '+'} />
-      <div className="payline-acct" style={{ marginLeft: 14 }}>
-        After this paycheck: {CHECKING} {usd(checkingAfter)} · {SAVINGS} {usd(savings)}
-        {checkingAfter > 1 ? ' — checking is held for tighter paydays ahead, not spare.' : ''}
-      </div>
-      <Section sec={st.balanceSheet} gross={g} spendable={spendable} showActuals={false} sign="+" open={false} />
-      <Total label="Net worth change (approx.)" amount={st.balanceSheet.total} gross={g} />
-      {short > 0 && (
-        <div className="bad" style={{ fontSize: 12.5, marginTop: 6 }}>
-          {usd(short)} of bills can&rsquo;t be covered by this paycheck.
+      <Section sec={st.netCash} gross={g} spendable={spendable} showActuals={false} sign={st.netCash.total < 0 ? '−' : '+'} bar={false} />
+      <div className="balances">
+        <div>
+          <span>{CHECKING}</span>
+          <strong>{usd(checkingAfter)}</strong>
         </div>
-      )}
-    </div>
+        <div>
+          <span>{SAVINGS}</span>
+          <strong>{usd(savings)}</strong>
+        </div>
+      </div>
+      <Section sec={st.balanceSheet} gross={g} spendable={spendable} showActuals={false} sign="+" bar={false} />
+      <Total label="Net worth change (approx.)" amount={st.balanceSheet.total} gross={g} strong />
+      {short > 0 && <div className="chip chip-over" style={{ marginTop: 8 }}>{usd(short)} of bills can&rsquo;t be covered by this paycheck</div>}
+    </article>
   )
 }
 
@@ -428,10 +465,29 @@ export function PaydayFocus({
         Paid-so-far as of your last update: <strong>{nice(asOf.date)}, {asOf.time}</strong> ({asOf.source}
         {asOf.availableBalance != null && <>; {usd(asOf.availableBalance)} available then</>}). The 1st and the
         15th sit side by side; tick <em>One-month view</em> to see the month summed. Tap a category to open it.{' '}
-        <strong className="todo-label">Bold blue</strong> lines are yours to do.
+        <strong className="todo-label">Highlighted</strong> lines are yours to do.
       </p>
+      <div className="legend-row">
+        <span><i className="lg lg-share" /> Bar length = share of gross pay</span>
+        <span><i className="lg lg-paid" /> Green = already gone out</span>
+      </div>
       {months.map((m) => {
-        const cards = [idx(m, '01'), idx(m, '15')].map((i) => (i >= 0 ? cardFor(i) : null))
+        const cards: (ReturnType<typeof cardFor> | null)[] = [idx(m, '01'), idx(m, '15')].map((i) => (i >= 0 ? cardFor(i) : null))
+        // Before the plan: the 1 Nov paycheck, rebuilt from the statement and screenshots.
+        if (m === NOV1.payday.slice(0, 7) && !cards[0]) {
+          cards[0] = {
+            i: -1,
+            st: nov1Statement(),
+            tag: 'Done · rebuilt from your bank statement',
+            title: nice(NOV1.payday),
+            subtitle: 'Spendable ~Wed 28 Oct · tax-free',
+            showActuals: true,
+            checkingAfter: NOV1.checkingAfter,
+            savings: 0,
+            short: 0,
+            spendable: '2026-10-28',
+          }
+        }
         const present = cards.filter((c): c is NonNullable<typeof c> => c !== null)
         const [y, mo] = m.split('-').map(Number)
         const label = `${MONTH_NAME[mo! - 1]} ${y}`
@@ -447,19 +503,19 @@ export function PaydayFocus({
                 </label>
               )}
             </div>
-            <div className="paydays split">
+            <div className="pgrid split">
               {cards.map((c, k) =>
                 c ? (
                   <PaydayCard key={c.i} {...c} />
                 ) : (
-                  <div key={`empty-${k}`} className="panel payday payday-empty muted">
+                  <div key={`empty-${k}`} className="pcard pcard-empty">
                     {k === 0 ? '1st' : '15th'} paycheck — before this plan started.
                   </div>
                 ),
               )}
             </div>
             {present.length > 1 && (
-              <div className="paydays combined">
+              <div className="pgrid combined">
                 <PaydayCard
                   st={combined}
                   tag="Month"

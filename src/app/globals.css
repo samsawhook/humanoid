@@ -1,29 +1,18 @@
 /* Function over polish. Readable on a phone, on a bad connection, tired. */
 
 :root {
-  --bg: #0f1115;
-  --panel: #171a21;
-  --line: #262b36;
-  --text: #e6e8ec;
-  --muted: #9aa3b2;
-  --good: #4ade80;
-  --warn: #fbbf24;
-  --bad: #f87171;
-  --accent: #7dd3fc;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg: #ffffff;
-    --panel: #f6f7f9;
-    --line: #e2e5ea;
-    --text: #14171c;
-    --muted: #5b6472;
-    --good: #15803d;
-    --warn: #a16207;
-    --bad: #b91c1c;
-    --accent: #0369a1;
-  }
+  /* Dark throughout (your call, 18 Nov). One theme, so every page and chart matches. */
+  color-scheme: dark;
+  --bg: #0c0e12;
+  --panel: #14171e;
+  --panel-2: #1a1e27;
+  --line: #252a35;
+  --text: #e8eaee;
+  --muted: #96a0b0;
+  --good: #3fc56b;
+  --warn: #fab219;
+  --bad: #e66767;
+  --accent: #7cc4fa;
 }
 
 * { box-sizing: border-box; }
@@ -93,20 +82,19 @@ ul.tight li { margin: 3px 0; }
   --status-critical: #c02a2a;
   --grid: #d8dbe1;
 }
-@media (prefers-color-scheme: dark) {
-  :root:where(:not([data-theme='light'])) .viz {
+.viz {
     --surface-1: #1a1a19;
     --series-1: #3987e5;
     --series-2: #d95926;
     --series-3: #199e70;
     --series-4: #c98500;
     --series-5: #d55181;
-    --series-6: #008300;
+    --series-6: #0ca30c;
     --series-rest: #7d848f;
     --status-critical: #e66767;
     --grid: #2f343d;
   }
-}
+
 
 figure { margin: 0 0 8px; }
 figcaption { color: var(--muted); font-size: 12.5px; margin-top: 8px; line-height: 1.45; }
@@ -195,49 +183,85 @@ details.tbl summary { cursor: pointer; color: var(--accent); font-size: 13px; }
 details.detail > summary { cursor: pointer; font-size: 16px; text-transform: uppercase; letter-spacing: .06em;
   color: var(--muted); font-weight: 700; margin: 32px 0 10px; }
 
-/* ── Payday cards ──────────────────────────────────────────────────────────── */
-/* Two columns, three rows on a wide screen; one column on a phone. */
-.paydays { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-@media (max-width: 760px) { .paydays { grid-template-columns: 1fr; } }
-.payday { margin-bottom: 0; }
-.payday-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-.payday-tag { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
-.payday-title { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.payday-progress { font-size: 12.5px; margin: 8px 0 2px; display: flex; align-items: center; gap: 8px; }
-/* One grid for category headers and lines alike, so every bar and amount lines up. */
-.payrow { display: grid; grid-template-columns: 1fr 64px 48px 92px; align-items: center; column-gap: 8px; }
-.paycat { border-top: 1px solid var(--line); padding: 2px 0 4px; }
-.paycat:first-of-type { margin-top: 8px; }
-.paycat > summary { padding: 7px 0 4px; cursor: pointer; list-style: none; }
-.paycat > summary::-webkit-details-marker { display: none; }
-.paycat-name { font-weight: 650; }
-.paycat-name::before { content: '▸'; display: inline-block; color: var(--muted); width: 14px; transition: transform .12s; }
-.paycat[open] .paycat-name::before { transform: rotate(90deg); }
-.payline { padding: 3px 0; font-size: 13.5px; }
-.payline-name { padding-left: 14px; }
-.payline-status { display: block; font-size: 12px; }
-.payamt { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.paybar-cell { display: flex; align-items: center; }
-.paybar { display: inline-block; width: 64px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; flex: none; }
-.paybar > span { display: block; height: 100%; background: var(--good); }
-.payday-foot { display: flex; justify-content: space-between; gap: 8px; border-top: 1px solid var(--line); padding-top: 8px; margin-top: 2px; }
-
-.payline-acct { display: block; font-size: 12px; color: var(--muted); }
-.payline-txn { display: block; font-size: 12px; color: var(--muted); padding-left: 10px; border-left: 2px solid var(--line); margin-top: 2px; }
-.payline-status.todo, .todo-label { color: var(--accent); font-weight: 700; }
-.payline-status.sched { color: var(--accent); }
-
-.paypct { text-align: right; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.payhdr { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 8px; }
-.paytotal { font-weight: 700; border-top: 1.5px solid var(--text); padding: 6px 0; margin-top: 2px; }
-
 /* Months: the 1st and the 15th side by side, or summed into one card. */
 .paymonth { margin-bottom: 18px; }
 .paymonth-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 6px 0 8px; }
 .paymonth-head h3 { margin: 0; font-size: 17px; }
 .paymonth-toggle { font-size: 13px; color: var(--accent); cursor: pointer; user-select: none; }
 .paymonth .combined { display: none; grid-template-columns: 1fr; }
+.pgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+@media (max-width: 820px) { .pgrid { grid-template-columns: 1fr; } }
 .paymonth:has(.paymonth-toggle input:checked) .split { display: none; }
 .paymonth:has(.paymonth-toggle input:checked) .combined { display: grid; }
-.payday-empty { display: flex; align-items: center; justify-content: center; min-height: 80px; font-size: 13px; align-self: start; }
-@media (max-width: 760px) { .payday-empty { display: none; } }
+
+
+/* ── Paycheck cards (dark) ─────────────────────────────────────────────────── */
+.legend-row { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; color: var(--muted); margin: -2px 0 12px; }
+.lg { display: inline-block; width: 22px; height: 6px; border-radius: 3px; vertical-align: middle; margin-right: 6px; }
+.lg-share { background: #3987e5; }
+.lg-paid { background: #0ca30c; }
+.todo-label { color: var(--accent); }
+
+.paymonth { margin-bottom: 26px; }
+.paymonth-head h3 { font-size: 15px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.paymonth-toggle { color: var(--accent); }
+
+.pcard { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px 14px; }
+.pcard-empty { color: var(--muted); font-size: 13px; text-align: center; padding: 28px 18px; }
+@media (max-width: 820px) { .pcard-empty { display: none; } }
+.pcard-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; padding-bottom: 12px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+.pcard-tag { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+.pcard-title { font-size: 20px; font-weight: 700; margin-top: 2px; }
+.pcard-sub { font-size: 12.5px; color: var(--muted); }
+.pcard-gross { text-align: right; }
+.pcard-big { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.sec { border-bottom: 1px solid var(--line); }
+.sec > summary { list-style: none; cursor: pointer; padding: 10px 0 9px; }
+.sec > summary::-webkit-details-marker { display: none; }
+.sec-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.sec-name { font-weight: 650; display: inline-flex; align-items: center; gap: 8px; }
+.sec-name::before { content: '▸'; color: var(--muted); font-size: 12px; width: 10px; transition: transform .12s; display: inline-block; }
+.sec[open] .sec-name::before { transform: rotate(90deg); }
+.sec-todo { font-size: 11px; font-weight: 700; color: #0c0e12; background: var(--accent); border-radius: 999px; padding: 1px 7px; }
+.sec-amt, .ln-amt, .tot-amt { font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+.sec-amt { font-weight: 650; }
+.ln-pct { display: inline-block; min-width: 46px; margin-left: 8px; font-size: 11.5px; color: var(--muted); font-weight: 400; text-align: right; }
+.sec-body { padding: 2px 0 10px 18px; }
+
+.sbar { height: 6px; background: var(--panel-2); border-radius: 3px; margin-top: 6px; overflow: hidden; }
+.sbar-share { height: 100%; background: #3987e5; border-radius: 3px; overflow: hidden; }
+.sbar-paid { height: 100%; background: #0ca30c; }
+
+.ln { padding: 9px 0; border-top: 1px dashed var(--line); }
+.ln:first-child { border-top: 0; }
+.ln-top { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.ln-name { font-size: 14px; }
+.ln-amt { font-size: 14px; }
+.ln-dim { color: var(--muted); }
+.ln-meta { font-size: 12px; color: var(--muted); margin-top: 4px; display: flex; flex-direction: column; gap: 1px; }
+.ln-todo .ln-name { color: var(--accent); font-weight: 700; }
+
+.chip { display: inline-block; margin-top: 6px; font-size: 11.5px; font-weight: 600; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.chip-paid { color: #3fc56b; border-color: #1f5f34; background: #0f2418; }
+.chip-todo { color: #0c0e12; background: var(--accent); border-color: var(--accent); font-weight: 700; }
+.chip-sched { color: var(--accent); border-color: #2c5a80; }
+.chip-auto { color: var(--muted); }
+.chip-warn { color: #fab219; border-color: #6b5211; }
+.chip-over { color: #ec835a; border-color: #6e3b27; }
+
+.txns { list-style: none; margin: 8px 0 0; padding: 0; border-left: 2px solid var(--line); }
+.txns li { display: grid; grid-template-columns: 74px 1fr auto; gap: 8px; font-size: 12px; color: var(--muted); padding: 2px 0 2px 10px; }
+.txns em { font-style: normal; color: #fab219; }
+.txn-amt { font-variant-numeric: tabular-nums; color: var(--text); }
+
+.tot { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 12px; margin: 8px -12px; background: var(--panel-2); border-radius: 10px; }
+.tot-label { font-weight: 700; }
+.tot-note { font-size: 11.5px; color: var(--muted); }
+.tot-amt { font-weight: 700; font-size: 15px; }
+.tot-amt.neg { color: var(--bad); }
+
+.balances { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0; }
+.balances div { background: var(--panel-2); border-radius: 10px; padding: 8px 12px; display: flex; flex-direction: column; }
+.balances span { font-size: 11.5px; color: var(--muted); }
+.balances strong { font-variant-numeric: tabular-nums; }
