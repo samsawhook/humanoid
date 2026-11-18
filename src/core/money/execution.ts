@@ -140,7 +140,7 @@ export const SETUP_TODOS: { key: string; payday: LocalDate; text: string }[] = [
 export interface CardAccount {
   /** debts.ts key. */
   key: string
-  line: 'card_minimums_open' | 'card_minimums_closed'
+  line: 'card_minimums_open' | 'card_minimums_closed' | 'debt_agreements'
   name: string
   /** Matches this card's payments in the actuals. */
   match: RegExp
@@ -202,4 +202,16 @@ export const CARD_ACCOUNTS: CardAccount[] = [
     when: '',
     unseen: 'No Capital One payment in the Jul–Nov statements.',
   },
+  {
+    key: 'chase',
+    line: 'debt_agreements',
+    name: 'Chase (payment plan)',
+    match: /Chase/i,
+    payAt: 'Chase app — check the last payment and which account it drafts from',
+    when: 'monthly',
+    unseen: 'No payment identified as Chase in the Jul–Nov statements (you said it posts as a ~$100 "CHECK").',
+  },
 ]
+
+/** Citi, Capital One and the Chase plan: closed accounts, shown as one line. */
+export const CLOSED_ACCOUNTS_LABEL = 'Closed accounts — Citi · Capital One · Chase plan'

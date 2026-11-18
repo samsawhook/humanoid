@@ -23,7 +23,7 @@
 import type { Allocation } from './allocation'
 import { DEPLOYED_ACTUALS } from './household'
 import { ACTUALS, type Actual } from './actuals'
-import { CARD_ACCOUNTS, PAYMENT_INFO, SETUP_TODOS, SPENDING_INFO, scheduledFor, type PaymentInfo, type Scheduled } from './execution'
+import { CARD_ACCOUNTS, CLOSED_ACCOUNTS_LABEL, PAYMENT_INFO, SETUP_TODOS, SPENDING_INFO, scheduledFor, type PaymentInfo, type Scheduled } from './execution'
 import { DEBTS, minimumPayment } from './debts'
 import type { LocalDate } from '../types'
 
@@ -259,7 +259,10 @@ export function paycheckStatement(a: Allocation, next: Allocation | undefined, a
           text = `Autopay $${c.autopay.amount} on ${niceDate(d.toISOString().slice(0, 10))} — nothing to do.${live && c.last ? ` Last paid ${c.last}.` : ''}`
         } else if (c.unseen) {
           status = 'check'
-          text = `${c.unseen} Open the app — if a minimum is due, pay it (~$${minimum} est.) from WF Joint Checking.`
+          text =
+            c.key === 'chase'
+              ? `${c.unseen} Open the app: confirm the $${minimum} plan payment is drafting, and from which account.`
+              : `${c.unseen} Open the app — if a minimum is due, pay it (~$${minimum} est.) from WF Joint Checking.`
         } else if (live) {
           status = 'todo'
           text = `Not paid yet this month. Pay ${est}.${c.last ? ` Last paid ${c.last}.` : ''}`
@@ -346,6 +349,29 @@ export function paycheckStatement(a: Allocation, next: Allocation | undefined, a
   // An emergency drawn from savings: the draw is a savings outflow, not more spending.
   const draws = r2((next?.draws ?? []).reduce((s, d) => s + d.amount, 0))
 
+  // Citi, Capital One and the Chase plan are one line: closed accounts. Citi and Capital
+  // One fall on the 15th, Chase on the 1st, so each paycheck shows the ones it pays.
+  const debtLines = sections.get('debt')
+  if (debtLines) {
+    const cl = debtLines.find((l) => l.key === 'card_minimums_closed')
+    const ch = debtLines.find((l) => l.key === 'debt_agreements')
+    if (cl || ch) {
+      const merged: StatementLine = {
+        ...(cl ?? ch)!,
+        key: 'closed_accounts',
+        label: CLOSED_ACCOUNTS_LABEL,
+        amount: r2((cl?.amount ?? 0) + (ch?.amount ?? 0)),
+        spent: r2((cl?.spent ?? 0) + (ch?.spent ?? 0)),
+        short: r2((cl?.short ?? 0) + (ch?.short ?? 0)) || undefined,
+        accounts: [...(cl?.accounts ?? []), ...(ch?.accounts ?? [])],
+        note: cl && ch ? undefined : cl ? 'The Chase plan is on the 1st paycheck.' : 'Citi and Capital One are on the 15th paycheck.',
+      }
+      const at = debtLines.indexOf((cl ?? ch)!)
+      sections.set('debt', debtLines.filter((l) => l !== cl && l !== ch))
+      sections.get('debt')!.splice(at, 0, merged)
+    }
+  }
+
   const order = ['home', 'car', 'sent', 'personal', 'debt', 'emergency', 'other']
   const spending: StatementSection[] = order
     .filter((k) => sections.has(k))
@@ -418,6 +444,16 @@ export function combineStatements(list: PaycheckStatement[]): PaycheckStatement 
         have.short = r2((have.short ?? 0) + (l.short ?? 0)) || undefined
         have.todo = have.todo ?? l.todo
         have.scheduled = have.scheduled ?? l.scheduled
+        if (l.accounts) {
+          const acc = [...(have.accounts ?? [])]
+          for (const r of l.accounts) {
+            const i = acc.findIndex((x) => x.key === r.key)
+            if (i < 0) acc.push(r)
+            else acc[i] = { ...acc[i]!, paid: r2(acc[i]!.paid + r.paid), txns: [...acc[i]!.txns, ...r.txns], minimum: r2(acc[i]!.minimum + r.minimum) }
+          }
+          have.accounts = acc
+          if (acc.some((r) => r.key === 'chase') && acc.some((r) => r.key === 'citi')) have.note = undefined
+        }
         have.date = undefined
         if (l.note && l.note !== have.note) have.note = have.note ? `${have.note} ${l.note}` : l.note
       }

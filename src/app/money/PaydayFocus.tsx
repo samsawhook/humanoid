@@ -334,7 +334,7 @@ function Line({
       )}
       {(l.info || l.note) && (
         <div className="ln-meta">
-          {l.info && l.accounts && <span>From {l.info.from} · by hand, by each due date</span>}
+          {l.info && l.accounts && <span>From {l.info.from}</span>}
           {l.info && !l.accounts && (
             <span>
               {l.info.from} → {l.info.to}
