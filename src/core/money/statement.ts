@@ -189,6 +189,8 @@ export function paycheckStatement(a: Allocation, next: Allocation | undefined, a
       key: 'tsp',
       label: 'TSP — your 5% (Roth, withheld from pay)',
       amount: tspEmployee,
+      // Withheld at source: it has gone the moment the pay lands.
+      spent: tspEmployee,
       txns: [],
       note: 'Withheld by DFAS before take-home.',
     },

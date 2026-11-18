@@ -199,19 +199,70 @@ function pct(n: number, gross: number) {
 }
 
 /**
- * One bar per line, two readings that cannot be confused:
- *   its LENGTH is the line's share of gross pay (blue), and
- *   the GREEN part from the left is how much of it has actually gone out.
+ * Category colours: the validated categorical palette (dark steps), in fixed order, with
+ * slot 6 (green) skipped because green is reserved for "paid". Deductions and cash are
+ * neutral greys. Checked with the dataviz validator against the card surface.
  */
-function ShareBar({ amount, gross, spent, showPaid }: { amount: number; gross: number; spent?: number; showPaid: boolean }) {
+export const CAT_COLOR: Record<string, string> = {
+  deductions: '#6b7280',
+  home: '#3987e5',
+  car: '#d95926',
+  sent: '#199e70',
+  personal: '#c98500',
+  debt: '#d55181',
+  emergency: '#e66767',
+  other: '#7d848f',
+  invest: '#9085e9',
+  cash: '#a3aab6',
+}
+
+/**
+ * One bar per line. LENGTH = share of gross pay. OUTLINE = the budget, SOLID = what has
+ * gone out so far, ORANGE = spent beyond the budget. Completion is fill, not colour, so it
+ * can't be mistaken for size.
+ */
+function BudgetBar({
+  amount,
+  gross,
+  spent,
+  showPaid,
+  color,
+}: {
+  amount: number
+  gross: number
+  spent?: number
+  showPaid: boolean
+  color: string
+}) {
   if (gross <= 0 || amount <= 0) return null
-  const share = Math.min(100, (amount / gross) * 100)
-  const paid = showPaid && spent !== undefined ? Math.max(0, Math.min(1, spent / amount)) : 0
+  const sp = showPaid ? (spent ?? 0) : 0
+  const paid = Math.min(sp, amount)
+  const over = Math.max(0, sp - amount)
+  const pctOf = (n: number) => (n / gross) * 100
   return (
-    <div className="sbar" aria-hidden>
-      <div className="sbar-share" style={{ width: `max(${share}%, 3px)` }}>
-        {paid > 0 && <div className="sbar-paid" style={{ width: `${paid * 100}%` }} />}
-      </div>
+    <div className="bbar" aria-hidden>
+      {paid > 0 && <span className="bbar-paid" style={{ width: `max(${pctOf(paid)}%, 3px)`, background: color }} />}
+      {amount - paid > 0.005 && (
+        <span className="bbar-left" style={{ width: `max(${pctOf(amount - paid)}%, 3px)`, borderColor: color }} />
+      )}
+      {over > 0 && <span className="bbar-over" style={{ width: `max(${pctOf(over)}%, 3px)` }} />}
+    </div>
+  )
+}
+
+/** Where the gross goes: one thin segmented bar, each part in its category colour. */
+function SplitBar({ parts, base }: { parts: { key: string; label: string; amount: number }[]; base: number }) {
+  return (
+    <div className="gsplit" role="img" aria-label={parts.map((p) => `${p.label} ${((p.amount / base) * 100).toFixed(0)}%`).join(', ')}>
+      {parts
+        .filter((p) => p.amount > 0)
+        .map((p) => (
+          <span
+            key={p.key}
+            title={`${p.label}: ${usd(p.amount)} (${((p.amount / base) * 100).toFixed(1)}%)`}
+            style={{ flexBasis: `${(p.amount / base) * 100}%`, background: CAT_COLOR[p.key] ?? CAT_COLOR.other }}
+          />
+        ))}
     </div>
   )
 }
@@ -235,7 +286,19 @@ function lineChip(l: StatementLine, spendable: string): Chip | null {
   return { text: `To do · ${so}${usd(l.amount - spent)}${l.date ? '' : ` from ${nice(spendable)}`}`, cls: 'todo' }
 }
 
-function Line({ l, gross, spendable, showActuals }: { l: StatementLine; gross: number; spendable: string; showActuals: boolean }) {
+function Line({
+  l,
+  gross,
+  spendable,
+  showActuals,
+  color,
+}: {
+  l: StatementLine
+  gross: number
+  spendable: string
+  showActuals: boolean
+  color: string
+}) {
   const chip = showActuals || l.scheduled || l.todo || l.info ? lineChip(l, spendable) : null
   const todo = chip?.cls === 'todo'
   return (
@@ -250,7 +313,7 @@ function Line({ l, gross, spendable, showActuals }: { l: StatementLine; gross: n
           {!l.nonCash && <span className="ln-pct">{pct(l.amount, gross)}</span>}
         </div>
       </div>
-      {!l.nonCash && <ShareBar amount={l.amount} gross={gross} spent={l.spent} showPaid={showActuals} />}
+      {!l.nonCash && <BudgetBar amount={l.amount} gross={gross} spent={l.spent} showPaid={showActuals} color={color} />}
       {(l.info || l.note) && (
         <div className="ln-meta">
           {l.info && (
@@ -300,13 +363,15 @@ function Section({
 }) {
   const out = sec.lines.filter((l) => !l.nonCash && l.amount > 0 && l.spent !== undefined)
   const budget = out.reduce((s, l) => s + l.amount, 0)
-  const spent = out.reduce((s, l) => s + Math.min(l.spent ?? 0, l.amount), 0)
+  const spentAll = out.reduce((s, l) => s + (l.spent ?? 0), 0)
+  const color = CAT_COLOR[sec.key] ?? CAT_COLOR.other!
   const todos = sec.lines.filter((l) => lineChip(l, spendable)?.cls === 'todo').length
   return (
     <details className="sec" open={open}>
       <summary>
         <div className="sec-top">
           <span className="sec-name">
+            <i className="swatch-dot" style={{ background: color }} />
             {sec.label}
             {todos > 0 && <span className="sec-todo">{todos} to do</span>}
           </span>
@@ -314,15 +379,18 @@ function Section({
             {sign}
             {usd(Math.abs(sec.total))}
             <span className="ln-pct">{pct(sec.total, gross)}</span>
+            {showActuals && spentAll > budget + 0.5 && (
+              <span className="sec-over">{usd(spentAll)} spent — over by {usd(spentAll - budget)}</span>
+            )}
           </span>
         </div>
         {bar && sec.total > 0 && (
-          <ShareBar amount={budget || sec.total} gross={gross} spent={spent} showPaid={showActuals} />
+          <BudgetBar amount={budget || sec.total} gross={gross} spent={spentAll} showPaid={showActuals} color={color} />
         )}
       </summary>
       <div className="sec-body">
         {sec.lines.map((l) => (
-          <Line key={l.key} l={l} gross={gross} spendable={spendable} showActuals={showActuals} />
+          <Line key={l.key} l={l} gross={gross} spendable={spendable} showActuals={showActuals} color={color} />
         ))}
       </div>
     </details>
@@ -381,6 +449,31 @@ function PaydayCard({
         </div>
       </header>
 
+      {(() => {
+        const parts = [
+          { key: 'deductions', label: 'Deductions', amount: st.deductions.total },
+          ...st.spending.map((x) => ({ key: x.key, label: x.label, amount: x.total })),
+          { key: 'invest', label: 'Investing', amount: st.investing.total },
+          { key: 'cash', label: 'Kept as cash', amount: Math.max(0, st.netCash.total) },
+        ]
+        const base = Math.max(g, parts.reduce((t, p) => t + Math.max(0, p.amount), 0))
+        return (
+          <div className="splitwrap">
+            <div className="split-title">Where the gross goes</div>
+            <SplitBar parts={parts} base={base} />
+            <div className="split-legend">
+              {parts
+                .filter((p) => p.amount > 0)
+                .map((p) => (
+                  <span key={p.key}>
+                    <i className="swatch-dot" style={{ background: CAT_COLOR[p.key] ?? CAT_COLOR.other }} />
+                    {p.label} {((p.amount / base) * 100).toFixed(0)}%
+                  </span>
+                ))}
+            </div>
+          </div>
+        )
+      })()}
       <Section sec={st.gross} gross={g} spendable={spendable} showActuals={false} sign="" bar={false} />
       <Section sec={st.deductions} gross={g} spendable={spendable} showActuals={false} bar={false} />
       <Total label="Net income" amount={st.netIncome} gross={g} strong />
@@ -468,8 +561,9 @@ export function PaydayFocus({
         <strong className="todo-label">Highlighted</strong> lines are yours to do.
       </p>
       <div className="legend-row">
-        <span><i className="lg lg-share" /> Bar length = share of gross pay</span>
-        <span><i className="lg lg-paid" /> Green = already gone out</span>
+        <span><i className="lg lg-outline" /> Bar length = share of gross pay (outline = budget)</span>
+        <span><i className="lg lg-solid" /> Solid = already gone out</span>
+        <span><i className="lg lg-over" /> Orange = spent over budget</span>
       </div>
       {months.map((m) => {
         const cards: (ReturnType<typeof cardFor> | null)[] = [idx(m, '01'), idx(m, '15')].map((i) => (i >= 0 ? cardFor(i) : null))
