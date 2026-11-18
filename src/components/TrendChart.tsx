@@ -33,6 +33,9 @@ const shortDate = (iso: string) => {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })
 }
 
+const monthYear = (iso: string) =>
+  new Date(iso + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' })
+
 export function TrendChart({
   series,
   markers = [],
@@ -40,6 +43,7 @@ export function TrendChart({
   ariaLabel,
   stepped = false,
   tipTitle = 'Payday',
+  monthly = false,
 }: {
   series: TrendSeries[]
   markers?: TrendMarker[]
@@ -48,6 +52,8 @@ export function TrendChart({
   /** Draw as a step line — right for a balance, which holds until the next posting. */
   stepped?: boolean
   tipTitle?: string
+  /** Points are months: label the tooltip "Nov 2027" and, past two years, tick by year. */
+  monthly?: boolean
 }) {
   const ref = useRef<SVGSVGElement>(null)
   const [hover, setHover] = useState<number | null>(null)
@@ -78,9 +84,16 @@ export function TrendChart({
   const below = bottom < 0
 
   const months: string[] = []
-  {
+  const longSpan = monthly && t1 - t0 > 2.1 * 365 * 864e5
+  if (longSpan) {
+    const y0 = new Date(t0).getUTCFullYear() + 1
+    const y1 = new Date(t1).getUTCFullYear()
+    const every = Math.max(1, Math.ceil((y1 - y0 + 1) / 10))
+    for (let y = y0; y <= y1; y += every) months.push(`${y}-01-01`)
+  } else {
     const s = new Date(t0)
-    for (let i = 0; i < 24; i++) {
+    const every = monthly && t1 - t0 > 13 * 31 * 864e5 ? 3 : 1
+    for (let i = 0; i < 26; i += every) {
       const d = new Date(Date.UTC(s.getUTCFullYear(), s.getUTCMonth() + i, 1))
       if (d.getTime() > t1) break
       if (d.getTime() >= t0) months.push(d.toISOString().slice(0, 10))
@@ -148,7 +161,10 @@ export function TrendChart({
         )}
         {months.map((m) => (
           <text key={m} x={x(m)} y={height - 10} textAnchor="middle">
-            {new Date(m + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' })}
+            {longSpan
+              ? m.slice(0, 4)
+              : new Date(m + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' }) +
+                (monthly && m.slice(5, 7) === '01' ? ` ’${m.slice(2, 4)}` : '')}
           </text>
         ))}
 
@@ -212,7 +228,7 @@ export function TrendChart({
 
       {hover !== null && (
         <div className="tip" style={{ left: `${(hx / width) * 100}%`, top: 4 }}>
-          <div style={{ fontWeight: 650, marginBottom: 4 }}>{tipTitle} {shortDate(dates[hover]!)}</div>
+          <div style={{ fontWeight: 650, marginBottom: 4 }}>{tipTitle} {monthly ? monthYear(dates[hover]!) : shortDate(dates[hover]!)}</div>
           {series.map((s) => (
             <div className="row" key={s.key}>
               <span>

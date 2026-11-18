@@ -31,6 +31,8 @@ import { OBSERVED_NET_MONTHLY } from '@/core/money/rates'
 import { projectSdp, SDP_CAP } from '@/core/money/sdp'
 import { Briefing } from './Briefing'
 import { PaydayFocus } from './PaydayFocus'
+import { Outlook } from './Outlook'
+import { buildLedger, GROUPS } from '@/core/money/ledger'
 import { RETIREMENT_ACCOUNTS } from '@/core/money/lawschool'
 import { ENTITLEMENTS, TAX, TIMELINE } from '@/core/money/rates'
 import { SCRA_INTEREST_CAP, SCRA_TARGETS, SCRA_EXCLUDED } from '@/core/money/debts'
@@ -191,7 +193,8 @@ export default function MoneyPage() {
   return (
     <>
       <h1>Money</h1>
-      <PaydayFocus allocations={allocations} />
+      <PaydayFocus allocations={allocations} count={allocations.length} />
+      <Outlook ledgers={(['law', 'night', 'macc', 'country'] as const).map((p) => buildLedger(p))} groups={GROUPS} />
       <Briefing />
 
       <details className="detail">
