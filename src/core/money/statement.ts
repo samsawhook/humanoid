@@ -126,7 +126,7 @@ const LIVING_SPLIT: { sub: string; label: string; section: string; keys: string[
 /** One-offs by key prefix. */
 const ONE_OFF_HOME: [RegExp, string, string][] = [
   [/^macc_/, 'personal', 'Education'],
-  [/^anniversary_|^gift_/, 'personal', 'Gifts'],
+  [/^anniversary_|^gift_/, 'sent', 'Gifts'],
   [/^geico_start/, 'car', ''],
   [/^emergency_/, 'emergency', ''],
 ]

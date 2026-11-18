@@ -23,7 +23,7 @@ describe('paycheck statement, gross to cash', () => {
     }
   })
 
-  it('books money to Sommer under Wife & Kids: nanny $1,000 on 15 Nov, top-up from 1 Dec; gifts under personal', () => {
+  it('books money to Sommer under Wife & Kids: nanny $1,000 on 15 Nov, top-up from 1 Dec; gifts too', () => {
     const s = paycheckStatement(all[0]!, all[1])
     const sent = s.spending.find((x) => x.key === 'sent')!
     expect(sent.label).toBe('Wife & Kids')
@@ -31,8 +31,8 @@ describe('paycheck statement, gross to cash', () => {
     expect(sent.lines.find((l) => l.key === 'nanny_topup')).toBeUndefined()
     const dec = paycheckStatement(all[1]!, all[2]).spending.find((x) => x.key === 'sent')!
     expect(dec.lines.find((l) => l.key === 'nanny_topup')!.amount).toBe(200)
-    const personal = s.spending.find((x) => x.key === 'personal')!
-    expect(personal.lines.some((l) => l.label.startsWith('Gifts'))).toBe(true)
+    expect(sent.lines.some((l) => l.label.startsWith('Gifts'))).toBe(true)
+    expect(s.spending.find((x) => x.key === 'personal')!.lines.some((l) => l.label.startsWith('Gifts'))).toBe(false)
     expect(s.investing.lines.find((l) => l.key === 'tsp_match')!.nonCash).toBe(true)
   })
 })
