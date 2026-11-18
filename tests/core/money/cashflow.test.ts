@@ -264,7 +264,7 @@ describe('the real plan', () => {
     // make room) and the 1 Dec scheduled payment takes the last couple of dollars.
     expect(cleared.car_payoff?.clearedOn).toBe('2026-11-13')
     const nov = allocations.find((a) => a.paycheck.scheduledDate === '2026-11-15')!
-    expect(nov.lines.find((l) => l.key === 'car_payoff_now')!.allocated).toBe(794.21)
+    expect(nov.lines.find((l) => l.key === 'car_payoff_now')!.allocated).toBe(799.21)
 
     const after = allocations.filter((a) => a.paycheck.payDate > '2026-11-13')
     expect(after.every((a) => !a.lines.some((l) => l.key === 'car_payoff'))).toBe(true)

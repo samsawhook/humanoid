@@ -167,11 +167,11 @@ export const MORTGAGE_ARREARS_BALANCE =
   Math.round(MORTGAGE_ARREARS_PAYMENTS_LEFT * MORTGAGE_PAYMENT * 100) / 100
 
 /**
- * PAID OFF, 2026-11-18: $794.21 to Westlake (your figure). Was "roughly $850 left" on
+ * PAID OFF, 2026-11-18: $799.21 to Westlake per the bank ($794.21 payoff + a $5 card fee). Was "roughly $850 left" on
  * 11 Nov. Kept as the payoff amount so the 15 Nov cheque shows what actually left.
  * Next: the lien release / title from Westlake, then liability-only insurance.
  */
-export const CAR_LOAN_BALANCE = 794.21
+export const CAR_LOAN_BALANCE = 799.21
 /** Monthly instalment as Monarch saw it drafting in November. Was $330 in the August plan. */
 export const CAR_PAYMENT = 355
 
@@ -191,21 +191,29 @@ export const AUTO_LIABILITY_MONTHLY = 100
  */
 export const ALL_ONE_OFFS: OneOff[] = [
   {
+    key: 'anniversary_flowers',
+    label: '4th anniversary — flowers',
+    date: '2026-11-18',
+    amount: -178.62,
+    note: 'Castros florist, 18 Nov (bank, pending). The robe was $192.06 (The Company Store, 17 Nov).',
+  },
+  {
     key: 'december_trim',
-    label: 'December: $15 less of your own spending',
+    label: 'December: ~$190 less of your own spending',
     date: '2026-12-10',
     /**
      * Not money arriving — $15 of your December PX/personal money not spent. The $75/mo
      * international pass (added 18 Nov) leaves the 15 Dec cheque $11 short of the mortgage
-     * catch-up plus a full $500 Christmas; this keeps both whole.
+     * catch-up plus a full $500 Christmas; the anniversary flowers ($178.62, 18 Nov) add
+     * ~$172 more. ~$95 less PX / eating out on each December cheque keeps both whole.
      */
-    amount: 15,
+    amount: 190,
   },
   {
     key: 'anniversary_robe',
-    label: '4th anniversary — a good robe',
+    label: '4th anniversary — robe (The Company Store)',
     date: '2026-11-16',
-    amount: -200,
+    amount: -192.06,
     note:
       'Your call, 15 Nov: $200, paid with the $200 November nanny top-up, which is not ' +
       'needed this month because she has been out of town.',
