@@ -134,16 +134,16 @@ export function Briefing() {
     },
     {
       level: 'critical',
-      title: 'UT student loan: $11,082 in collections',
+      title: 'UT student loan: $9,907, moved to the Dept of Education',
       body:
-        'Placed for collection, closed 7 Apr 2026. Balance UNCONFIRMED: the 6 Nov SLRP payment may ' +
-        'have paid part or all of it — ask UT first. The creditor is UT itself, which usually means a ' +
-        'Federal Perkins loan: if so, military deferment ' +
-        'and Perkins cancellation for service in an imminent-danger area may apply. Call UT to confirm ' +
-        'the loan type, then ask for those or a written plan. Federal debt in collection weighs heavily ' +
-        'in a security review.',
-      amount: '$11,082',
-      note: 'in collections',
+        'UT (18 Nov): $9,907, transferred to the Department of Education — the usual route for a ' +
+        'school-held Perkins loan. To find it: studentaid.gov → My Aid lists every federal loan with ' +
+        'its type and servicer; if it is in default it is with ED\'s Default Resolution Group ' +
+        '(myeddebt.ed.gov). Compare with Nelnet: if Nelnet\'s total did not jump by ~$9.9k, it is not ' +
+        'there. Then dispute the UT tradeline (it should show transferred, $0) and ask ED for military ' +
+        'deferment, Perkins cancellation for imminent-danger service, and rehabilitation if defaulted.',
+      amount: '$9,907',
+      note: 'find the servicer',
     },
     {
       level: 'warning',

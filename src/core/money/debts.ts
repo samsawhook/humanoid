@@ -319,9 +319,9 @@ export const DEBTS: Debt[] = [
   },
   {
     key: 'ut_loan',
-    label: 'University of Texas student loan',
-    /** Credit Karma (TransUnion), reported 7 Aug 2026. */
-    balance: 11082,
+    label: 'UT student loan (now with the Dept of Education)',
+    /** UT's figure, 18 Nov 2026 (the Aug credit report said $11,082). */
+    balance: 9907,
     instrument: 'installment',
     posture: 'in_collections',
     priority: 7,
@@ -334,7 +334,11 @@ export const DEBTS: Debt[] = [
       'apply. Confirm the loan type with UT before anything else. Not in Monarch. ' +
       'UNCERTAIN (2026-11-13): you think the 6 Nov 2026 SLRP payment also paid this loan, ' +
       'but are not sure. If so the balance is lower, possibly cleared. $11,082 is the Aug ' +
-      'credit-report figure, carried until UT confirms — see TRADELINES.ut_loan.uncertain.',
+      'credit-report figure, carried until UT confirms — see TRADELINES.ut_loan.uncertain. ' +
+      'UPDATE 2026-11-18: UT says $9,907, and the loan was transferred to the Department of ' +
+      'Education — the usual route for a school-held Perkins loan. UT recommended a credit dispute ' +
+      'because it still reports as derogatory. Where it landed (ED servicer or the Default ' +
+      'Resolution Group) not yet pinned down; probably not inside the Nelnet balance.',
   },
 ]
 

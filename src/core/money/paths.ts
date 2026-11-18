@@ -134,8 +134,8 @@ export const PATH_ASSUMPTIONS = {
   /** Payable debt after the deployment: paid at this rate until gone. */
   debtPaydownMonthly: 600,
   debtRate: 0.08,
-  /** UT loan: balance unconfirmed (SLRP may have paid it). Modelled on a $129/mo plan. */
-  utBalance: 11082,
+  /** UT loan, now with the Dept of Education: $9,907 per UT (18 Nov). Modelled on a $129/mo plan. */
+  utBalance: 9907,
   utMonthly: 129,
   utRate: 0.05,
   /** Upgrade + Goldman charge-offs. Held flat pending JAG — identical in both paths. */

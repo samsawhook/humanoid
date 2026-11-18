@@ -93,13 +93,14 @@ describe('balance sheet', () => {
     // The federal student loan ($7,900.12 payoff, added 2026-11-12) is on the sheet now.
     // + the UT student loan in collections ($11,082) and Avant down to $4,509 (2026-11-12).
     // Student loan corrected to $7,193.80 (interest was double-counted), 2026-11-13.
-    expect(Math.round(opening.netWorth)).toBe(-40144)
+    // UT loan $9,907 per UT (was $11,082), 2026-11-18.
+    expect(Math.round(opening.netWorth)).toBe(-38969)
     expect(opening.liquid).toBeLessThan(100)
   })
 
   it('keeps disputed values visible as a sensitivity rather than deleting them', () => {
     expect(opening.disputedTotal).toBeCloseTo(16898.59, 2)
-    expect(Math.round(opening.netWorthIfDisputedAccepted)).toBe(-23245)
+    expect(Math.round(opening.netWorthIfDisputedAccepted)).toBe(-22070)
     // The gap between the two IS the disputed total — nothing else moved.
     expect(opening.netWorthIfDisputedAccepted - opening.netWorth).toBeCloseTo(
       opening.disputedTotal,

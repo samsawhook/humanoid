@@ -81,24 +81,25 @@ export const TRADELINES: Tradeline[] = [
   },
   {
     key: 'ut_loan',
-    creditor: 'University of Texas',
+    creditor: 'University of Texas → Dept of Education',
     kind: 'Student loan (likely Perkins — confirm)',
-    balance: 11082,
+    balance: 9907,
     status: 'collections',
     reported:
       'Placed for collection; closed 7 Apr 2026. Was current Jul 2025–Feb 2026, late Mar 2026, ' +
       'derogatory Apr–Jul. $129/mo, 120-month term from 2015.',
     action:
-      'Call UT Student Loan Collections: ask (1) is this a Federal Perkins loan, (2) military ' +
-      'service deferment, (3) Perkins cancellation for service in an imminent-danger area, ' +
-      '(4) rehabilitation or a written payment plan, (5) the balance after the Nov SLRP ' +
-      'payment. Ask your SLRP manager whether a loan in collection still qualifies. A ' +
-      'school-held federal loan in collection reads as federal debt to a reviewer.',
+      'UT (18 Nov): $9,907, transferred to the Dept of Education; dispute the UT tradeline. ' +
+      '(1) Find it: studentaid.gov → My Aid shows every federal loan, its type and servicer; if it ' +
+      'is in default it sits with ED\'s Default Resolution Group (myeddebt.ed.gov). (2) Dispute the ' +
+      'UT tradeline with each bureau: it should read "transferred, $0", not a live derogatory balance. ' +
+      '(3) With ED: military service deferment, Perkins cancellation for imminent-danger service, ' +
+      'and rehabilitation if it is in default.',
     by: '2026-12-15',
     uncertain:
-      'Balance unconfirmed. You think the 6 Nov 2026 SLRP payment also paid UT, but are not ' +
-      'sure. If it did, this is lower — possibly cleared — and its status may have changed. ' +
-      '$11,082 is the August credit-report figure, kept until UT confirms.',
+      'Where it landed is unconfirmed: transferred to the Dept of Education (UT, 18 Nov), servicer ' +
+      'not yet found, probably not inside Nelnet. Whether the 6 Nov SLRP payment touched it is also ' +
+      'unconfirmed. $9,907 is UT\'s figure.',
     debtKey: 'ut_loan',
   },
   {
