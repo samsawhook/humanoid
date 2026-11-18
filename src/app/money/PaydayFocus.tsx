@@ -5,6 +5,7 @@ import { ACTUALS, ACTUALS_AS_OF, actualsFor, spentOn, type Actual } from '@/core
 import { PAYMENT_INFO, scheduledFor, CHECKING, SAVINGS, type PaymentInfo, type Scheduled } from '@/core/money/execution'
 import { nov1Statement, NOV1 } from '@/core/money/reconstruct'
 import { combineStatements, paycheckStatement, type PaycheckStatement, type StatementLine, type StatementSection } from '@/core/money/statement'
+import { benchmarkRows, type BenchStatus } from '@/core/money/benchmarks'
 
 /**
  * The next six paychecks, open at the top of the Money page.
@@ -457,7 +458,13 @@ function PaydayCard({
   savings,
   short,
   spendable,
+  wide = false,
+  bench = false,
 }: {
+  /** Always laid out across the full width (the month view). */
+  wide?: boolean
+  /** Show how the categories compare: typical, advisor rule, your target. */
+  bench?: boolean
   st: PaycheckStatement
   tag: string
   title: string
@@ -471,7 +478,7 @@ function PaydayCard({
 }) {
   const g = st.gross.total
   return (
-    <article className="pcard">
+    <article className={`pcard${wide ? ' pcard-wide' : ''}`}>
       <header className="pcard-head">
         <div>
           <div className="pcard-tag">{tag}</div>
@@ -481,6 +488,11 @@ function PaydayCard({
         <div className="pcard-gross">
           <div className="pcard-big">{usd(g)}</div>
           <div className="pcard-sub">gross · take-home {usd(st.takeHome)}</div>
+          {!wide && (
+            <label className="wide-toggle">
+              <input type="checkbox" /> <span>⤢ Expand across</span>
+            </label>
+          )}
         </div>
       </header>
 
@@ -509,13 +521,17 @@ function PaydayCard({
           </div>
         )
       })()}
+      <div className="pcard-body">
+      <div className="pcol">
       <Section sec={st.gross} gross={g} spendable={spendable} showActuals={false} sign="" bar={false} />
       <Section sec={st.deductions} gross={g} spendable={spendable} showActuals={false} bar={false} />
       <Total label="Net income" amount={st.netIncome} gross={g} strong />
       {st.spending.map((sec) => (
         <Section key={sec.key} sec={sec} gross={g} spendable={spendable} showActuals={showActuals} />
       ))}
-      <Total label="Free cash flow" amount={st.freeCashFlow} gross={g} note="After home, car, sent home, personal and debt" strong />
+      <Total label="Free cash flow" amount={st.freeCashFlow} gross={g} note="After home, car, Wife & Kids, personal and debt" strong />
+      </div>
+      <div className="pcol">
       <Section sec={st.investing} gross={g} spendable={spendable} showActuals={showActuals} />
       <Section sec={st.netCash} gross={g} spendable={spendable} showActuals={false} sign={st.netCash.total < 0 ? '−' : '+'} bar={false} />
       {(() => {
@@ -550,7 +566,70 @@ function PaydayCard({
       <Section sec={st.balanceSheet} gross={g} spendable={spendable} showActuals={false} sign="+" bar={false} />
       <Total label="Net worth change (approx.)" amount={st.balanceSheet.total} gross={g} strong />
       {short > 0 && <div className="chip chip-over" style={{ marginTop: 8 }}>{usd(short)} of bills can&rsquo;t be covered by this paycheck</div>}
+      </div>
+      </div>
+      {bench && <Benchmarks st={st} />}
     </article>
+  )
+}
+
+const BENCH_CHIP: Record<BenchStatus, { cls: string; text: string }> = {
+  on: { cls: 'paid', text: '✓ On target' },
+  over: { cls: 'over', text: 'Over' },
+  under: { cls: 'warn', text: 'Under' },
+  fixed: { cls: 'auto', text: 'Fixed' },
+  info: { cls: 'auto', text: '—' },
+}
+
+/** The month against typical households, the advisor rules and your targets. */
+function Benchmarks({ st }: { st: PaycheckStatement }) {
+  const rows = benchmarkRows(st)
+  return (
+    <details className="sec bench" open>
+      <summary>
+        <div className="sec-top">
+          <span className="sec-name">How this month compares</span>
+          <span className="sec-amt ln-dim" style={{ fontWeight: 400, fontSize: 12.5 }}>% of gross</span>
+        </div>
+      </summary>
+      <div className="tablewrap">
+        <table className="benchtable">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>You</th>
+              <th>Typical, age 25–34</th>
+              <th>Advisor rule</th>
+              <th>Your target</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.key}>
+                <td>
+                  <i className="swatch-dot" style={{ background: CAT_COLOR[r.key] ?? CAT_COLOR.other, marginRight: 8 }} />
+                  {r.label}
+                </td>
+                <td className="b-you">{r.you.toFixed(1)}%</td>
+                <td>{r.typical}</td>
+                <td>{r.advisor}</td>
+                <td>{r.target}</td>
+                <td>
+                  <span className={`chip chip-${BENCH_CHIP[r.status].cls}`} style={{ marginTop: 0 }}>{BENCH_CHIP[r.status].text}</span>
+                  {r.verdict && <div className="b-verdict">{r.verdict}</div>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="b-note">
+        Typical: US households with a head aged 25–34, approximate (BLS Consumer Expenditure Survey, Fed debt-service ratio,
+        Vanguard How America Saves). Your gross includes untaxed BAH and BAS, so every share reads a little low against a civilian
+        salary. Targets are for this phase: deployed, cards to clear, emergency fund to build.
+      </p>
+    </details>
   )
 }
 
@@ -666,6 +745,8 @@ export function PaydayFocus({
             {present.length > 1 && (
               <div className="pgrid combined">
                 <PaydayCard
+                  wide
+                  bench
                   st={combined}
                   tag="Month"
                   title={`${label} — 1st + 15th`}
