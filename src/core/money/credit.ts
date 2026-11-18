@@ -155,6 +155,19 @@ export const TRADELINES: Tradeline[] = [
     debtKey: 'avant',
   },
   {
+    key: 'caine_weiner',
+    creditor: 'Caine & Weiner (for Progressive)',
+    kind: 'Collection — unpaid auto insurance premiums',
+    balance: 475,
+    status: 'collections',
+    reported: 'Collection for unpaid Progressive premiums, $475 (your figure, 18 Nov 2026).',
+    action:
+      'Ask Caine & Weiner in writing for validation and a settlement or pay-in-full letter that ' +
+      'says the account will be reported paid (ask for deletion; Progressive may agree). Pay only ' +
+      'against that letter, from the 15 Jan cheque, and keep it and the receipt for the review file.',
+    by: '2027-01-15',
+  },
+  {
     key: 'carecredit',
     creditor: 'Synchrony / CareCredit',
     kind: 'Card',

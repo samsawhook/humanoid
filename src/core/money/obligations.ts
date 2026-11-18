@@ -108,11 +108,12 @@ export const STUDENT_LOAN_PAST_DUE = debtBy('student_loan').pastDue ?? 0
 const SCHEDULED_KEYS = scheduledDebts().map((d) => d.key)
 
 /**
- * Tolls and late fees still owed. Was ~$1,100; your update 2026-11-13: "the tolls I think
- * are paid, there's maybe $400 from random pieces left". Paid before the registration
- * renewal all the same, since a Texas toll hold can block it.
+ * Not tolls after all. Your update 2026-11-18: a $475 collection — Caine & Weiner, for
+ * unpaid Progressive auto premiums. (Was the ~$1,100 "tolls and late fees" pile, then
+ * "maybe $400 of random pieces".) A collection account is a review finding, so it gets
+ * paid — ideally settled in writing first. Kept on the 15 Jan cheque.
  */
-export const LATE_PAYMENTS_BALANCE = 400
+export const LATE_PAYMENTS_BALANCE = 475
 
 /** What the drill back pay is actually worth after tax. Computed, never typed in. */
 export const EXPECTED_BACK_PAY_NET = backPay(EXPECTED_BACK_PAY).net
@@ -615,7 +616,7 @@ export const OBLIGATIONS: Obligation[] = [
   },
   {
     key: 'late_payments',
-    label: 'Late payments cleanup — tolls and fees',
+    label: 'Caine & Weiner collection (Progressive premiums)',
     /**
      * Roughly $1,100 of accumulated toll charges and late fees. Small, and exactly the
      * kind of balance that is easy to leave until later — which is why it is ranked as

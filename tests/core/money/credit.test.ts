@@ -7,7 +7,7 @@ describe('credit recovery for the security review', () => {
     const r = reviewReadiness()
     expect(r.ready).toBe(false)
     expect(r.federalDelinquent).toBe(0) // Nelnet: administrative forbearance, 13 Nov
-    expect(r.inCollections).toBe(1) // UT
+    expect(r.inCollections).toBe(2) // UT and Caine & Weiner
     expect(r.chargedOffUndocumented).toBe(2) // Upgrade, Goldman
   })
 
