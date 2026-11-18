@@ -787,7 +787,7 @@ export const OBLIGATIONS: Obligation[] = [
     kind: 'unsecured_debt',
     balanceCap: AVANT_BALANCE,
     capGroup: 'avant',
-    execution: 'manual',
+    execution: 'automatic',
     howTo: 'Autopay it. High rate and no credit line, so there is nothing clever to do here — just do not miss it.',
     note:
       '$210/mo against $4,509. RATE UNKNOWN and described as high, which makes the ' +
@@ -845,7 +845,7 @@ export const OBLIGATIONS: Obligation[] = [
      */
     priority: 39,
     kind: 'unsecured_debt',
-    execution: 'manual',
+    execution: 'automatic',
     howTo: 'Chase, agreed monthly amount.',
     note:
       '$110/mo against $7,290 — it does not clear inside the deployment and is not meant ' +

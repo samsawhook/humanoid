@@ -221,3 +221,8 @@ details.detail > summary { cursor: pointer; font-size: 16px; text-transform: upp
 .paybar { display: inline-block; width: 64px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; flex: none; }
 .paybar > span { display: block; height: 100%; background: var(--good); }
 .payday-foot { display: flex; justify-content: space-between; gap: 8px; border-top: 1px solid var(--line); padding-top: 8px; margin-top: 2px; }
+
+.payline-acct { display: block; font-size: 12px; color: var(--muted); }
+.payline-txn { display: block; font-size: 12px; color: var(--muted); padding-left: 10px; border-left: 2px solid var(--line); margin-top: 2px; }
+.payline-status.todo, .todo-label { color: var(--accent); font-weight: 700; }
+.payline-status.sched { color: var(--accent); }

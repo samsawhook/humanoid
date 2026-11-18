@@ -35,6 +35,15 @@ export interface Actual {
 
 export const ACTUALS: Actual[] = [
   {
+    // Your note, 18 Nov: "I've already sent $1k". Date approximate (the 15 Nov pay landed 13 Nov).
+    date: '2026-11-13',
+    amount: 1000,
+    description: 'Transfer home (to your wife)',
+    lineKey: 'support_home_deployed',
+    payday: '2026-11-15',
+    status: 'posted',
+  },
+  {
     date: '2026-11-16',
     amount: 289.16,
     description: 'T-Mobile — past-due balance',
@@ -101,4 +110,11 @@ export function spentOn(payday: LocalDate, key: string, actuals: Actual[] = ACTU
         .reduce((s, a) => s + a.amount, 0) * 100,
     ) / 100
   )
+}
+
+/** The transactions behind a line (or one-off) on one paycheck, oldest first. */
+export function actualsFor(payday: LocalDate, key: string, actuals: Actual[] = ACTUALS): Actual[] {
+  return actuals
+    .filter((a) => a.payday === payday && (a.lineKey === key || a.oneOffKey === key))
+    .sort((x, y) => (x.date < y.date ? -1 : 1))
 }
