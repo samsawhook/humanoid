@@ -241,6 +241,22 @@ export function Briefing() {
       note: 'Mar + Apr',
     },
     {
+      level: 'good',
+      title: 'Federal job hunt from here — aim to start in early August',
+      body:
+        'You are job hunting while deployed (19 Nov). Now: USAJOBS profile and saved-search alerts — 0511 auditor, ' +
+        '0510 accountant, 0501 financial management, 0560 budget, 0343 program analyst, 0512 IRS revenue agent; ' +
+        'Corpus Christi (the Army Depot, NAS) and remote; watch DCAA (often direct hire), Army Audit Agency, DoD OIG, ' +
+        'GAO, and Pathways internships as a MAcc student. A 2-page federal resume. Upload the DD-214 from the earlier ' +
+        'deployment and the VA letter: 10% already gives 10-point preference, if the DD-214 shows honorable release ' +
+        '(check block 13 for a campaign or expeditionary medal). Feb: file the VA claim before discharge (Benefits ' +
+        'Delivery at Discharge, 180–90 days out) — 30%+ opens noncompetitive appointment — and get a Statement of ' +
+        'Service. Apply in earnest from Feb–Mar; hiring runs 3–5 months; ask for an early-August start (not while on ' +
+        'orders). Each month sooner than the plan’s November start is a month of salary.',
+      amount: 'Aug',
+      note: 'target start',
+    },
+    {
       level: 'serious',
       title: 'Did the SCRA letters go out?',
       body:
