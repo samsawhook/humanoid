@@ -82,6 +82,14 @@ export const ACTUALS: Actual[] = [
     payday: '2026-11-15',
     status: 'pending',
   },
+  {
+    date: '2026-11-18',
+    amount: 74,
+    description: 'GEICO — policy start',
+    oneOffKey: 'geico_start',
+    payday: '2026-11-15',
+    status: 'pending',
+  },
 ]
 
 /** Spent so far against one plan line or one-off, on one paycheck. */

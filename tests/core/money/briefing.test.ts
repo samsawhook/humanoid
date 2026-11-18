@@ -12,7 +12,7 @@ import {
 } from '@/core/money/briefing'
 import { allocateAll } from '@/core/money/allocation'
 import { projectPaychecks } from '@/core/money/paychecks'
-import { OBLIGATIONS, EMERGENCIES, PLAN_START, type ONE_OFFS } from '@/core/money/obligations'
+import { OBLIGATIONS, EMERGENCIES, PLAN_START, CHRISTMAS_BUDGET, type ONE_OFFS } from '@/core/money/obligations'
 
 const base = runPlan()
 
@@ -32,8 +32,8 @@ describe('the briefing', () => {
     // Home in June: the June emergency lands days before the last payday, so the fund
     // has no time to refill — but the cash is there, in checking.
     // With the $75/mo international pass (18 Nov) it comes home short of the full $1,000.
-    // With the phone pass and the MAcc catch-up course it comes home well short of $1,000.
-    expect(base.emergencyFund + base.checking).toBeGreaterThanOrEqual(400)
+    // With the phone pass, the MAcc course and GEICO from Nov, it comes home well short of $1,000.
+    expect(base.emergencyFund + base.checking).toBeGreaterThanOrEqual(250)
   })
 
   it('lands only the uncovered part of an emergency on checking', () => {
@@ -129,7 +129,7 @@ describe('Christmas', () => {
     const base = runPlan()
     const dec = base.allocations.find((a) => a.paycheck.scheduledDate === '2026-12-15')!
     const xmas = dec.lines.find((l) => l.key === 'christmas')!
-    expect(xmas.allocated).toBe(500)
+    expect(xmas.allocated).toBe(CHRISTMAS_BUDGET)
     expect(base.allocations.filter((a) => a.lines.some((l) => l.key === 'christmas'))).toHaveLength(1)
     expect(base.billsUnpaid).toBe(0)
   })

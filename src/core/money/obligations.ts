@@ -49,7 +49,8 @@ export const EMERGENCY_FUND_TARGET = 4500
 export const STARTER_BUFFER = 1000
 
 /** Your figure, 2026-11-11, after seeing what December can carry. */
-export const CHRISTMAS_BUDGET = 500
+/** $500 → $400 on 18 Nov (your call), to make room for GEICO starting now. */
+export const CHRISTMAS_BUDGET = 400
 
 /**
  * Boat restoration still to pay. "$3k total including the $750" (your estimate,
@@ -189,11 +190,12 @@ export const CAR_LOAN_BALANCE = 799.21
 export const CAR_PAYMENT = 355
 
 /**
- * Liability-only insurance on the 2013 Expedition once it is paid off. An ESTIMATE:
- * Texas liability-only averages ~$60–117/mo (Insurify, MoneyGeek, Compare.com, 2026);
- * $100 assumes Corpus Christi rates and limits above the state minimum.
+ * GEICO, bound 18 Nov 2026 (your figures): $74 today to start, then $69 every two weeks.
+ * 26 payments a year = $1,794, booked as $74.75 on each of the 24 paychecks. Was a $100/mo
+ * estimate starting in March.
  */
-export const AUTO_LIABILITY_MONTHLY = 100
+export const AUTO_LIABILITY_BIWEEKLY = 69
+export const AUTO_LIABILITY_MONTHLY = Math.round(((AUTO_LIABILITY_BIWEEKLY * 26) / 12) * 100) / 100
 
 /**
  * Money arriving outside the semi-monthly cycle.
@@ -203,6 +205,24 @@ export const AUTO_LIABILITY_MONTHLY = 100
  * does not exist to the plan.
  */
 export const ALL_ONE_OFFS: OneOff[] = [
+  {
+    key: 'geico_trim_dec',
+    label: 'December: $175 more off your own spending (GEICO)',
+    date: '2026-12-11',
+    amount: 175,
+  },
+  {
+    key: 'geico_trim_jan',
+    label: 'January: $175 more off your own spending (GEICO)',
+    date: '2027-01-05',
+    amount: 175,
+  },
+  {
+    key: 'geico_start',
+    label: 'GEICO — first payment to start the policy',
+    date: '2026-11-18',
+    amount: -74,
+  },
   {
     key: 'macc_catchup_1',
     label: 'MAcc catch-up course (Spring II) — first half',
@@ -432,7 +452,7 @@ export const OBLIGATIONS: Obligation[] = [
   },
   {
     key: 'auto_liability',
-    label: 'Expedition — liability insurance',
+    label: 'Expedition — GEICO liability',
     /**
      * Starts once the loan is gone: with no lienholder, full coverage on a 2013 vehicle
      * is no longer required, and liability is what the law still asks for.
@@ -443,10 +463,10 @@ export const OBLIGATIONS: Obligation[] = [
      * owning a house, you want limits above the 30/60/25 minimum (50/100/50 or better).
      * Replace with the real quote.
      */
-    amountPerPaycheck: AUTO_LIABILITY_MONTHLY,
-    payDays: 'first',
-    /** The car's last payment is 1 Feb; the first liability-only bill is 1 Mar. */
-    activeFrom: '2027-03-01',
+    amountPerPaycheck: Math.round((AUTO_LIABILITY_MONTHLY / 2) * 100) / 100,
+    payDays: 'both',
+    /** First $69 draft about two weeks after the 18 Nov start; the $74 down is a one-off. */
+    activeFrom: '2026-12-01',
     activeTo: null,
     priority: 21,
     kind: 'secured_recurring',
@@ -555,7 +575,7 @@ export const OBLIGATIONS: Obligation[] = [
     payDays: 'both',
     activeFrom: PLAN_AS_OF,
     /**
-     * Pauses for December: Christmas ($500, 15 Dec) IS December's extra, and counting a
+     * Pauses for December: Christmas ($400, 15 Dec) IS December's extra, and counting a
      * $400 allowance on top of it double-counts the month. Resumes in January via
      * `support_home_extras_2027`. This is what keeps every bill paid even if the student
      * loan deferment is refused.
