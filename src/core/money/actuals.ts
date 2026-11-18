@@ -34,12 +34,60 @@ export interface Actual {
 }
 
 export const ACTUALS: Actual[] = [
+  // ── From your 14 Nov screenshots (the Nov 15 pay was spendable from 11 Nov) ──
   {
-    // Your note, 18 Nov: "I've already sent $1k". Date approximate (the 15 Nov pay landed 13 Nov).
-    date: '2026-11-13',
+    date: '2026-11-12',
     amount: 1000,
-    description: 'Transfer home (to your wife)',
+    description: 'Venmo to your wife (authorized 11 Nov)',
     lineKey: 'support_home_deployed',
+    payday: '2026-11-15',
+    status: 'posted',
+  },
+  {
+    date: '2026-11-09',
+    amount: 25,
+    description: 'Mastercard payment',
+    lineKey: 'card_minimums_open',
+    payday: '2026-11-15',
+    status: 'posted',
+  },
+  {
+    date: '2026-11-10',
+    amount: 47,
+    description: 'Online transfer to WF Platinum card',
+    lineKey: 'card_minimums_open',
+    payday: '2026-11-15',
+    status: 'posted',
+  },
+  {
+    date: '2026-11-12',
+    amount: 80,
+    description: 'Lawn service (Cash App)',
+    lineKey: 'living_deployed',
+    payday: '2026-11-15',
+    status: 'posted',
+  },
+  {
+    date: '2026-11-12',
+    amount: 19.95,
+    description: 'HVAC service plan',
+    lineKey: 'living_deployed',
+    payday: '2026-11-15',
+    status: 'posted',
+  },
+  {
+    date: '2026-11-12',
+    amount: 6.54,
+    description: 'Local purchase',
+    lineKey: 'living_deployed',
+    payday: '2026-11-15',
+    status: 'posted',
+  },
+  {
+    date: '2026-11-13',
+    amount: 35,
+    description: 'Cash App transfers ($10 + $25)',
+    lineKey: 'living_deployed',
     payday: '2026-11-15',
     status: 'posted',
   },
