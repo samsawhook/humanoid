@@ -51,11 +51,20 @@ function todayInTexas(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
 }
 
-function PaydayCard({ a, tag }: { a: Allocation; tag: string }) {
+/**
+ * One paycheck, read top to bottom so it adds up:
+ *   take-home + carried in − each line − anything spent before the next payday = carried out.
+ *
+ * One-offs dated between this payday and the next (a gift, an emergency) are shown HERE,
+ * in the period they were spent, not on the next card — the allocator books them into the
+ * next paycheck's opening balance, which is why "carried in" there is already net of them.
+ */
+function PaydayCard({ a, next, tag }: { a: Allocation; next?: Allocation; tag: string }) {
   const lines = a.lines.filter((l) => l.allocated > 0 || l.shortfall > 0)
-  const oneOffs = a.oneOffs ?? []
+  const spentBetween = next?.oneOffs ?? []
   const short = lines.reduce((s, l) => s + l.shortfall, 0)
   const opening = a.openingBuffer ?? 0
+  const carriedOut = next ? next.openingBuffer : a.remainder
   return (
     <div className="panel" style={{ marginBottom: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
@@ -70,19 +79,13 @@ function PaydayCard({ a, tag }: { a: Allocation; tag: string }) {
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 20, fontWeight: 700 }}>{usd(a.paycheck.net)}</div>
           <div className="muted" style={{ fontSize: 12.5 }}>
-            {opening > 0 ? `+ ${usd(opening)} carried in` : 'take-home'}
+            {opening !== 0 ? `${opening > 0 ? '+' : '−'} ${usd(Math.abs(opening))} carried in` : 'take-home'}
           </div>
         </div>
       </div>
       <div className="scroll" style={{ marginTop: 8 }}>
         <table>
           <tbody>
-            {oneOffs.map((o) => (
-              <tr key={`o-${o.key}`}>
-                <td style={{ whiteSpace: 'normal' }}>{o.label}</td>
-                <td className={o.amount < 0 ? 'bad' : 'good'}>{usd(o.amount)}</td>
-              </tr>
-            ))}
             {lines.map((l) => (
               <tr key={l.key}>
                 <td style={{ whiteSpace: 'normal' }}>
@@ -95,9 +98,25 @@ function PaydayCard({ a, tag }: { a: Allocation; tag: string }) {
                 </td>
               </tr>
             ))}
+            {spentBetween.map((o) => (
+              <tr key={`o-${o.key}`}>
+                <td style={{ whiteSpace: 'normal' }}>
+                  {o.label} <span className="muted">· {nice(o.date)}</span>
+                </td>
+                <td className={o.amount < 0 ? 'bad' : 'good'}>{usd(o.amount)}</td>
+              </tr>
+            ))}
             <tr>
-              <td><strong>Left after this paycheck</strong></td>
-              <td><strong className={a.remainder > 0 ? 'good' : 'muted'}>{usd(a.remainder)}</strong></td>
+              <td style={{ whiteSpace: 'normal' }}>
+                <strong>Carried to the next paycheck</strong>
+                {carriedOut > 1 && (
+                  <div className="muted" style={{ fontSize: 12 }}>
+                    Not spare: the plan holds it back for tighter paydays ahead rather than sending it
+                    to savings.
+                  </div>
+                )}
+              </td>
+              <td><strong className={carriedOut > 0 ? 'good' : 'muted'}>{usd(carriedOut)}</strong></td>
             </tr>
           </tbody>
         </table>
@@ -118,8 +137,8 @@ export function PaydayFocus({ allocations, today = todayInTexas() }: { allocatio
     <section style={{ marginBottom: 18 }}>
       <h2 style={{ marginTop: 8 }}>This paycheck and the next</h2>
       <div className="grid2">
-        <PaydayCard a={allocations[ci]!} tag="Now" />
-        {ni !== null && <PaydayCard a={allocations[ni]!} tag="Next" />}
+        <PaydayCard a={allocations[ci]!} next={allocations[ci + 1]} tag="Now" />
+        {ni !== null && <PaydayCard a={allocations[ni]!} next={allocations[ni + 1]} tag="Next" />}
       </div>
     </section>
   )
