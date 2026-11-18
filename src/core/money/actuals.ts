@@ -28,6 +28,8 @@ export interface Actual {
   lineKey?: string
   /** …the one-off it is (a ONE_OFFS key). */
   oneOffKey?: string
+  /** For "your own spending": phone, software, entertainment, personal_local, home_services, fuel. */
+  sub?: string
   /** scheduledDate of the paycheck whose money it came out of. */
   payday: LocalDate
   status: 'posted' | 'pending'
@@ -64,6 +66,7 @@ export const ACTUALS: Actual[] = [
     amount: 80,
     description: 'Lawn service (Cash App)',
     lineKey: 'living_deployed',
+    sub: 'home_services',
     payday: '2026-11-15',
     status: 'posted',
   },
@@ -72,6 +75,7 @@ export const ACTUALS: Actual[] = [
     amount: 19.95,
     description: 'HVAC service plan',
     lineKey: 'living_deployed',
+    sub: 'home_services',
     payday: '2026-11-15',
     status: 'posted',
   },
@@ -80,6 +84,7 @@ export const ACTUALS: Actual[] = [
     amount: 6.54,
     description: 'Local purchase',
     lineKey: 'living_deployed',
+    sub: 'personal_local',
     payday: '2026-11-15',
     status: 'posted',
   },
@@ -88,6 +93,7 @@ export const ACTUALS: Actual[] = [
     amount: 35,
     description: 'Cash App transfers ($10 + $25)',
     lineKey: 'living_deployed',
+    sub: 'personal_local',
     payday: '2026-11-15',
     status: 'posted',
   },
@@ -96,6 +102,7 @@ export const ACTUALS: Actual[] = [
     amount: 289.16,
     description: 'T-Mobile — past-due balance',
     lineKey: 'living_deployed',
+    sub: 'phone',
     payday: '2026-11-15',
     status: 'pending',
   },
@@ -128,6 +135,7 @@ export const ACTUALS: Actual[] = [
     amount: 41.63,
     description: 'AAFES (PX)',
     lineKey: 'living_deployed',
+    sub: 'personal_local',
     payday: '2026-11-15',
     status: 'pending',
   },
@@ -136,6 +144,7 @@ export const ACTUALS: Actual[] = [
     amount: 3.06,
     description: 'Local purchase',
     lineKey: 'living_deployed',
+    sub: 'personal_local',
     payday: '2026-11-15',
     status: 'pending',
   },

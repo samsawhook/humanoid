@@ -205,7 +205,7 @@ details.detail > summary { cursor: pointer; font-size: 16px; text-transform: upp
 .payday-title { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .payday-progress { font-size: 12.5px; margin: 8px 0 2px; display: flex; align-items: center; gap: 8px; }
 /* One grid for category headers and lines alike, so every bar and amount lines up. */
-.payrow { display: grid; grid-template-columns: 1fr 64px 96px; align-items: center; column-gap: 10px; }
+.payrow { display: grid; grid-template-columns: 1fr 64px 48px 92px; align-items: center; column-gap: 8px; }
 .paycat { border-top: 1px solid var(--line); padding: 2px 0 4px; }
 .paycat:first-of-type { margin-top: 8px; }
 .paycat > summary { padding: 7px 0 4px; cursor: pointer; list-style: none; }
@@ -226,3 +226,7 @@ details.detail > summary { cursor: pointer; font-size: 16px; text-transform: upp
 .payline-txn { display: block; font-size: 12px; color: var(--muted); padding-left: 10px; border-left: 2px solid var(--line); margin-top: 2px; }
 .payline-status.todo, .todo-label { color: var(--accent); font-weight: 700; }
 .payline-status.sched { color: var(--accent); }
+
+.paypct { text-align: right; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.payhdr { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 8px; }
+.paytotal { font-weight: 700; border-top: 1.5px solid var(--text); padding: 6px 0; margin-top: 2px; }

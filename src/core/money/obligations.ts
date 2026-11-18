@@ -205,18 +205,24 @@ export const AUTO_LIABILITY_MONTHLY = Math.round(((AUTO_LIABILITY_BIWEEKLY * 26)
  * does not exist to the plan.
  */
 export const ALL_ONE_OFFS: OneOff[] = [
+  // 18 Nov, your call: ~$40 less personal spending on each of the 15 Nov and 1 Dec
+  // paychecks, so the December cuts can be spread across both December paychecks.
+  { key: 'spend_trim_nov', label: '$40 less personal spending (Nov 15 paycheck)', date: '2026-11-25', amount: 40 },
+  { key: 'spend_trim_dec1', label: '$41 less personal spending (Dec 1 paycheck)', date: '2026-12-12', amount: 41 },
   {
     key: 'geico_trim_dec',
-    label: 'December: $175 more off your own spending (GEICO)',
+    label: 'December: $87.50 more off your own spending (GEICO, 1st half)',
     date: '2026-12-11',
-    amount: 175,
+    amount: 87.5,
   },
+  { key: 'geico_trim_dec_2', label: 'December: $87.50 more off your own spending (GEICO, 2nd half)', date: '2026-12-26', amount: 87.5 },
   {
     key: 'geico_trim_jan',
-    label: 'January: $175 more off your own spending (GEICO)',
+    label: 'January: $87.50 more off your own spending (GEICO, 1st half)',
     date: '2027-01-05',
-    amount: 175,
+    amount: 87.5,
   },
+  { key: 'geico_trim_jan_2', label: 'January: $87.50 more off your own spending (GEICO, 2nd half)', date: '2027-01-20', amount: 87.5 },
   {
     key: 'geico_start',
     label: 'GEICO — first payment to start the policy',
@@ -273,17 +279,19 @@ export const ALL_ONE_OFFS: OneOff[] = [
   },
   {
     key: 'december_trim',
-    label: 'December: ~$225 less of your own spending',
+    label: 'December: ~$112 less of your own spending (1st half)',
     date: '2026-12-10',
     /**
      * Not money arriving — $15 of your December PX/personal money not spent. The $75/mo
      * international pass (added 18 Nov) leaves the 15 Dec cheque $11 short of the mortgage
      * catch-up plus a full $500 Christmas; the anniversary flowers ($178.62, 18 Nov) add
      * ~$172 more, and the second catch-up on 15 Jan ~$35 more. ~$112 less PX / eating out
-     * on each December cheque keeps all of it whole.
+     * on each December cheque keeps all of it whole. Split across both December cheques
+     * so neither period's spending goes negative.
      */
-    amount: 225,
+    amount: 112.5,
   },
+  { key: 'december_trim_2', label: 'December: ~$112 less of your own spending (2nd half)', date: '2026-12-24', amount: 112.5 },
   {
     key: 'anniversary_robe',
     label: '4th anniversary — robe (The Company Store)',
@@ -947,7 +955,8 @@ export const OBLIGATIONS: Obligation[] = [
      * Off until the scheduled catch-up is over (15 Dec). You pay in WHOLE payments;
      * letting the sweep send spare partials ahead of it splits the one payment in two.
      */
-    activeFrom: '2026-12-16',
+    /** Whole payments only (your schedule): no partial sweeps before the last catch-up. */
+    activeFrom: '2027-01-16',
     activeTo: null,
     priority: 40,
     kind: 'arrears_catchup',

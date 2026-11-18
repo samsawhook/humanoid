@@ -112,3 +112,18 @@ export const SCHEDULED: Scheduled[] = [
 export function scheduledFor(key: string, payday: LocalDate): Scheduled | undefined {
   return SCHEDULED.find((s) => s.key === key && s.payday === payday)
 }
+
+/** What pays each part of "your own spending". */
+export const SPENDING_INFO: Record<string, PaymentInfo> = {
+  phone: { from: CHECKING, to: 'T-Mobile', how: 'automatic', when: 'AutoPay, 21st', day: 21 },
+  software: { from: CHECKING, to: 'Subscriptions (Claude, Apple, Hugedomains…)', how: 'automatic', when: 'as they renew' },
+  personal_local: { from: CHECKING, to: 'Debit card, Cash App', how: 'automatic', when: 'as you spend' },
+  entertainment: { from: CHECKING, to: 'Debit card', how: 'automatic', when: 'as you spend' },
+  home_services: { from: CHECKING, to: 'HVAC plan, lawn', how: 'automatic', when: 'as billed' },
+  fuel: { from: CHECKING, to: 'Debit card', how: 'automatic', when: 'as you spend' },
+}
+
+/** One-time set-up tasks tied to a paycheck's line — shown as a to-do until done. */
+export const SETUP_TODOS: { key: string; payday: LocalDate; text: string }[] = [
+  { key: 'nth_investments', payday: '2026-12-01', text: 'Set up the ACH before this transfer (or it goes as a $30 wire)' },
+]
