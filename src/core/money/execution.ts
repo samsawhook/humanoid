@@ -66,6 +66,10 @@ export const PAYMENT_INFO: Record<string, PaymentInfo> = {
     to: 'WF Platinum · Credit One · Brightway',
     how: 'manual',
     when: 'by each due date',
+    // From the statements (Jul–Nov): WF Platinum by online transfer (~10th–19th);
+    // Brightway as "Mastercard Payment …28" (~9th–13th); Credit One by its own ACH,
+    // "Credit One Bank Payment" (Jul 9 $215, Sep 1 $90, Oct 16 $150) — not yet in November.
+    note: 'November so far: Brightway $25 (9 Nov), WF Platinum $47 (10 Nov). Credit One not yet — last paid $150 on 16 Oct.',
   },
   card_minimums_closed: {
     from: CHECKING,
