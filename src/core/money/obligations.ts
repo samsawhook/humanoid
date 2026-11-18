@@ -48,6 +48,9 @@ export const EMERGENCY_FUND_TARGET = 4500
  */
 export const STARTER_BUFFER = 1000
 
+/** The regular nanny transfer to Sommer; the $200 top-up is its own line (from 1 Dec). */
+export const NANNY_REGULAR_PER_PAYCHECK = 1000
+
 /** Your figure, 2026-11-11, after seeing what December can carry. */
 /**
  * $500 → $400 on 18 Nov (your call) for GEICO, then → $300 the same day to fit the lawn
@@ -565,8 +568,9 @@ export const OBLIGATIONS: Obligation[] = [
   },
   {
     key: 'support_home_deployed',
-    label: 'Sent home — nannies and household',
-    amountPerPaycheck: SENT_HOME.perPaycheck,
+    label: 'Nanny — regular',
+    /** The regular $1,000 to Sommer for the nanny. The top-up is its own line below. */
+    amountPerPaycheck: NANNY_REGULAR_PER_PAYCHECK,
     payDays: 'both',
     activeFrom: TIMELINE.premobStart,
     activeTo: null,
@@ -578,15 +582,31 @@ export const OBLIGATIONS: Obligation[] = [
     priority: 25,
     kind: 'living',
     execution: 'manual',
-    howTo: 'Transfer $1,000 home the day the pay lands. Covers the nannies and the household.',
+    howTo: 'Venmo $1,000 to Sommer the day the pay lands.',
     note:
       'Your figure, 2026-11-11: $1,000 every payday, and it covers the nannies. Replaces ' +
       'the August model of $750 nannies plus a 1.4× support estimate — together about ' +
       '$2,560/mo against the $2,000 you actually send.',
   },
   {
+    key: 'nanny_topup',
+    label: 'Nanny — top-up',
+    /**
+     * The nanny went to $2,400/mo, so $200 more each paycheck on top of the regular $1,000.
+     * Not on the 15 Nov paycheck (your call, 18 Nov); planned from 1 Dec.
+     */
+    amountPerPaycheck: SENT_HOME.perPaycheck - NANNY_REGULAR_PER_PAYCHECK,
+    payDays: 'both',
+    activeFrom: '2026-12-01',
+    activeTo: null,
+    priority: 25.5,
+    kind: 'living',
+    execution: 'manual',
+    howTo: 'Venmo $200 to Sommer with the regular $1,000.',
+  },
+  {
     key: 'support_home_extras',
-    label: 'Sent home — extras',
+    label: 'Supplemental',
     amountPerPaycheck: SENT_HOME.extrasMonthly / 2,
     payDays: 'both',
     activeFrom: PLAN_AS_OF,
@@ -611,7 +631,7 @@ export const OBLIGATIONS: Obligation[] = [
   },
   {
     key: 'support_home_extras_2027',
-    label: 'Sent home — extras',
+    label: 'Supplemental',
     amountPerPaycheck: SENT_HOME.extrasMonthly / 2,
     payDays: 'both',
     activeFrom: '2027-01-01',

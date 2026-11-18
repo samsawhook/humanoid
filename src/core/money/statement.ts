@@ -5,7 +5,7 @@
  *   Gross income
  *   − Deduction expenses (taxes, FICA, SGLI, the 1st/15th pay-timing shift)
  *   = Net income
- *   − Home, Car, Sent home, Personal spending, Debt payments
+ *   − Home, Car, Wife & Kids, Personal spending, Debt payments
  *   = Free cash flow
  *   − Investing (your 5% TSP — withheld from pay — and Nth)
  *   = Net cash: change to checking + change to savings
@@ -87,6 +87,7 @@ const LINE_HOME: Record<string, string> = {
   car_payoff_now: 'car',
   car_payoff: 'car',
   support_home_deployed: 'sent',
+  nanny_topup: 'sent',
   support_home_extras: 'sent',
   support_home_extras_2027: 'sent',
   christmas: 'sent',
@@ -125,8 +126,6 @@ const LIVING_SPLIT: { sub: string; label: string; section: string; keys: string[
 /** One-offs by key prefix. */
 const ONE_OFF_HOME: [RegExp, string, string][] = [
   [/^macc_/, 'personal', 'Education'],
-  // November's supplemental went to the robe (your call, 15 Nov), so it stays supplemental.
-  [/^anniversary_robe/, 'sent', 'Supplemental'],
   [/^anniversary_|^gift_/, 'personal', 'Gifts'],
   [/^geico_start/, 'car', ''],
   [/^emergency_/, 'emergency', ''],
@@ -135,7 +134,7 @@ const ONE_OFF_HOME: [RegExp, string, string][] = [
 const SECTION_LABEL: Record<string, string> = {
   home: 'Home',
   car: 'Car',
-  sent: 'Sent home',
+  sent: 'Wife & Kids',
   personal: 'Personal spending',
   debt: 'Debt payments',
   emergency: 'Emergencies (assumed)',
@@ -246,26 +245,6 @@ export function paycheckStatement(a: Allocation, next: Allocation | undefined, a
         const line = baseLine('living_deployed', part.label, amt, 0, part.sub)
         if (part.sub === 'personal_local' && cuts > 0) line.note = `After a ${'$' + cuts.toFixed(2)} spending cut this period.`
         push(part.section, line)
-      }
-      continue
-    }
-    if (l.key === 'support_home_deployed') {
-      const regular = Math.min(NANNY_REGULAR, l.allocated)
-      const txns = txnsFor(payday, l.key, undefined, actuals)
-      const sent = spentOf(txns)
-      push('sent', {
-        ...baseLine(l.key, 'Nanny — regular', regular),
-        key: 'nanny_regular',
-        spent: Math.min(sent, regular),
-        txns,
-      })
-      if (l.allocated > regular) {
-        push('sent', {
-          ...baseLine(l.key, 'Nanny — top-up', l.allocated - regular),
-          key: 'nanny_topup',
-          spent: Math.max(0, sent - regular),
-          txns: [],
-        })
       }
       continue
     }

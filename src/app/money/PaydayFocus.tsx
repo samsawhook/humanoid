@@ -87,7 +87,7 @@ interface Group {
 
 const LABELS: Record<string, string> = {
   housing: 'Mortgage',
-  home: 'Sent home',
+  home: 'Wife & Kids',
   you: 'Your spending',
   debt: 'Debt payments',
   invest: 'Investing',

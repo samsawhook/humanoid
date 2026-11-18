@@ -64,6 +64,7 @@ const COLOR: Record<string, string> = {
   living_deployed: seriesColor(3),
   support_home: seriesColor(4),
   support_home_deployed: seriesColor(2),
+  nanny_topup: seriesColor(2),
   support_home_extras: seriesColor(4),
   nth_investments: seriesColor(5),
   debt_agreements: seriesColor(9),

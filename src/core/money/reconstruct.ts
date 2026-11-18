@@ -45,8 +45,8 @@ const T = (date: string, amount: number, description: string, cat: Cat, line: st
 export const NOV1_TXNS: Txn[] = [
   T('2026-11-02', 1381.79, 'Check #5 — Navy Federal mortgage', 'home', 'Mortgage'),
   T('2026-11-02', 355.0, 'Westlake — auto loan payment', 'car', 'Auto loan payment'),
-  T('2026-10-29', 1150.0, 'Venmo to your wife — nanny + top-up', 'sent', 'Nanny + top-up'),
-  T('2026-11-05', 200.0, 'Venmo to your wife — supplemental', 'sent', 'Supplemental'),
+  T('2026-10-29', 1150.0, 'Venmo to Sommer — nanny + top-up', 'sent', 'Nanny + top-up'),
+  T('2026-11-05', 200.0, 'Venmo to Sommer — supplemental', 'sent', 'Supplemental'),
   T('2026-11-02', 26.65, 'Squarespace', 'personal', 'Software & subscriptions'),
   T('2026-11-02', 99.79, 'Hugedomains (sawhook.com)', 'personal', 'Software & subscriptions'),
   T('2026-11-02', 21.78, 'Google Workspace', 'personal', 'Software & subscriptions'),
@@ -84,7 +84,7 @@ const r2 = (n: number) => Math.round(n * 100) / 100
 const LABEL: Record<Cat, string> = {
   home: 'Home',
   car: 'Car',
-  sent: 'Sent home',
+  sent: 'Wife & Kids',
   personal: 'Personal spending',
   debt: 'Debt payments',
   invest: 'Investing',

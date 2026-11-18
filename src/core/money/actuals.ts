@@ -40,7 +40,7 @@ export const ACTUALS: Actual[] = [
   {
     date: '2026-11-12',
     amount: 1000,
-    description: 'Venmo to your wife — nanny (authorized 11 Nov)',
+    description: 'Venmo to Sommer — nanny (authorized 11 Nov)',
     lineKey: 'support_home_deployed',
     payday: '2026-11-15',
     status: 'posted',
@@ -109,7 +109,7 @@ export const ACTUALS: Actual[] = [
   {
     date: '2026-11-17',
     amount: 192.06,
-    description: 'The Company Store — anniversary robe (paid with the Nov supplemental)',
+    description: 'The Company Store — anniversary robe',
     oneOffKey: 'anniversary_robe',
     payday: '2026-11-15',
     status: 'posted',
