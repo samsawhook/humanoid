@@ -123,21 +123,22 @@ export function Briefing() {
   const attention: { level: Level; title: string; body: string; amount?: string; note?: string }[] = [
     {
       level: 'good',
-      title: 'Student loan: current — administrative forbearance',
+      title: 'Student loan: current — call Nelnet for the deferment',
       body:
-        'Nelnet shows nothing due until 10 Feb 2027, then $75.83/mo; the $974.60 past due is ' +
-        'cleared, and default is off the table — protecting SLRP too. Interest still accrues ' +
-        '(~$30/mo): ask for the 0% benefit for imminent-danger service. Save the confirmation, ' +
-        'set autopay for 10 Feb, and check the credit report shows it current next month.',
-      amount: '10 Feb',
-      note: 'next payment',
+        'Administrative forbearance: $0 due until 10 Feb 2027 and default off the table. The plan now ' +
+        'ASSUMES a military service deferment through the deployment (no $75.83 payments from Feb) — ' +
+        'it is what makes room for the MAcc course. Call Nelnet: ask for the deferment and the 0% ' +
+        'interest benefit for imminent-danger service. If they say no, the plan needs re-running.',
+      amount: 'pending',
+      note: 'deferment',
     },
     {
       level: 'critical',
       title: 'UT student loan: $11,082 in collections',
       body:
-        'Placed for collection, closed 7 Apr 2026 — not in Monarch, not in the plan until now. The ' +
-        'creditor is UT itself, which usually means a Federal Perkins loan: if so, military deferment ' +
+        'Placed for collection, closed 7 Apr 2026. Balance UNCONFIRMED: the 6 Nov SLRP payment may ' +
+        'have paid part or all of it — ask UT first. The creditor is UT itself, which usually means a ' +
+        'Federal Perkins loan: if so, military deferment ' +
         'and Perkins cancellation for service in an imminent-danger area may apply. Call UT to confirm ' +
         'the loan type, then ask for those or a written plan. Federal debt in collection weighs heavily ' +
         'in a security review.',
@@ -148,19 +149,18 @@ export function Briefing() {
       level: 'warning',
       title: `Mortgage current ${nice(base.mortgageCurrent)}`,
       body:
-        'NFCU reports one payment behind (30–59 days late, 27 Oct). The one extra full payment goes on ' +
-        `the ${nice(base.mortgageCurrent)} cheque — possible because the student loan is current by ` +
-        'forbearance and the car is paid off. December is the tightest month of the plan: keep your ' +
-        'own spending lean until then. Pay the regular payment on every 1st without fail, and ask NFCU ' +
-        'for a letter once current.',
+        'Two payments behind (October and November). Your schedule: the 1 Dec cheque (~27 Nov) pays ' +
+        'October, 15 Dec pays November, 1 Jan pays December, 15 Jan pays January — current about 13 Jan. ' +
+        'Mark each extra payment "apply to the oldest past-due payment" so it is not taken as principal. ' +
+        'Then ask NFCU for a letter confirming it is current, for the review file.',
       amount: nice(base.mortgageCurrent),
       note: 'current',
     },
     {
       level: 'good',
-      title: 'Car paid off — $794.21, 18 Nov',
+      title: 'Car paid off — $799.21, 18 Nov',
       body:
-        'Westlake is paid in full, $56 under the $850 estimate, with Nth untouched. Next: the lien ' +
+        'Westlake is paid in full ($794.21 + a $5 card fee), under the $850 estimate, with Nth untouched. Next: the lien ' +
         'release and title (call Westlake if nothing arrives by mid-December), keep the payoff letter for ' +
         'the review file, then liability-only insurance before the registration renewal.',
       amount: '+$355/mo',
@@ -186,11 +186,12 @@ export function Briefing() {
         'account, fine; if not, the Chase agreement may have lapsed.',
     },
     {
-      level: 'critical',
-      title: 'Start the SDP allotment',
+      level: 'warning',
+      title: 'SDP: nothing to deposit at plan',
       body:
-        `10% guaranteed on up to ${usd0(SDP_CAP)}, only while you are deployed. Deposits stop when you ` +
-        `leave theatre, so every month it waits is a month that cannot be made up. myPay or finance.`,
+        `10% guaranteed on up to ${usd0(SDP_CAP)}, but only while you are in theatre — deposits close ` +
+        `when you leave (~June). The catch-ups, the collection and the course use every spare dollar until ` +
+        `then, so the plan deposits $0. Worth opening anyway: any windfall (back pay, a refund) earns 10% there.`,
       // At plan the SDP gets little now (the student loan and the boat come first), and a
       // "$1 interest" headline would undersell a 10% guaranteed rate. Show the rate instead.
       amount: base.sdpInterest >= 50 ? usd0(base.sdpInterest) : '10%',
@@ -203,8 +204,8 @@ export function Briefing() {
         `Two mortgage catch-ups (15 Dec, 15 Jan), Caine & Weiner (15 Feb) and the MAcc course (Mar–Apr) ` +
         `use every spare dollar. Tightest payday ${nice(tight?.date ?? null)}: ${usd0(tight?.left ?? 0)} left. ` +
         `A $1,500 emergency in February leaves ${usd0(feb.outcome.billsUnpaid)} unpaid; one in December, ` +
-        `${usd0(early.outcome.billsUnpaid)}. If it happens: call Chase and Nelnet before the due dates, ` +
-        `and Nth waits a couple of weeks. Playbook below.`,
+        `${usd0(early.outcome.billsUnpaid)}. If it happens: the emergency playbook below — Nth and the ` +
+        `nanny are never the give.`,
       amount: usd0(feb.outcome.billsUnpaid),
       note: 'if Feb goes wrong',
     },
@@ -722,14 +723,12 @@ export function Briefing() {
       <h2>The advice</h2>
       <div className="recs">
         <div className="rec">
-          <h3>1. Open the SDP allotment this month</h3>
+          <h3>1. Open the SDP anyway</h3>
           <p>
-            <strong>10% guaranteed, compounded quarterly, on up to {usd0(SDP_CAP)}.</strong> No high-yield
-            account pays half of that. It is paid out within 120 days of leaving theatre — exactly when the
-            deployment pay stops — so it is the landing cushion and the 10% at once. The plan sends it
-            everything after the tolls, the $1,000 buffer and the open cards: {usd0(base.sdpDeposited)} at
-            plan, {usd0(together.sdpDeposited)} if you take every move above. Confirm eligibility with finance
-            first; deposits by allotment in myPay or in cash at finance.
+            <strong>10% guaranteed, compounded quarterly, on up to {usd0(SDP_CAP)}</strong> — but only while
+            you are in theatre, and the plan has nothing spare to put in it before you leave (~June). Open it
+            now regardless, through finance: a windfall (drill back pay, a tax refund, a settlement that comes
+            in under budget) then has somewhere to earn 10% until it pays out within 120 days of leaving.
           </p>
         </div>
         <div className="rec">
@@ -761,37 +760,36 @@ export function Briefing() {
           </p>
         </div>
         <div className="rec">
-          <h3>3. Stop paying $30 to invest $500</h3>
+          <h3>3. Nth by ACH from the 1 Dec transfer</h3>
           <p>
-            Each Nth transfer leaves as an outgoing wire, and Wells Fargo charges $30 for every one —
-            $360 a year, a 6% haircut before the money is invested. Ask for ACH details or pull it from the
-            Bank of America side. Agreed 18 Nov and already in the plan from December.
+            Agreed 18 Nov and in the plan: the same $500, without Wells Fargo&rsquo;s $30 wire fee ($360 a
+            year). Set it up before 1 Dec — ACH details from the recipient, or pull it from the Bank of
+            America side.
           </p>
         </div>
         <div className="rec">
-          <h3>4. Converting the traditional TSP balance to Roth</h3>
+          <h3>4. Convert the traditional TSP to Roth — before 31 December</h3>
           <p>
-            Your contributions are already Roth — the right call in the zone. What sits in traditional is
-            the <strong>agency money</strong>: the 1% automatic and the 4% match always land there, whatever
-            you elect. The whole account is about {usd0(RETIREMENT_ACCOUNTS[0]?.amount ?? 0)} in L 2050.
+            Your own contributions are already Roth. What sits in traditional is the <strong>agency
+            money</strong> (the 1% automatic and the match) — roughly half of the{' '}
+            {usd0(RETIREMENT_ACCOUNTS[0]?.amount ?? 0)}, about $4,500–5,000. TSP in-plan Roth conversions are
+            live (since early 2026): convert all of it before 31 Dec so it lands in 2026, a low-income year
+            for you, at roughly 0–12%. Then convert the 2027 agency deposits late in 2027.
           </p>
           <p>
-            Converting is taxed as ordinary income in the year you do it, so <strong>do it in the year your
-            taxable income is lowest — 2027</strong>, when almost all your pay is excluded and only your
-            wife&rsquo;s income and your few taxable months are on the return. Convert in slices that stay
-            inside your current bracket, and pay the tax from cash, never from the TSP. TSP has announced
-            in-plan Roth conversions; check tsp.gov for whether it is live, or do it after separation by
-            rolling to a Roth IRA.
+            No tax is withheld on a conversion, and the combat-zone extension pushes the payment to ~180 days
+            after you leave theatre — budget a few hundred dollars for it once you are home.
           </p>
         </div>
         <div className="rec">
           <h3>5. The emergency playbook — in this order</h3>
           <p>
-            <strong>1)</strong> the $1,000 cash buffer. <strong>2)</strong> hold the month&rsquo;s extras home.{' '}
-            <strong>3)</strong> move the mortgage catch-up payment back a month (call NFCU first) — never
-            miss the regular one. <strong>4)</strong> SDP emergency withdrawal, with command approval.
-            Nth is never the give. <strong>Never</strong> a new card or a payday loan: one of those undoes a
-            year of this plan, and new debt is the last thing a security review wants to see.
+            <strong>1)</strong> whatever is in the cash buffer. <strong>2)</strong> settle Caine &amp; Weiner
+            low, or move it a month. <strong>3)</strong> before a due date — never after — call Chase, Avant
+            and Nelnet for a short arranged delay. <strong>4)</strong> ask NFCU to move a catch-up payment
+            back a month (never the regular one). <strong>5)</strong> if it lands before TAMU-CC&rsquo;s
+            refund deadline, drop the course. Nth and the nanny are never the give. <strong>Never</strong> a
+            new card or a payday loan: new debt is the last thing a security review wants to see.
           </p>
         </div>
         <div className="rec">

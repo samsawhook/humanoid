@@ -1,0 +1,96 @@
+/**
+ * What has actually been paid, against the plan.
+ *
+ * Fed by hand from your bank screenshots and from Monarch (Wells Fargo does not reach
+ * Monarch's API: those accounts sync through a provider it will not share). Each payment
+ * is matched to the plan line or one-off it pays, and to the paycheck whose money it came
+ * out of, so the payday cards can show spent-to-date against budget.
+ *
+ * Privacy: descriptions are generic. No card numbers, and no merchant names that would
+ * place you (the deployment location stays out of the repo).
+ */
+
+import type { LocalDate } from '../types'
+
+export const ACTUALS_AS_OF = {
+  date: '2026-11-18' as LocalDate,
+  time: '21:12',
+  source: 'Wells Fargo app screenshot (Joint Checking)',
+  /** Available balance the bank showed at that moment. */
+  availableBalance: 845.14,
+}
+
+export interface Actual {
+  date: LocalDate
+  amount: number
+  description: string
+  /** The plan line it pays (an obligation key), or… */
+  lineKey?: string
+  /** …the one-off it is (a ONE_OFFS key). */
+  oneOffKey?: string
+  /** scheduledDate of the paycheck whose money it came out of. */
+  payday: LocalDate
+  status: 'posted' | 'pending'
+}
+
+export const ACTUALS: Actual[] = [
+  {
+    date: '2026-11-16',
+    amount: 289.16,
+    description: 'T-Mobile — past-due balance',
+    lineKey: 'living_deployed',
+    payday: '2026-11-15',
+    status: 'pending',
+  },
+  {
+    date: '2026-11-17',
+    amount: 192.06,
+    description: 'The Company Store — anniversary robe',
+    oneOffKey: 'anniversary_robe',
+    payday: '2026-11-15',
+    status: 'posted',
+  },
+  {
+    date: '2026-11-18',
+    amount: 799.21,
+    description: 'Westlake — auto loan payoff',
+    lineKey: 'car_payoff_now',
+    payday: '2026-11-15',
+    status: 'pending',
+  },
+  {
+    date: '2026-11-18',
+    amount: 178.62,
+    description: 'Florist — anniversary flowers',
+    oneOffKey: 'anniversary_flowers',
+    payday: '2026-11-15',
+    status: 'pending',
+  },
+  {
+    date: '2026-11-18',
+    amount: 41.63,
+    description: 'AAFES (PX)',
+    lineKey: 'living_deployed',
+    payday: '2026-11-15',
+    status: 'pending',
+  },
+  {
+    date: '2026-11-18',
+    amount: 3.06,
+    description: 'Local purchase',
+    lineKey: 'living_deployed',
+    payday: '2026-11-15',
+    status: 'pending',
+  },
+]
+
+/** Spent so far against one plan line or one-off, on one paycheck. */
+export function spentOn(payday: LocalDate, key: string, actuals: Actual[] = ACTUALS): number {
+  return (
+    Math.round(
+      actuals
+        .filter((a) => a.payday === payday && (a.lineKey === key || a.oneOffKey === key))
+        .reduce((s, a) => s + a.amount, 0) * 100,
+    ) / 100
+  )
+}

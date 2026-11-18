@@ -1,12 +1,20 @@
 import type { Allocation } from '@/core/money/allocation'
 import { EARLY_PAY_BUSINESS_DAYS } from '@/core/money/statements'
+import { BUCKETS } from '@/core/money/briefing'
+import { ACTUALS, ACTUALS_AS_OF, spentOn } from '@/core/money/actuals'
 
 /**
- * The two paychecks that matter today: the one you are spending now and the next one.
- * Shown open at the top of the Money page — everything else is detail.
+ * The next six paychecks, open at the top of the Money page.
  *
- * "Current" is the most recent paycheck that is already spendable. Pay lands about two
- * business days before its official date, so a paycheck counts as current from then.
+ * Each card reads top to bottom so it adds up:
+ *   take-home + carried in − each category − spending between paydays = carried out
+ * and its "carried out" is the next card's "carried in".
+ *
+ * Categories are collapsible (the triangle): the header carries the category's budget
+ * and how much of it has actually gone out, from ACTUALS; open it for the lines.
+ *
+ * "Now" is the most recent paycheck that is already spendable — pay lands about two
+ * business days before its official date.
  */
 
 const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
@@ -51,75 +59,199 @@ function todayInTexas(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' })
 }
 
-/**
- * One paycheck, read top to bottom so it adds up:
- *   take-home + carried in − each line − anything spent before the next payday = carried out.
- *
- * One-offs dated between this payday and the next (a gift, an emergency) are shown HERE,
- * in the period they were spent, not on the next card — the allocator books them into the
- * next paycheck's opening balance, which is why "carried in" there is already net of them.
- */
-function PaydayCard({ a, next, tag }: { a: Allocation; next?: Allocation; tag: string }) {
+interface Row {
+  key: string
+  label: string
+  /** Positive = money out. Negative = money in (a one-off arriving, a spending trim). */
+  budget: number
+  spent: number
+  short: number
+  byHand: boolean
+  date?: string
+}
+
+interface Group {
+  key: string
+  label: string
+  rows: Row[]
+}
+
+const LABELS: Record<string, string> = {
+  housing: 'Mortgage',
+  home: 'Sent home',
+  you: 'Your spending',
+  debt: 'Debt payments',
+  invest: 'Investing',
+  save: 'Savings',
+}
+
+export function groupsFor(a: Allocation, next: Allocation | undefined): Group[] {
+  const payday = a.paycheck.scheduledDate
   const lines = a.lines.filter((l) => l.allocated > 0 || l.shortfall > 0)
-  const spentBetween = next?.oneOffs ?? []
-  const short = lines.reduce((s, l) => s + l.shortfall, 0)
+  const toRow = (l: (typeof lines)[number]): Row => ({
+    key: l.key,
+    label: l.label,
+    budget: l.allocated,
+    spent: spentOn(payday, l.key),
+    short: l.shortfall,
+    byHand: l.execution === 'manual',
+  })
+  const groups: Group[] = []
+  const used = new Set<string>()
+  for (const b of BUCKETS) {
+    const mine = lines.filter(
+      (l) => !used.has(l.key) && ((b.keys as readonly string[]).includes(l.key) || (b.keys as readonly string[]).includes(l.capGroup ?? '')),
+    )
+    mine.forEach((l) => used.add(l.key))
+    if (mine.length) groups.push({ key: b.key, label: LABELS[b.key] ?? b.label, rows: mine.map(toRow) })
+  }
+  const other = lines.filter((l) => !used.has(l.key))
+  if (other.length) groups.push({ key: 'other', label: 'Other', rows: other.map(toRow) })
+  // Money in or out between this payday and the next. The allocator books it into the
+  // next paycheck's opening balance; it is shown here, in the period it was spent.
+  const between = next?.oneOffs ?? []
+  if (between.length) {
+    groups.push({
+      key: 'between',
+      label: 'Between paydays',
+      rows: between.map((o) => ({
+        key: o.key,
+        label: o.label,
+        budget: -o.amount,
+        spent: spentOn(payday, o.key),
+        short: 0,
+        byHand: false,
+        date: o.date,
+      })),
+    })
+  }
+  return groups
+}
+
+function Progress({ budget, spent }: { budget: number; spent: number }) {
+  if (budget <= 0) return null
+  const pct = Math.max(0, Math.min(100, (spent / budget) * 100))
+  return (
+    <span className="paybar" aria-hidden>
+      <span style={{ width: `${pct}%` }} />
+    </span>
+  )
+}
+
+function status(row: Row): { text: string; cls: string } {
+  if (row.budget <= 0) return { text: '', cls: 'muted' }
+  if (row.spent >= row.budget - 0.5) return { text: '✓ paid', cls: 'good' }
+  if (row.spent > 0) return { text: `${usd(row.spent)} so far`, cls: 'warn' }
+  return { text: 'not seen yet', cls: 'muted' }
+}
+
+function PaydayCard({
+  a,
+  next,
+  tag,
+  showActuals,
+}: {
+  a: Allocation
+  next?: Allocation
+  tag: string
+  showActuals: boolean
+}) {
+  const groups = groupsFor(a, next)
   const opening = a.openingBuffer ?? 0
   const carriedOut = next ? next.openingBuffer : a.remainder
+  const short = a.lines.reduce((s, l) => s + l.shortfall, 0)
+  const outRows = groups.flatMap((g) => g.rows).filter((r) => r.budget > 0)
+  const budgeted = outRows.reduce((s, r) => s + r.budget, 0)
+  const spent = outRows.reduce((s, r) => s + Math.min(r.spent, r.budget), 0)
   return (
-    <div className="panel" style={{ marginBottom: 0 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+    <div className="panel payday">
+      <div className="payday-head">
         <div>
-          <div className="muted" style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '.05em' }}>{tag}</div>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>{nice(a.paycheck.scheduledDate)} paycheck</div>
+          <div className="muted payday-tag">{tag}</div>
+          <div className="payday-title">{nice(a.paycheck.scheduledDate)}</div>
           <div className="muted" style={{ fontSize: 12.5 }}>
-            Spendable from about {nice(spendableFrom(a.paycheck.payDate))}
-            {a.paycheck.czte ? ' · tax-free (CZTE)' : ''}
+            Spendable ~{nice(spendableFrom(a.paycheck.payDate))}
+            {a.paycheck.czte ? ' · tax-free' : ' · taxed'}
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>{usd(a.paycheck.net)}</div>
+          <div className="payday-title">{usd(a.paycheck.net)}</div>
           <div className="muted" style={{ fontSize: 12.5 }}>
             {opening !== 0 ? `${opening > 0 ? '+' : '−'} ${usd(Math.abs(opening))} carried in` : 'take-home'}
           </div>
         </div>
       </div>
-      <div className="scroll" style={{ marginTop: 8 }}>
-        <table>
-          <tbody>
-            {lines.map((l) => (
-              <tr key={l.key}>
-                <td style={{ whiteSpace: 'normal' }}>
-                  {l.label}
-                  {l.execution === 'manual' && <span className="muted"> · by hand</span>}
-                </td>
-                <td>
-                  {usd(l.allocated)}
-                  {l.shortfall > 0 && <div className="bad" style={{ fontSize: 12 }}>short {usd(l.shortfall)}</div>}
-                </td>
-              </tr>
-            ))}
-            {spentBetween.map((o) => (
-              <tr key={`o-${o.key}`}>
-                <td style={{ whiteSpace: 'normal' }}>
-                  {o.label} <span className="muted">· {nice(o.date)}</span>
-                </td>
-                <td className={o.amount < 0 ? 'bad' : 'good'}>{usd(o.amount)}</td>
-              </tr>
-            ))}
-            <tr>
-              <td style={{ whiteSpace: 'normal' }}>
-                <strong>Carried to the next paycheck</strong>
-                {carriedOut > 1 && (
-                  <div className="muted" style={{ fontSize: 12 }}>
-                    Not spare: the plan holds it back for tighter paydays ahead rather than sending it
-                    to savings.
-                  </div>
-                )}
-              </td>
-              <td><strong className={carriedOut > 0 ? 'good' : 'muted'}>{usd(carriedOut)}</strong></td>
-            </tr>
-          </tbody>
-        </table>
+
+      {showActuals && budgeted > 0 && (
+        <div className="muted payday-progress">
+          <Progress budget={budgeted} spent={spent} />
+          <span>
+            {usd(spent)} of {usd(budgeted)} gone out
+          </span>
+        </div>
+      )}
+
+      {groups.map((g) => {
+        const gBudget = g.rows.reduce((s, r) => s + r.budget, 0)
+        const gOut = g.rows.filter((r) => r.budget > 0)
+        const gSpent = gOut.reduce((s, r) => s + Math.min(r.spent, r.budget), 0)
+        const gOutTotal = gOut.reduce((s, r) => s + r.budget, 0)
+        const gShort = g.rows.reduce((s, r) => s + r.short, 0)
+        return (
+          <details key={g.key} className="paycat">
+            <summary>
+              <span className="paycat-name">{g.label}</span>
+              {showActuals && <Progress budget={gOutTotal} spent={gSpent} />}
+              <span className={`paycat-amt ${gBudget < 0 ? 'good' : ''}`}>
+                {gBudget < 0 ? '+' : '−'}
+                {usd(Math.abs(gBudget))}
+                {gShort > 0 && <span className="bad"> · short {usd(gShort)}</span>}
+              </span>
+            </summary>
+            <table>
+              <tbody>
+                {g.rows.map((r) => {
+                  const st = status(r)
+                  return (
+                    <tr key={r.key}>
+                      <td style={{ whiteSpace: 'normal' }}>
+                        {r.label}
+                        {r.date && <span className="muted"> · {nice(r.date)}</span>}
+                        {r.byHand && <span className="muted"> · by hand</span>}
+                        {showActuals && st.text && (
+                          <div className={st.cls} style={{ fontSize: 12 }}>
+                            {st.text}
+                          </div>
+                        )}
+                        {r.short > 0 && (
+                          <div className="bad" style={{ fontSize: 12 }}>
+                            short {usd(r.short)}
+                          </div>
+                        )}
+                      </td>
+                      <td className={r.budget < 0 ? 'good' : ''}>
+                        {r.budget < 0 ? '+' : ''}
+                        {usd(Math.abs(r.budget))}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </details>
+        )
+      })}
+
+      <div className="payday-foot">
+        <span>
+          <strong>Carried to the next paycheck</strong>
+          {carriedOut > 1 && (
+            <span className="muted" style={{ display: 'block', fontSize: 12 }}>
+              Held for tighter paydays ahead, not spare.
+            </span>
+          )}
+        </span>
+        <strong className={carriedOut > 0 ? 'good' : 'muted'}>{usd(carriedOut)}</strong>
       </div>
       {short > 0 && (
         <div className="bad" style={{ fontSize: 12.5, marginTop: 6 }}>
@@ -130,15 +262,38 @@ function PaydayCard({ a, next, tag }: { a: Allocation; next?: Allocation; tag: s
   )
 }
 
-export function PaydayFocus({ allocations, today = todayInTexas() }: { allocations: Allocation[]; today?: string }) {
+export function PaydayFocus({
+  allocations,
+  today = todayInTexas(),
+  count = 6,
+}: {
+  allocations: Allocation[]
+  today?: string
+  count?: number
+}) {
   if (allocations.length === 0) return null
-  const [ci, ni] = currentAndNext(allocations, today)
+  const [ci] = currentAndNext(allocations, today)
+  const shown = allocations.slice(ci, ci + count)
+  const asOf = ACTUALS_AS_OF
+  const seen = new Set(ACTUALS.map((x) => x.payday))
   return (
     <section style={{ marginBottom: 18 }}>
-      <h2 style={{ marginTop: 8 }}>This paycheck and the next</h2>
-      <div className="grid2">
-        <PaydayCard a={allocations[ci]!} next={allocations[ci + 1]} tag="Now" />
-        {ni !== null && <PaydayCard a={allocations[ni]!} next={allocations[ni + 1]} tag="Next" />}
+      <h2 style={{ marginTop: 8 }}>The next {shown.length} paychecks</h2>
+      <p className="sub" style={{ marginBottom: 10 }}>
+        Paid-so-far as of your last update: <strong>{nice(asOf.date)}, {asOf.time}</strong> ({asOf.source}
+        {asOf.availableBalance != null && <>; {usd(asOf.availableBalance)} available then</>}). Tap a
+        category for its lines.
+      </p>
+      <div className="paydays">
+        {shown.map((a, i) => (
+          <PaydayCard
+            key={a.paycheck.scheduledDate}
+            a={a}
+            next={allocations[ci + i + 1]}
+            tag={i === 0 ? 'Now' : i === 1 ? 'Next' : `+${i} paychecks`}
+            showActuals={seen.has(a.paycheck.scheduledDate)}
+          />
+        ))}
       </div>
     </section>
   )
