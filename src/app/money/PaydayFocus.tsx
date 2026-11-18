@@ -3,7 +3,7 @@ import { EARLY_PAY_BUSINESS_DAYS } from '@/core/money/statements'
 import { BUCKETS } from '@/core/money/briefing'
 import { ACTUALS, ACTUALS_AS_OF, actualsFor, spentOn, type Actual } from '@/core/money/actuals'
 import { PAYMENT_INFO, scheduledFor, CHECKING, SAVINGS, type PaymentInfo, type Scheduled } from '@/core/money/execution'
-import { paycheckStatement, type StatementLine, type StatementSection } from '@/core/money/statement'
+import { combineStatements, paycheckStatement, type PaycheckStatement, type StatementLine, type StatementSection } from '@/core/money/statement'
 
 /**
  * The next six paychecks, open at the top of the Money page.
@@ -302,33 +302,36 @@ function Total({ label, amount, gross, note }: { label: string; amount: number; 
 }
 
 function PaydayCard({
-  a,
-  next,
+  st,
   tag,
+  title,
+  subtitle,
   showActuals,
+  checkingAfter,
   savings,
+  short,
+  spendable,
 }: {
-  a: Allocation
-  next?: Allocation
+  st: PaycheckStatement
   tag: string
+  title: string
+  subtitle: string
   showActuals: boolean
+  checkingAfter: number
   /** Savings (buffer) balance after this paycheck. */
   savings: number
+  short: number
+  spendable: string
 }) {
-  const st = paycheckStatement(a, next)
   const g = st.gross.total
-  const spendable = spendableFrom(a.paycheck.payDate)
-  const checkingAfter = next ? next.openingBuffer : a.remainder
-  const short = a.lines.reduce((s, l) => s + l.shortfall, 0)
   return (
     <div className="panel payday">
       <div className="payday-head">
         <div>
           <div className="muted payday-tag">{tag}</div>
-          <div className="payday-title">{nice(a.paycheck.scheduledDate)}</div>
+          <div className="payday-title">{title}</div>
           <div className="muted" style={{ fontSize: 12.5 }}>
-            Spendable ~{nice(spendable)}
-            {a.paycheck.czte ? ' · tax-free' : ' · taxed'} · take-home {usd(a.paycheck.net)}
+            {subtitle} · take-home {usd(st.takeHome)}
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
@@ -367,6 +370,8 @@ function PaydayCard({
   )
 }
 
+const MONTH_NAME = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+
 export function PaydayFocus({
   allocations,
   today = todayInTexas(),
@@ -378,7 +383,6 @@ export function PaydayFocus({
 }) {
   if (allocations.length === 0) return null
   const [ci] = currentAndNext(allocations, today)
-  const shown = allocations.slice(ci, ci + count)
   const asOf = ACTUALS_AS_OF
   const seen = new Set(ACTUALS.map((x) => x.payday))
   // Savings balance after each paycheck: what the save lines put in, less emergency draws.
@@ -390,26 +394,88 @@ export function PaydayFocus({
     bal -= (x.draws ?? []).reduce((s, d) => s + d.amount, 0)
     savingsAfter.push(Math.round(Math.max(0, bal) * 100) / 100)
   }
+
+  // The months the next `count` paychecks fall in, each with both of its paychecks.
+  const months: string[] = []
+  for (const a of allocations.slice(ci, ci + count)) {
+    const m = a.paycheck.scheduledDate.slice(0, 7)
+    if (!months.includes(m)) months.push(m)
+  }
+  const idx = (m: string, day: '01' | '15') => allocations.findIndex((a) => a.paycheck.scheduledDate === `${m}-${day}`)
+
+  const cardFor = (i: number) => {
+    const a = allocations[i]!
+    const next = allocations[i + 1]
+    const offset = i - ci
+    return {
+      i,
+      st: paycheckStatement(a, next),
+      tag: offset === 0 ? 'Now' : offset === 1 ? 'Next' : offset < 0 ? 'Done' : `+${offset} paychecks`,
+      title: nice(a.paycheck.scheduledDate),
+      subtitle: `Spendable ~${nice(spendableFrom(a.paycheck.payDate))}${a.paycheck.czte ? ' · tax-free' : ' · taxed'}`,
+      showActuals: seen.has(a.paycheck.scheduledDate),
+      checkingAfter: next ? next.openingBuffer : a.remainder,
+      savings: savingsAfter[i] ?? 0,
+      short: a.lines.reduce((s, l) => s + l.shortfall, 0),
+      spendable: spendableFrom(a.paycheck.payDate),
+    }
+  }
+
   return (
     <section style={{ marginBottom: 18 }}>
-      <h2 style={{ marginTop: 8 }}>The next {shown.length} paychecks</h2>
+      <h2 style={{ marginTop: 8 }}>Paychecks by month</h2>
       <p className="sub" style={{ marginBottom: 10 }}>
         Paid-so-far as of your last update: <strong>{nice(asOf.date)}, {asOf.time}</strong> ({asOf.source}
-        {asOf.availableBalance != null && <>; {usd(asOf.availableBalance)} available then</>}). Tap a
-        category to fold it away. <strong className="todo-label">Bold blue</strong> lines are yours to do.
+        {asOf.availableBalance != null && <>; {usd(asOf.availableBalance)} available then</>}). The 1st and the
+        15th sit side by side; tick <em>One-month view</em> to see the month summed. Tap a category to fold it.{' '}
+        <strong className="todo-label">Bold blue</strong> lines are yours to do.
       </p>
-      <div className="paydays">
-        {shown.map((a, i) => (
-          <PaydayCard
-            key={a.paycheck.scheduledDate}
-            a={a}
-            next={allocations[ci + i + 1]}
-            tag={i === 0 ? 'Now' : i === 1 ? 'Next' : `+${i} paychecks`}
-            showActuals={seen.has(a.paycheck.scheduledDate)}
-            savings={savingsAfter[ci + i] ?? 0}
-          />
-        ))}
-      </div>
+      {months.map((m) => {
+        const cards = [idx(m, '01'), idx(m, '15')].map((i) => (i >= 0 ? cardFor(i) : null))
+        const present = cards.filter((c): c is NonNullable<typeof c> => c !== null)
+        const [y, mo] = m.split('-').map(Number)
+        const label = `${MONTH_NAME[mo! - 1]} ${y}`
+        const last = present[present.length - 1]!
+        const combined = combineStatements(present.map((c) => c.st))
+        return (
+          <section className="paymonth" key={m}>
+            <div className="paymonth-head">
+              <h3>{label}</h3>
+              {present.length > 1 && (
+                <label className="paymonth-toggle">
+                  <input type="checkbox" /> One-month view
+                </label>
+              )}
+            </div>
+            <div className="paydays split">
+              {cards.map((c, k) =>
+                c ? (
+                  <PaydayCard key={c.i} {...c} />
+                ) : (
+                  <div key={`empty-${k}`} className="panel payday payday-empty muted">
+                    {k === 0 ? '1st' : '15th'} paycheck — before this plan started.
+                  </div>
+                ),
+              )}
+            </div>
+            {present.length > 1 && (
+              <div className="paydays combined">
+                <PaydayCard
+                  st={combined}
+                  tag="Month"
+                  title={`${label} — 1st + 15th`}
+                  subtitle={present.map((c) => c.title).join(' + ')}
+                  showActuals={present.some((c) => c.showActuals)}
+                  checkingAfter={last.checkingAfter}
+                  savings={last.savings}
+                  short={present.reduce((s, c) => s + c.short, 0)}
+                  spendable={present[0]!.spendable}
+                />
+              </div>
+            )}
+          </section>
+        )
+      })}
     </section>
   )
 }

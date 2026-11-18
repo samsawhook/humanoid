@@ -33,3 +33,22 @@ describe('paycheck statement, gross to cash', () => {
     expect(s.investing.lines.find((l) => l.key === 'tsp_match')!.nonCash).toBe(true)
   })
 })
+
+describe('one-month view', () => {
+  it('sums the 1st and the 15th line by line', async () => {
+    const { combineStatements } = await import('@/core/money/statement')
+    const all = allocateAll(projectPaychecks(PLAN_START, TIMELINE.lastPayday), OBLIGATIONS, ONE_OFFS)
+    const i = all.findIndex((a) => a.paycheck.scheduledDate === '2026-12-01')
+    const a = paycheckStatement(all[i]!, all[i + 1])
+    const b = paycheckStatement(all[i + 1]!, all[i + 2])
+    const m = combineStatements([a, b])
+    expect(m.gross.total).toBeCloseTo(a.gross.total + b.gross.total, 2)
+    expect(m.freeCashFlow).toBeCloseTo(a.freeCashFlow + b.freeCashFlow, 2)
+    expect(m.netCash.total).toBeCloseTo(a.netCash.total + b.netCash.total, 2)
+    const spend = (s: typeof a) => s.spending.reduce((t, x) => t + x.total, 0)
+    expect(spend(m)).toBeCloseTo(spend(a) + spend(b), 2)
+    // the mortgage line appears once, with both payments
+    const home = m.spending.find((s) => s.key === 'home')!
+    expect(home.total).toBeGreaterThan(2700)
+  })
+})

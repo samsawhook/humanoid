@@ -230,3 +230,14 @@ details.detail > summary { cursor: pointer; font-size: 16px; text-transform: upp
 .paypct { text-align: right; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .payhdr { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-top: 8px; }
 .paytotal { font-weight: 700; border-top: 1.5px solid var(--text); padding: 6px 0; margin-top: 2px; }
+
+/* Months: the 1st and the 15th side by side, or summed into one card. */
+.paymonth { margin-bottom: 18px; }
+.paymonth-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 6px 0 8px; }
+.paymonth-head h3 { margin: 0; font-size: 17px; }
+.paymonth-toggle { font-size: 13px; color: var(--accent); cursor: pointer; user-select: none; }
+.paymonth .combined { display: none; grid-template-columns: 1fr; }
+.paymonth:has(.paymonth-toggle input:checked) .split { display: none; }
+.paymonth:has(.paymonth-toggle input:checked) .combined { display: grid; }
+.payday-empty { display: flex; align-items: center; justify-content: center; min-height: 80px; font-size: 13px; align-self: start; }
+@media (max-width: 760px) { .payday-empty { display: none; } }

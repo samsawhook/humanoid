@@ -339,3 +339,47 @@ export function paycheckStatement(a: Allocation, next: Allocation | undefined, a
     takeHome: p.net,
   }
 }
+
+/**
+ * Several paychecks as one statement — a month's 1st and 15th, summed line by line.
+ * Lines with the same key add; their transactions are listed together; a set-up to-do or
+ * a scheduled payment on either paycheck carries through.
+ */
+export function combineStatements(list: PaycheckStatement[]): PaycheckStatement {
+  if (list.length === 1) return list[0]!
+  const mergeSection = (secs: StatementSection[]): StatementSection => {
+    const lines: StatementLine[] = []
+    for (const sec of secs) {
+      for (const l of sec.lines) {
+        const have = lines.find((x) => x.key === l.key)
+        if (!have) {
+          lines.push({ ...l, txns: [...l.txns], spent: l.spent })
+          continue
+        }
+        have.amount = r2(have.amount + l.amount)
+        if (l.spent !== undefined || have.spent !== undefined) have.spent = r2((have.spent ?? 0) + (l.spent ?? 0))
+        have.txns = [...have.txns, ...l.txns]
+        have.short = r2((have.short ?? 0) + (l.short ?? 0)) || undefined
+        have.todo = have.todo ?? l.todo
+        have.scheduled = have.scheduled ?? l.scheduled
+        have.date = undefined
+        if (l.note && l.note !== have.note) have.note = have.note ? `${have.note} ${l.note}` : l.note
+      }
+    }
+    return { key: secs[0]!.key, label: secs[0]!.label, lines, total: r2(sum(lines)) }
+  }
+  const spendingKeys: string[] = []
+  for (const s of list) for (const sec of s.spending) if (!spendingKeys.includes(sec.key)) spendingKeys.push(sec.key)
+  return {
+    payday: list[0]!.payday,
+    gross: mergeSection(list.map((s) => s.gross)),
+    deductions: mergeSection(list.map((s) => s.deductions)),
+    netIncome: r2(list.reduce((t, s) => t + s.netIncome, 0)),
+    spending: spendingKeys.map((k) => mergeSection(list.flatMap((s) => s.spending.filter((x) => x.key === k)))),
+    freeCashFlow: r2(list.reduce((t, s) => t + s.freeCashFlow, 0)),
+    investing: mergeSection(list.map((s) => s.investing)),
+    netCash: mergeSection(list.map((s) => s.netCash)),
+    balanceSheet: mergeSection(list.map((s) => s.balanceSheet)),
+    takeHome: r2(list.reduce((t, s) => t + s.takeHome, 0)),
+  }
+}
