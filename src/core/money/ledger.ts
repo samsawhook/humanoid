@@ -72,7 +72,7 @@ export interface Ledger {
   /** Month by month for five years, then once a year (the year's payments summed). */
   points: LedgerPoint[]
   homeMonth: string
-  /** The path model's months from coming home to a year from now: income and costs. */
+  /** The path model's first twelve months home: income and costs. */
   yearAhead: PathMonth[]
 }
 
@@ -367,7 +367,7 @@ export function buildLedger(path: PathKey | 'country'): Ledger {
     }
   })
 
-  const yearAhead = proj.months.filter((m) => m.month >= homeMonth && m.month <= addMonths('2026-11', 12))
+  const yearAhead = proj.months.filter((m) => m.month >= homeMonth && m.month <= addMonths(homeMonth, 11))
   return { path, label: proj.label, accounts: ACCOUNTS, opening, points, homeMonth, yearAhead }
 }
 

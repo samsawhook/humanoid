@@ -213,16 +213,21 @@ export function paycheckStatement(a: Allocation, next: Allocation | undefined, a
   const investLines: StatementLine[] = [
     {
       key: 'tsp',
-      label: 'TSP — your 5% (Roth, withheld from pay)',
+      label: 'TSP — your 5% of base pay (Roth, withheld)',
       amount: tspEmployee,
       // Withheld at source: it has gone the moment the pay lands.
       spent: tspEmployee,
       txns: [],
-      note: 'Withheld by DFAS before take-home.',
+      note: (() => {
+        const base = p.lines.find((l) => l.key === 'base_pay')?.amount ?? 0
+        return base > 0
+          ? `5% of base pay ($${base.toFixed(2)}), not of gross: BAH, BAS, FSA and the danger pays aren't TSP-eligible unless you elect them, so it shows as ${((tspEmployee / p.gross) * 100).toFixed(1)}% of gross. Withheld by DFAS before take-home.`
+          : 'Withheld by DFAS before take-home.'
+      })(),
     },
     {
       key: 'tsp_match',
-      label: 'TSP — 5% match (from the Army, not your pay)',
+      label: 'TSP — 5% match on base pay (from the Army, not your pay)',
       amount: tspEmployee,
       nonCash: true,
       txns: [],

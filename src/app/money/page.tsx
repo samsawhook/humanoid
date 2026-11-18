@@ -31,7 +31,7 @@ import { OBSERVED_NET_MONTHLY } from '@/core/money/rates'
 import { projectSdp, SDP_CAP } from '@/core/money/sdp'
 import { Briefing } from './Briefing'
 import { PaydayFocus } from './PaydayFocus'
-import { Outlook } from './Outlook'
+import { MoneyShell } from './Outlook'
 import { buildLedger, GROUPS } from '@/core/money/ledger'
 import { RETIREMENT_ACCOUNTS } from '@/core/money/lawschool'
 import { ENTITLEMENTS, TAX, TIMELINE } from '@/core/money/rates'
@@ -193,9 +193,13 @@ export default function MoneyPage() {
   return (
     <>
       <h1>Money</h1>
-      <PaydayFocus allocations={allocations} count={allocations.length} />
-      <Outlook ledgers={(['law', 'night', 'macc', 'country'] as const).map((p) => buildLedger(p))} groups={GROUPS} />
-      <Briefing />
+      <MoneyShell
+        ledgers={(['law', 'night', 'macc', 'country'] as const).map((p) => buildLedger(p))}
+        groups={GROUPS}
+        paychecks={<PaydayFocus allocations={allocations} count={allocations.length} />}
+        briefing={
+          <>
+            <Briefing />
 
       <details className="detail">
         <summary>Working detail — every payday, every line</summary>
@@ -748,6 +752,9 @@ export default function MoneyPage() {
         <code>src/core/money/obligations.ts</code>.
       </p>
       </details>
+          </>
+        }
+      />
     </>
   )
 }

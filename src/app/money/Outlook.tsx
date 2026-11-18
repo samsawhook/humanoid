@@ -7,7 +7,7 @@
  * this component only switches between paths, spans and accounts.
  */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { TrendChart, type TrendSeries } from '@/components/TrendChart'
 import type { AccountDef, GroupKey, Ledger, Side } from '@/core/money/ledger'
 
@@ -410,27 +410,203 @@ function Balances({ ledger, groups }: { ledger: Ledger; groups: Group[] }) {
   )
 }
 
-export function Outlook({ ledgers, groups }: { ledgers: Ledger[]; groups: Group[] }) {
-  const [path, setPath] = useState<string>('law')
-  const ledger = ledgers.find((l) => l.path === path) ?? ledgers[0]!
+function Scenarios({ ledger, groups }: { ledger: Ledger; groups: Group[] }) {
+  const accs = ledger.accounts
+  const side = (p: Bal, sd: Side) => groups.filter((g) => g.side === sd).reduce((t, g) => t + groupTotal(p, accs, g.key), 0)
+  const cashOf = (p: Bal) => (p.bal.checking ?? 0) + (p.bal.savings ?? 0) - (p.bal.gap ?? 0)
+  const at = (m: string) => ledger.points.find((p) => p.month === m)
+  const rows = ledger.yearAhead.map((m) => {
+    const p = at(m.month)!
+    const i = ledger.points.indexOf(p)
+    const prev = ledger.points[i - 1] ?? { bal: ledger.opening }
+    const nw = side(p, 'asset') - side(p, 'debt')
+    const nwPrev = side(prev, 'asset') - side(prev, 'debt')
+    const debtPayable = side(p, 'debt') - groupTotal(p, accs, 'mortgage') - (p.bal.gap ?? 0)
+    const debtPrev = side(prev, 'debt') - groupTotal(prev, accs, 'mortgage') - (prev.bal.gap ?? 0)
+    return {
+      m,
+      cash: cashOf(p),
+      dCash: cashOf(p) - cashOf(prev),
+      debt: debtPayable,
+      dDebt: debtPayable - debtPrev,
+      nw,
+      dNw: nw - nwPrev,
+    }
+  })
+  if (rows.length === 0) return null
+  const sum = (f: (r: (typeof rows)[number]) => number) => rows.reduce((t, r) => t + f(r), 0)
+  const first = ledger.points[ledger.points.indexOf(at(rows[0]!.m.month)!) - 1]!
+  const signed = (n: number) => `${n < 0 ? '−' : '+'}${usd0(Math.abs(n))}`
+  const series: TrendSeries[] = [
+    {
+      key: 'cash',
+      label: 'Cash',
+      color: 'var(--series-4)',
+      points: [{ date: `${first.month}-28`, value: cashOf(first) }, ...rows.map((r) => ({ date: `${r.m.month}-28`, value: r.cash }))],
+    },
+    {
+      key: 'nw',
+      label: 'Net worth',
+      color: 'var(--series-1)',
+      points: [
+        { date: `${first.month}-28`, value: side(first, 'asset') - side(first, 'debt') },
+        ...rows.map((r) => ({ date: `${r.m.month}-28`, value: r.nw })),
+      ],
+    },
+    {
+      key: 'debt',
+      label: 'Debt',
+      color: 'var(--series-5)',
+      points: [
+        { date: `${first.month}-28`, value: side(first, 'debt') - groupTotal(first, accs, 'mortgage') - (first.bal.gap ?? 0) },
+        ...rows.map((r) => ({ date: `${r.m.month}-28`, value: r.debt })),
+      ],
+    },
+  ]
+  const totIn = sum((r) => r.m.totalIncome)
+  const totOut = sum((r) => r.m.totalCosts)
   return (
-    <section className="outlook viz" style={{ marginBottom: 18 }}>
-      <div className="paymonth-head">
-        <h2 style={{ margin: 0 }}>After you&rsquo;re home — by path</h2>
+    <>
+      <div className="nw-tiles">
+        <div><span>Income, first 12 months</span><b>{usd0(totIn)}</b></div>
+        <div><span>Costs</span><b>{usd0(totOut)}</b><small>incl. {usd0(sum((r) => r.m.invested))} invested</small></div>
+        <div><span>Net cash flow</span><b className={totIn - totOut >= 0 ? 'ok' : 'bad'}>{signed(totIn - totOut)}</b></div>
+        <div><span>Net worth change</span><b className={sum((r) => r.dNw) >= 0 ? 'ok' : 'bad'}>{signed(sum((r) => r.dNw))}</b></div>
       </div>
-      <div className="seg seg-wide" role="group" aria-label="Path">
-        {ledgers.map((l) => (
-          <button key={l.path} className={l.path === path ? 'on' : ''} onClick={() => setPath(l.path)}>
-            {PATH_SHORT[l.path] ?? l.label}
+      <TrendChart series={series} height={260} ariaLabel="Cash, debt and net worth, first year home" monthly tipTitle="" />
+      <div className="tablewrap" style={{ marginTop: 10 }}>
+        <table className="baltable cf">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Income</th>
+              <th>Costs</th>
+              <th>Cash flow</th>
+              <th>Cash</th>
+              <th>Debt</th>
+              <th>Δ debt</th>
+              <th>Net worth</th>
+              <th>Δ NW</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.m.month} className="acc-static">
+                <td>
+                  {monLabel(r.m.month)}
+                  <div className="cf-phase">{r.m.phase}</div>
+                </td>
+                <td>{usd0(r.m.totalIncome)}</td>
+                <td>{usd0(r.m.totalCosts)}</td>
+                <td className={r.m.net < 0 ? 'neg' : 'ok'}>{signed(r.m.net)}</td>
+                <td className={r.cash < 0 ? 'neg' : ''}>{usd0(r.cash)}</td>
+                <td>{usd0(r.debt)}</td>
+                <td className={r.dDebt <= 0 ? 'ok' : 'neg'}>{signed(r.dDebt)}</td>
+                <td>{usd0(r.nw)}</td>
+                <td className={r.dNw >= 0 ? 'ok' : 'neg'}>{signed(r.dNw)}</td>
+              </tr>
+            ))}
+            <tr className="side">
+              <td>12 months</td>
+              <td>{usd0(totIn)}</td>
+              <td>{usd0(totOut)}</td>
+              <td>{signed(totIn - totOut)}</td>
+              <td>{usd0(rows.at(-1)!.cash)}</td>
+              <td>{usd0(rows.at(-1)!.debt)}</td>
+              <td>{signed(sum((r) => r.dDebt))}</td>
+              <td>{usd0(rows.at(-1)!.nw)}</td>
+              <td>{signed(sum((r) => r.dNw))}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p className="sub" style={{ margin: '8px 0 14px', fontSize: 12.5 }}>
+        Cash flow is income less costs (costs include the 401(k) and Nth). Cash is checking + savings, less anything borrowed to
+        cover a gap (below zero = borrowed). Debt leaves out the mortgage and that borrowing, and includes Goldman and PSECU, held flat. Δ NW also counts TSP growth, mortgage principal and house value.
+      </p>
+      <h3 className="fig-title" style={{ marginTop: 6 }}>Month by month — tap a heading to open it</h3>
+      <YearAhead ledger={ledger} />
+    </>
+  )
+}
+
+type View = 'paychecks' | 'scenarios' | 'balances' | 'briefing'
+
+const NAV: { key: View; label: string; hint: string }[] = [
+  { key: 'paychecks', label: 'Paycheck allocation', hint: 'Every payday to the end of the deployment' },
+  { key: 'scenarios', label: 'Return scenarios', hint: 'First year home, by path' },
+  { key: 'balances', label: 'Balance sheet', hint: 'Debts & assets over time' },
+  { key: 'briefing', label: 'Briefing & detail', hint: 'Attention items, advice, working' },
+]
+
+/** The Money page: a menu on the left, one view at a time. The path choice is shared. */
+export function MoneyShell({
+  ledgers,
+  groups,
+  paychecks,
+  briefing,
+}: {
+  ledgers: Ledger[]
+  groups: Group[]
+  paychecks: React.ReactNode
+  briefing: React.ReactNode
+}) {
+  const [view, setViewState] = useState<View>('paychecks')
+  const [path, setPath] = useState<string>('law')
+  useEffect(() => {
+    const h = window.location.hash.slice(1) as View
+    if (NAV.some((n) => n.key === h)) setViewState(h)
+  }, [])
+  const setView = (v: View) => {
+    setViewState(v)
+    try {
+      history.replaceState(null, '', `#${v}`)
+    } catch {}
+    window.scrollTo({ top: 0 })
+  }
+  const ledger = ledgers.find((l) => l.path === path) ?? ledgers[0]!
+  const pathPicker = (
+    <div className="seg seg-wide" role="group" aria-label="Path">
+      {ledgers.map((l) => (
+        <button key={l.path} className={l.path === path ? 'on' : ''} onClick={() => setPath(l.path)}>
+          {PATH_SHORT[l.path] ?? l.label}
+        </button>
+      ))}
+    </div>
+  )
+  return (
+    <div className="mlayout">
+      <nav className="mnav" aria-label="Money views">
+        {NAV.map((n) => (
+          <button key={n.key} className={n.key === view ? 'on' : ''} onClick={() => setView(n.key)} aria-current={n.key === view}>
+            <span>{n.label}</span>
+            <small>{n.hint}</small>
           </button>
         ))}
+      </nav>
+      <div className="mview">
+        <div hidden={view !== 'paychecks'}>{paychecks}</div>
+        {view === 'scenarios' && (
+          <section className="outlook viz">
+            <h2 style={{ marginTop: 0 }}>Return scenarios — first year home</h2>
+            {pathPicker}
+            <p className="sub" style={{ margin: '8px 0 10px' }}>
+              <strong>{ledger.label}.</strong> {monLabel(ledger.homeMonth)} to {monLabel(ledger.yearAhead.at(-1)?.month ?? ledger.homeMonth)}, from the
+              20-year model, starting from where the deployment plan leaves you.
+            </p>
+            <Scenarios ledger={ledger} groups={groups} />
+          </section>
+        )}
+        {view === 'balances' && (
+          <section className="outlook viz">
+            <h2 style={{ marginTop: 0 }}>Balance sheet progression</h2>
+            {pathPicker}
+            <div style={{ height: 10 }} />
+            <Balances ledger={ledger} groups={groups} />
+          </section>
+        )}
+        <div hidden={view !== 'briefing'}>{briefing}</div>
       </div>
-      <p className="sub" style={{ margin: '8px 0 10px' }}>
-        <strong>{ledger.label}.</strong> The paychecks above run to the end of the deployment; these are the months from{' '}
-        {monLabel(ledger.homeMonth)} to a year from now, from the 20-year model. Tap a heading to open it.
-      </p>
-      <YearAhead ledger={ledger} />
-      <Balances ledger={ledger} groups={groups} />
-    </section>
+    </div>
   )
 }
