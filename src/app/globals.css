@@ -196,22 +196,28 @@ details.detail > summary { cursor: pointer; font-size: 16px; text-transform: upp
   color: var(--muted); font-weight: 700; margin: 32px 0 10px; }
 
 /* ── Payday cards ──────────────────────────────────────────────────────────── */
-.paydays { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 12px; }
+/* Two columns, three rows on a wide screen; one column on a phone. */
+.paydays { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 760px) { .paydays { grid-template-columns: 1fr; } }
 .payday { margin-bottom: 0; }
 .payday-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
 .payday-tag { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
 .payday-title { font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .payday-progress { font-size: 12.5px; margin: 8px 0 2px; display: flex; align-items: center; gap: 8px; }
-.paycat { border-top: 1px solid var(--line); }
+/* One grid for category headers and lines alike, so every bar and amount lines up. */
+.payrow { display: grid; grid-template-columns: 1fr 64px 96px; align-items: center; column-gap: 10px; }
+.paycat { border-top: 1px solid var(--line); padding: 2px 0 4px; }
 .paycat:first-of-type { margin-top: 8px; }
-.paycat > summary { display: flex; align-items: center; gap: 8px; padding: 7px 0; cursor: pointer; list-style: none; }
+.paycat > summary { padding: 7px 0 4px; cursor: pointer; list-style: none; }
 .paycat > summary::-webkit-details-marker { display: none; }
-.paycat > summary::before { content: '▸'; color: var(--muted); width: 12px; flex: none; transition: transform .12s; }
-.paycat[open] > summary::before { transform: rotate(90deg); }
-.paycat-name { font-weight: 600; flex: 1; }
-.paycat-amt { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.paycat table { margin: 0 0 6px 20px; width: calc(100% - 20px); }
-.paycat td { padding: 4px 6px; font-size: 13.5px; }
+.paycat-name { font-weight: 650; }
+.paycat-name::before { content: '▸'; display: inline-block; color: var(--muted); width: 14px; transition: transform .12s; }
+.paycat[open] .paycat-name::before { transform: rotate(90deg); }
+.payline { padding: 3px 0; font-size: 13.5px; }
+.payline-name { padding-left: 14px; }
+.payline-status { display: block; font-size: 12px; }
+.payamt { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.paybar-cell { display: flex; align-items: center; }
 .paybar { display: inline-block; width: 64px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; flex: none; }
 .paybar > span { display: block; height: 100%; background: var(--good); }
 .payday-foot { display: flex; justify-content: space-between; gap: 8px; border-top: 1px solid var(--line); padding-top: 8px; margin-top: 2px; }

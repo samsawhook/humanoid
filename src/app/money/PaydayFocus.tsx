@@ -198,46 +198,37 @@ function PaydayCard({
         const gOutTotal = gOut.reduce((s, r) => s + r.budget, 0)
         const gShort = g.rows.reduce((s, r) => s + r.short, 0)
         return (
-          <details key={g.key} className="paycat">
-            <summary>
+          <details key={g.key} className="paycat" open>
+            <summary className="payrow">
               <span className="paycat-name">{g.label}</span>
-              {showActuals && <Progress budget={gOutTotal} spent={gSpent} />}
-              <span className={`paycat-amt ${gBudget < 0 ? 'good' : ''}`}>
+              <span className="paybar-cell">{showActuals && <Progress budget={gOutTotal} spent={gSpent} />}</span>
+              <span className={`payamt ${gBudget < 0 ? 'good' : ''}`}>
                 {gBudget < 0 ? '+' : '−'}
                 {usd(Math.abs(gBudget))}
-                {gShort > 0 && <span className="bad"> · short {usd(gShort)}</span>}
               </span>
             </summary>
-            <table>
-              <tbody>
-                {g.rows.map((r) => {
-                  const st = status(r)
-                  return (
-                    <tr key={r.key}>
-                      <td style={{ whiteSpace: 'normal' }}>
-                        {r.label}
-                        {r.date && <span className="muted"> · {nice(r.date)}</span>}
-                        {r.byHand && <span className="muted"> · by hand</span>}
-                        {showActuals && st.text && (
-                          <div className={st.cls} style={{ fontSize: 12 }}>
-                            {st.text}
-                          </div>
-                        )}
-                        {r.short > 0 && (
-                          <div className="bad" style={{ fontSize: 12 }}>
-                            short {usd(r.short)}
-                          </div>
-                        )}
-                      </td>
-                      <td className={r.budget < 0 ? 'good' : ''}>
-                        {r.budget < 0 ? '+' : ''}
-                        {usd(Math.abs(r.budget))}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+            {g.rows.map((r) => {
+              const st = status(r)
+              return (
+                <div className="payrow payline" key={r.key}>
+                  <span className="payline-name">
+                    {r.label}
+                    {r.date && <span className="muted"> · {nice(r.date)}</span>}
+                    {r.byHand && <span className="muted"> · by hand</span>}
+                    {showActuals && st.text && <span className={`payline-status ${st.cls}`}>{st.text}</span>}
+                    {r.short > 0 && <span className="payline-status bad">short {usd(r.short)}</span>}
+                  </span>
+                  <span className="paybar-cell">
+                    {showActuals && r.budget > 0 && <Progress budget={r.budget} spent={r.spent} />}
+                  </span>
+                  <span className={`payamt ${r.budget < 0 ? 'good' : ''}`}>
+                    {r.budget < 0 ? '+' : ''}
+                    {usd(Math.abs(r.budget))}
+                  </span>
+                </div>
+              )
+            })}
+            {gShort > 0 && <div className="bad payline-status">short {usd(gShort)} in this group</div>}
           </details>
         )
       })}
@@ -282,7 +273,7 @@ export function PaydayFocus({
       <p className="sub" style={{ marginBottom: 10 }}>
         Paid-so-far as of your last update: <strong>{nice(asOf.date)}, {asOf.time}</strong> ({asOf.source}
         {asOf.availableBalance != null && <>; {usd(asOf.availableBalance)} available then</>}). Tap a
-        category for its lines.
+        category to fold it away.
       </p>
       <div className="paydays">
         {shown.map((a, i) => (
