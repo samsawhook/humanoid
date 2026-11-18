@@ -190,6 +190,17 @@ export const AUTO_LIABILITY_MONTHLY = 100
  */
 export const ALL_ONE_OFFS: OneOff[] = [
   {
+    key: 'december_trim',
+    label: 'December: $15 less of your own spending',
+    date: '2026-12-10',
+    /**
+     * Not money arriving — $15 of your December PX/personal money not spent. The $75/mo
+     * international pass (added 18 Nov) leaves the 15 Dec cheque $11 short of the mortgage
+     * catch-up plus a full $500 Christmas; this keeps both whole.
+     */
+    amount: 15,
+  },
+  {
     key: 'anniversary_robe',
     label: '4th anniversary — a good robe',
     date: '2026-11-16',

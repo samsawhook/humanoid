@@ -317,12 +317,14 @@ export const DEPLOYED_ACTUALS: ObservedCategory[] = [
   {
     key: 'phone',
     label: 'Phone (T-Mobile)',
-    monthly: 147,
+    /** $147 bill + $75/mo added 18 Nov (your call) — the 30-day international pass. */
+    monthly: 222,
     basis:
       'Nov 2026 bill: $100 plan (2 lines, Go5G Military) + $26.25 iPhone 14 (ends May 2027) + ' +
       '$20.71 Protection 360 = $147. That bill also had $108.39 of international roaming voice ' +
       '($0.50/min) and its fees — NOT modelled: calls move to FaceTime / WhatsApp / Wi-Fi ' +
-      'Calling with Voice Roaming off. If roaming continues, the 15 Dec payday runs ~$130 short. ' +
+      'Calling with Voice Roaming off. Plus $75/mo from 18 Nov (your call): the 30-day international ' +
+      'pass (30GB, unlimited calls) while deployed. ' +
       'AutoPay set for the 21st (from 2026-11-14) — paid from the 15th cheque.',
   },
   {

@@ -146,23 +146,23 @@ export function Briefing() {
     },
     {
       level: 'warning',
-      title: 'Mortgage extra payment moved to 15 Apr',
+      title: `Mortgage current ${nice(base.mortgageCurrent)}`,
       body:
-        'NFCU reports one payment behind (30–59 days late, 27 Oct). With the nanny at $2,400/mo and ' +
-        'Nth untouchable, the one extra payment lands 15 Apr — the date that keeps every bill paid even ' +
-        'if the student-loan deferment is refused (15 Jan if it is approved). The federal loan comes ' +
-        'first: default is the heavier review finding, and SCRA and the "active military duty" note ' +
-        'protect the mortgage. Cost: a few more 30-day marks. Pay the regular payment on every 1st ' +
-        'without fail, and ask NFCU for a letter once current.',
-      amount: '15 Apr',
+        'NFCU reports one payment behind (30–59 days late, 27 Oct). The one extra full payment goes on ' +
+        `the ${nice(base.mortgageCurrent)} cheque — possible because the student loan is current by ` +
+        'forbearance and the car is paid off. December is the tightest month of the plan: keep your ' +
+        'own spending lean until then. Pay the regular payment on every 1st without fail, and ask NFCU ' +
+        'for a letter once current.',
+      amount: nice(base.mortgageCurrent),
       note: 'current',
     },
     {
       level: 'good',
-      title: 'Car paid off from the 15 Nov cheque',
+      title: 'Car paid off — $794.21, 18 Nov',
       body:
-        'The 15 Nov cheque pays the remaining ~$850 outright — with Nth untouched. ' +
-        'Get a payoff quote from Westlake and the lien release in writing; then liability-only insurance.',
+        'Westlake is paid in full, $56 under the $850 estimate, with Nth untouched. Next: the lien ' +
+        'release and title (call Westlake if nothing arrives by mid-December), keep the payoff letter for ' +
+        'the review file, then liability-only insurance before the registration renewal.',
       amount: '+$355/mo',
       note: 'freed from Dec',
     },

@@ -402,10 +402,11 @@ describe('the real plan', () => {
     expect(cleared.car_payoff?.clearedOn).toBe('2026-11-13')
     expect(cleared.student_loan_past_due).toBeUndefined()
     expect(cleared.late_payments?.clearedOn).toBe('2027-01-15')
-    // The $1,000 starter buffer is funded by March (and refilled after February's draw).
+    // The starter buffer gets ~$700 by March. Since the $75/mo international pass (18 Nov)
+    // it no longer reaches the full $1,000 before homecoming.
     expect(
       allocations.reduce((t, a) => t + (a.lines.find((l) => l.key === 'emergency_starter')?.allocated ?? 0), 0),
-    ).toBeGreaterThanOrEqual(1000)
+    ).toBeGreaterThanOrEqual(600)
     // The BACKSTOP case — student loan cured from cash, no deferment — after Christmas,
     // two emergencies and insurance: the open cards are reached but not cleared before
     // homecoming, and nothing is left for the boat or the SDP. The deferment move is what

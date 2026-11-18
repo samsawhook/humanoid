@@ -30,7 +30,8 @@ describe('the briefing', () => {
     for (const d of draws) expect(d.group).toBe('emergency_fund')
     // Home in June: the June emergency lands days before the last payday, so the fund
     // has no time to refill — but the cash is there, in checking.
-    expect(base.emergencyFund + base.checking).toBeGreaterThanOrEqual(1000)
+    // With the $75/mo international pass (18 Nov) it comes home short of the full $1,000.
+    expect(base.emergencyFund + base.checking).toBeGreaterThanOrEqual(600)
   })
 
   it('lands only the uncovered part of an emergency on checking', () => {
@@ -148,8 +149,10 @@ describe('the boat', () => {
     }
   })
 
-  it('gets further with the savings taken — the plan alone leaves nothing for it now', () => {
-    expect(allMoves().boatFunded).toBeGreaterThan(base.boatFunded)
+  it('gets nothing at plan, and no less with the savings taken', () => {
+    // Since the $75/mo international pass (18 Nov), even all the moves together stop
+    // short of the boat: they go to the buffer and the cards first.
+    expect(allMoves().boatFunded).toBeGreaterThanOrEqual(base.boatFunded)
   })
 })
 
