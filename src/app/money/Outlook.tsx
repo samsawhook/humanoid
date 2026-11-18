@@ -578,7 +578,7 @@ export function MoneyShell({
     <div className="mlayout">
       <nav className="mnav" aria-label="Money views">
         {NAV.map((n) => (
-          <button key={n.key} className={n.key === view ? 'on' : ''} onClick={() => setView(n.key)} aria-current={n.key === view}>
+          <button key={n.key} className={n.key === view ? 'on' : ''} onClick={() => setView(n.key)} aria-current={n.key === view} title={n.hint}>
             <span>{n.label}</span>
             <small>{n.hint}</small>
           </button>
