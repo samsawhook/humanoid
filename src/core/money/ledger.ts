@@ -32,7 +32,7 @@ export const GROUPS: { key: GroupKey; label: string; side: Side }[] = [
   { key: 'tsp', label: 'TSP / 401(k)', side: 'asset' },
   { key: 'savings', label: 'Savings', side: 'asset' },
   { key: 'cash', label: 'Cash (checking)', side: 'asset' },
-  { key: 'nth', label: 'Nth Venture', side: 'asset' },
+  { key: 'nth', label: 'Nth Venture (your business)', side: 'asset' },
   { key: 'house', label: 'House value', side: 'asset' },
 ]
 
@@ -162,7 +162,12 @@ export const ACCOUNTS: AccountDef[] = [
   { key: 'tsp', label: 'TSP, then 401(k)', group: 'tsp', note: '5% + 5% match while deployed; 5% + 4% at a civilian job. 6% growth.' },
   { key: 'savings', label: 'Savings', group: 'savings', note: 'Emergency fund, SDP and future fund while deployed; after you are home, all cash above the checking float.' },
   { key: 'checking', label: 'WF Joint Checking', group: 'cash', note: `What each paycheck leaves behind; after you are home, a ${'$'}${CHECKING_FLOAT.toLocaleString()} float.` },
-  { key: 'nth', label: 'Nth Venture', group: 'nth', note: '$500/mo of principal from here, growing at 6%. Earlier contributions not counted.' },
+  {
+    key: 'nth',
+    label: 'Nth Venture — at cost',
+    group: 'nth',
+    note: 'Your business: $500/mo of owner capital and its creditors’ payments, counted at cost from here — no return assumed until it performs. Earlier contributions not counted.',
+  },
   { key: 'house_chamberlain', label: '628 Chamberlain', group: 'house', note: 'Zestimate, rising 3% a year.' },
   { key: 'house_new', label: 'Upgrade home', group: 'house' },
 ]

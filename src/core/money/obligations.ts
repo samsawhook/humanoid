@@ -708,7 +708,12 @@ export const OBLIGATIONS: Obligation[] = [
   },
   {
     key: 'nth_investments',
-    label: 'Nth Investments (ACH)',
+    label: 'Nth Venture — your business (ACH)',
+    /**
+     * What it is (your words, 19 Nov): building a small business, and paying its creditors
+     * while the businesses are not performing. Owner capital and business debt service —
+     * not a market investment, so no return is assumed on it anywhere in the model.
+     */
     /**
      * $500 sent by outgoing WIRE, and Wells Fargo charges $30 for each one — on the
      * statements in September, October and November. So it costs $530 to invest $500:

@@ -63,7 +63,8 @@ const COST_GROUPS: [RegExp, string][] = [
   [/Family support|Children|New baby/, 'Wife & Kids'],
   [/Your spending|Tricare|VA waived/, 'Personal'],
   [/Debt payments|UT loan/, 'Debt payments'],
-  [/401\(k\)|Nth/, 'Investing'],
+  [/Nth/, 'Nth — your business'],
+  [/401\(k\)/, 'Investing (401k)'],
   [/Moving|Bar exam|CPA review|Spouse income/, 'School, exams & moves'],
 ]
 

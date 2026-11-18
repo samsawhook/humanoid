@@ -116,6 +116,11 @@ export const PATH_ASSUMPTIONS = {
   nthPrincipal: 500,
   /** Nominal return on invested money (Nth, TSP, 401k). */
   investReturn: 0.06,
+  /**
+   * Nth is your business: owner capital plus paying its creditors while it does not
+   * perform (19 Nov). Carried at cost — no return assumed until it pays you.
+   */
+  nthReturn: 0,
   cashReturn: 0.03,
   /**
    * Interest on a negative cash balance. A gap has to be borrowed: in law school that is
@@ -470,7 +475,7 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
     let phase = ''
 
     // Growth on what is already held.
-    investments *= 1 + a.investReturn / 12
+    investments *= 1 + a.nthReturn / 12
     retirement *= 1 + a.investReturn / 12
     homeValue *= 1 + a.homeAppreciation / 12
     const interest = mortgage * (a.mortgageRate / 12)
@@ -728,7 +733,7 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
       ut -= utPay
 
       // Nth: never skipped.
-      costs['Nth Investments'] = a.nthMonthly
+      costs['Nth Venture (your business)'] = a.nthMonthly
       investments += a.nthPrincipal
       invested += a.nthMonthly
 

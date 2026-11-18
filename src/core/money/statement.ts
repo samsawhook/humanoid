@@ -399,7 +399,7 @@ export function paycheckStatement(a: Allocation, next: Allocation | undefined, a
   const bsLines: StatementLine[] = [
     { key: 'bs_cash', label: 'Cash (checking + savings)', amount: netCash.total, txns: [] },
     { key: 'bs_tsp', label: 'TSP (your 5% + the match)', amount: r2(tspEmployee * 2), txns: [] },
-    ...(nth ? [{ key: 'bs_nth', label: 'Nth Venture', amount: nth, txns: [] }] : []),
+    ...(nth ? [{ key: 'bs_nth', label: 'Nth Venture — your business, at cost', amount: nth, txns: [] }] : []),
     ...(debtPaid + carPaid ? [{ key: 'bs_debt', label: 'Debt paid down (incl. some interest — approx.)', amount: r2(debtPaid + carPaid), txns: [] }] : []),
     ...(catchUp ? [{ key: 'bs_arrears', label: 'Mortgage past-due made good', amount: r2(catchUp), txns: [] }] : []),
     ...(regularMortgage ? [{ key: 'bs_mortgage', label: 'Mortgage principal (approx.)', amount: regularMortgage, txns: [] }] : []),

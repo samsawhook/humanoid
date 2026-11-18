@@ -84,22 +84,28 @@ export const VOICES: Record<string, { robo: Voice; ramsey: Voice; kiyosaki: Voic
     kiyosaki: { pct: 5, why: 'Pay yourself first; luxuries come from what your assets earn.' },
   },
   debt: {
-    robo: { pct: 15, min: 15, why: 'Avalanche: highest rate first. Paying 25% debt beats any return.' },
-    ramsey: { pct: 35, why: 'Snowball everything into Credit One, then Brightway, then Platinum…' },
-    kiyosaki: { pct: 13, why: 'Kill bad (consumer) debt — but keep buying assets meanwhile.' },
+    robo: { pct: 12, min: 12, why: 'Avalanche: highest rate first. Paying 25% debt beats any return.' },
+    ramsey: { pct: 29, why: 'Snowball everything into Credit One, then Brightway, then Platinum…' },
+    kiyosaki: { pct: 13, why: 'Kill bad (consumer) debt — but keep building the business meanwhile.' },
   },
   invest: {
+    robo: { pct: 6, min: 5.5, max: 9, why: 'TSP 5% of base for the full match. More only once the cards and the runway are done.' },
+    ramsey: { pct: 0, why: 'Pause all investing, the match included, until debt-free. Then 15% to Roth.' },
+    kiyosaki: { pct: 3, why: 'Keep the match; he’s wary of paper retirement funds you don’t control.' },
+  },
+  business: {
     robo: {
       pct: 6,
-      min: 5.5,
-      max: 9,
-      why: 'TSP 5% for the full match, nothing more yet. Nth: one private stake — keep it small until the cards are gone.',
+      why: 'Treat it as a fixed bill while its creditors are owed. Set a date for it to cover its own creditors; if not, restructure.',
     },
-    ramsey: { pct: 0, why: 'Pause all investing, the match included, until debt-free. Then 15% to Roth.' },
-    kiyosaki: { pct: 25, why: 'Buy assets: the Nth business stake, a rental down payment, silver. Light on the TSP.' },
+    ramsey: { pct: 6, why: 'Pay what you personally owe. No new borrowing for it; it has to pay for itself.' },
+    kiyosaki: {
+      pct: 22,
+      why: 'The B quadrant — the right game. But until it pays you it’s a liability: fix its cash flow first.',
+    },
   },
   cash: {
-    robo: { pct: 15, min: 12, why: 'Build 3 months of runway before August — income after the return is uncertain.' },
+    robo: { pct: 12, min: 12, why: 'Build 3 months of runway before August — income after the return is uncertain.' },
     ramsey: { pct: 8, why: 'Baby Step 1: $1,000 starter fund now. Then everything to debt.' },
     kiyosaki: { pct: 3, why: '"Savers are losers": a small buffer; hold the rest in real assets.' },
   },
@@ -168,11 +174,19 @@ const RULES: Rule[] = [
   },
   {
     key: 'invest',
-    label: 'Investing',
+    label: 'Investing (TSP)',
     typical: '≈7% yours, ≈12% with the match',
-    advisor: '15% of gross, match included',
-    target: '≥ 15% with the match',
-    min: 15,
+    advisor: '15% of gross for retirement, match included',
+    target: '5% of base pay + the 5% match',
+    min: 5.5,
+  },
+  {
+    key: 'business',
+    label: 'Nth — your business',
+    typical: 'Most households: 0%',
+    advisor: 'Owner capital: only what you can afford to lose; debts you guarantee count as your debt',
+    target: '$500/mo, never skipped',
+    fixed: 'Fixed by your call: it builds the business and pays its creditors while it isn’t performing.',
   },
   {
     key: 'cash',
@@ -192,6 +206,7 @@ export function benchmarkRows(st: PaycheckStatement): BenchRow[] {
   const pct = (n: number) => r1((n / g) * 100)
   const sec = (k: string) => st.spending.find((s) => s.key === k)?.total ?? 0
   const match = st.investing.lines.filter((l) => l.nonCash).reduce((s, l) => s + l.amount, 0)
+  const nthAmt = st.investing.lines.filter((l) => l.key === 'nth_investments' || /Nth/.test(l.label)).reduce((s, l) => s + l.amount, 0)
   const you: Record<string, number> = {
     deductions: pct(st.deductions.total),
     home: pct(sec('home')),
@@ -199,7 +214,8 @@ export function benchmarkRows(st: PaycheckStatement): BenchRow[] {
     sent: pct(sec('sent')),
     personal: pct(sec('personal')),
     debt: pct(sec('debt')),
-    invest: pct(st.investing.total + match),
+    invest: pct(st.investing.total + match - nthAmt),
+    business: pct(nthAmt),
     cash: pct(st.netCash.total),
   }
   const homeAndDebt = r1(you.home! + you.debt!)
