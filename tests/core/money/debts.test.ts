@@ -27,8 +27,8 @@ describe('debt posture', () => {
     }
   })
 
-  it('holds only $2,221 of open revolving debt', () => {
-    expect(totalBalance(openDebts())).toBeCloseTo(2220.89, 2)
+  it('holds only $2,081 of open revolving debt (Credit One $314.50, 18 Nov)', () => {
+    expect(totalBalance(openDebts())).toBeCloseTo(2081.39, 2)
     expect(openDebts().map((d) => d.key)).toEqual(['platinum', 'brightway', 'credit_one'])
   })
 
@@ -92,7 +92,7 @@ describe('paydown simulation', () => {
   it('then works the closed balances smallest first', () => {
     const result = simulatePaydown(500, 24)
     // Caps at what is owed rather than spending the full 24 × $500 budget.
-    expect(result.totalPaid).toBeCloseTo(7486.89, 2)
+    expect(result.totalPaid).toBeCloseTo(7347.39, 2)
 
     const cleared = result.steps
       .filter((s) => s.clearedAfterPayments !== null)
@@ -121,7 +121,7 @@ describe('paydown simulation', () => {
 
     expect(openDebts().map((d) => d.key)).not.toContain('avant')
     expect(openDebts().every((d) => d.instrument === 'revolving')).toBe(true)
-    expect(totalBalance(openDebts())).toBeCloseTo(2220.89, 2)
+    expect(totalBalance(openDebts())).toBeCloseTo(2081.39, 2)
   })
 
   it('treats Avant as a bill, not a paydown target, since it is already being paid', () => {

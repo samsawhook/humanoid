@@ -152,6 +152,8 @@ export interface CardAccount {
   last?: string
   /** Nothing seen going to this card: say so and ask for a check rather than a payment. */
   unseen?: string
+  /** Autopay you have set up: amount and day of the month. */
+  autopay?: { amount: number; day: number; since: string }
 }
 
 export const CARD_ACCOUNTS: CardAccount[] = [
@@ -177,8 +179,10 @@ export const CARD_ACCOUNTS: CardAccount[] = [
     name: 'Credit One',
     match: /Credit One/i,
     payAt: 'Credit One app — pay from WF Joint Checking',
-    when: 'no fixed day so far: 9 Jul, 1 Sep, 16 Oct',
+    when: 'autopay, 22nd',
     last: '$150 on Fri 16 Oct',
+    // Your note, 18 Nov: autopay $30 on the 22nd.
+    autopay: { amount: 30, day: 22, since: '2026-11-18' },
   },
   {
     key: 'citi',

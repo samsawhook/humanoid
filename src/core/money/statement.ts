@@ -61,7 +61,7 @@ export interface AccountRow {
   minimum: number
   paid: number
   txns: Actual[]
-  status: 'paid' | 'todo' | 'check' | 'later'
+  status: 'paid' | 'todo' | 'check' | 'later' | 'auto'
   /** One sentence: what happened or what to do. */
   text: string
   payAt: string
@@ -250,6 +250,13 @@ export function paycheckStatement(a: Allocation, next: Allocation | undefined, a
         if (paid > 0) {
           status = 'paid'
           text = `Paid ${'$' + paid.toFixed(2)} on ${niceDate(t.at(-1)!.date)}`
+        } else if (c.autopay) {
+          // The first autopay date on or after this paycheck is spendable.
+          const sp = new Date(a.paycheck.payDate + 'T12:00:00Z')
+          sp.setUTCDate(sp.getUTCDate() - 4)
+          const d = new Date(Date.UTC(sp.getUTCFullYear(), sp.getUTCMonth() + (sp.getUTCDate() > c.autopay.day ? 1 : 0), c.autopay.day, 12))
+          status = 'auto'
+          text = `Autopay $${c.autopay.amount} on ${niceDate(d.toISOString().slice(0, 10))} — nothing to do.${live && c.last ? ` Last paid ${c.last}.` : ''}`
         } else if (c.unseen) {
           status = 'check'
           text = `${c.unseen} Open the app — if a minimum is due, pay it (~$${minimum} est.) from WF Joint Checking.`
@@ -260,7 +267,7 @@ export function paycheckStatement(a: Allocation, next: Allocation | undefined, a
           status = 'later'
           text = `Pay ${est} — ${c.when}.`
         }
-        return { key: c.key, name: c.name, minimum, paid, txns: t, status, text, payAt: c.payAt }
+        return { key: c.key, name: c.name, minimum: c.autopay?.amount ?? minimum, paid, txns: t, status, text, payAt: c.payAt }
       })
       return {
         key,

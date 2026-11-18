@@ -131,7 +131,7 @@ export const SCRA_TARGETS: ScraTarget[] = [
     reason: 'Closed account, $3,489 — the largest balance the cap can reach.',
   },
   { creditor: 'Brightway', debtKey: 'brightway', reason: 'Open account, $568.' },
-  { creditor: 'Credit One', debtKey: 'credit_one', reason: 'Open account, $454.' },
+  { creditor: 'Credit One', debtKey: 'credit_one', reason: 'Open account, $314.50 on a $300 limit.' },
 ]
 
 /**
@@ -182,11 +182,14 @@ export const DEBTS: Debt[] = [
   {
     key: 'credit_one',
     label: 'Credit One',
-    balance: 454,
+    /** Your figure, 18 Nov 2026: $314.50 on a $300 limit. */
+    balance: 314.5,
     instrument: 'revolving',
     posture: 'active',
     priority: 30,
-    note: 'Smallest open balance — clears first. Open status confirmed 2026-08-05.',
+    note:
+      'Smallest open balance — clears first. Open status confirmed 2026-08-05. ' +
+      '18 Nov: $314.50 on a $300 limit — over the limit (105% used). Autopay $30 on the 22nd.',
   },
 
   {

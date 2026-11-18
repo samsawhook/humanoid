@@ -350,13 +350,13 @@ function Line({
             <li key={r.key} className={`ar ar-${r.status}`}>
               <div className="ar-top">
                 <span className="ar-name">
-                  <span className="ar-ic">{r.status === 'paid' ? '✓' : r.status === 'todo' ? '●' : r.status === 'check' ? '⚠' : '○'}</span>
+                  <span className="ar-ic">{r.status === 'paid' ? '✓' : r.status === 'todo' ? '●' : r.status === 'check' ? '⚠' : r.status === 'auto' ? '↻' : '○'}</span>
                   {r.name}
                 </span>
-                <span className="ar-amt">{r.paid > 0 ? usd(r.paid) : `~${usd(r.minimum)}`}</span>
+                <span className="ar-amt">{r.paid > 0 ? usd(r.paid) : r.status === 'auto' ? usd(r.minimum) : `~${usd(r.minimum)}`}</span>
               </div>
               <div className="ar-text">{r.text}</div>
-              {r.status !== 'paid' && <div className="ar-where">→ {r.payAt}</div>}
+              {r.status !== 'paid' && r.status !== 'auto' && <div className="ar-where">→ {r.payAt}</div>}
             </li>
           ))}
         </ul>
