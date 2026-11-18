@@ -483,16 +483,35 @@ function PaydayCard({
       <Total label="Free cash flow" amount={st.freeCashFlow} gross={g} note="After home, car, sent home, personal and debt" strong />
       <Section sec={st.investing} gross={g} spendable={spendable} showActuals={showActuals} />
       <Section sec={st.netCash} gross={g} spendable={spendable} showActuals={false} sign={st.netCash.total < 0 ? '−' : '+'} bar={false} />
-      <div className="balances">
-        <div>
-          <span>{CHECKING}</span>
-          <strong>{usd(checkingAfter)}</strong>
-        </div>
-        <div>
-          <span>{SAVINGS}</span>
-          <strong>{usd(savings)}</strong>
-        </div>
-      </div>
+      {(() => {
+        const d = (k: string) => st.netCash.lines.find((l) => l.key === k)?.amount ?? 0
+        const tiles = [
+          { name: CHECKING, after: checkingAfter, delta: d('checking') },
+          { name: SAVINGS, after: savings, delta: d('savings') },
+        ]
+        const other = st.netCash.lines.find((l) => l.key === 'other')
+        return (
+          <div className="balances">
+            {tiles.map((t) => (
+              <div key={t.name}>
+                <span>{t.name} · est. after</span>
+                <strong>{usd(t.after)}</strong>
+                <em className={t.delta < 0 ? 'neg' : t.delta > 0 ? 'pos' : ''}>
+                  {t.delta >= 0 ? '+' : '−'}
+                  {usd(Math.abs(t.delta))} · from {usd(t.after - t.delta)}
+                </em>
+              </div>
+            ))}
+            {other && (
+              <div>
+                <span>Your other account</span>
+                <strong>{other.amount < 0 ? '−' : '+'}{usd(Math.abs(other.amount))}</strong>
+                <em className={other.amount < 0 ? 'neg' : 'pos'}>moved into checking</em>
+              </div>
+            )}
+          </div>
+        )
+      })()}
       <Section sec={st.balanceSheet} gross={g} spendable={spendable} showActuals={false} sign="+" bar={false} />
       <Total label="Net worth change (approx.)" amount={st.balanceSheet.total} gross={g} strong />
       {short > 0 && <div className="chip chip-over" style={{ marginTop: 8 }}>{usd(short)} of bills can&rsquo;t be covered by this paycheck</div>}
@@ -544,7 +563,8 @@ export function PaydayFocus({
       title: nice(a.paycheck.scheduledDate),
       subtitle: `Spendable ~${nice(spendableFrom(a.paycheck.payDate))}${a.paycheck.czte ? ' · tax-free' : ' · taxed'}`,
       showActuals: seen.has(a.paycheck.scheduledDate),
-      checkingAfter: next ? next.openingBuffer : a.remainder,
+      // The plan starts from $0; the real account came into it with what the 1 Nov paycheck left.
+      checkingAfter: (next ? next.openingBuffer : a.remainder) + NOV1.checkingAfter,
       savings: savingsAfter[i] ?? 0,
       short: a.lines.reduce((s, l) => s + l.shortfall, 0),
       spendable: spendableFrom(a.paycheck.payDate),
