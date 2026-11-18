@@ -274,17 +274,20 @@ describe('the real plan', () => {
    * Your call, 2026-11-11: the catch-up ends in January. Whole payments — the servicer
    * counts missed payments, so two full ones beat the same money spread as partials.
    */
-  it('finishes the mortgage catch-up with one whole payment, on the date that keeps every bill paid', () => {
-    // One payment behind per the credit report. With the student loan in administrative
-    // forbearance (13 Nov), the one extra payment fits on the 15 Dec cheque.
+  it('finishes the mortgage catch-up with two whole payments, 15 Dec and 15 Jan', () => {
+    // Your schedule (18 Nov): 1 Dec pays October, 15 Dec November, 1 Jan December,
+    // 15 Jan January — two behind today, current about 13 Jan.
     expect(cleared.mortgage_arrears!.clearedOn! <= MORTGAGE_CATCHUP_LAST).toBe(true)
-    expect(cleared.mortgage_arrears?.clearedOn).toBe('2026-12-15')
+    expect(cleared.mortgage_arrears?.clearedOn).toBe('2027-01-15')
     const catchups = allocations.flatMap((a) =>
       a.lines
         .filter((l) => (l.capGroup ?? l.key) === 'mortgage_arrears' && l.allocated > 0)
         .map((l) => ({ on: a.paycheck.scheduledDate, amount: l.allocated })),
     )
-    expect(catchups).toEqual([{ on: '2026-12-15', amount: MORTGAGE_PAYMENT }])
+    expect(catchups).toEqual([
+      { on: '2026-12-15', amount: MORTGAGE_PAYMENT },
+      { on: '2027-01-15', amount: MORTGAGE_PAYMENT },
+    ])
   })
 
   /**
@@ -401,7 +404,8 @@ describe('the real plan', () => {
     // cure payment); the mortgage extra on 15 Dec; the last ~$400 of tolls on 15 Jan.
     expect(cleared.car_payoff?.clearedOn).toBe('2026-11-13')
     expect(cleared.student_loan_past_due).toBeUndefined()
-    expect(cleared.late_payments?.clearedOn).toBe('2027-01-15')
+    // Caine & Weiner: 15 Feb, behind the second catch-up.
+    expect(cleared.late_payments?.clearedOn).toBe('2027-02-15')
     // The starter buffer gets ~$400+ (phone pass, then the MAcc course). Since the $75/mo international pass (18 Nov)
     // it no longer reaches the full $1,000 before homecoming.
     expect(
@@ -575,12 +579,12 @@ describe('clearance-first order (2026-11-12 rewrite)', () => {
       expect(a.lines.some((l) => l.key.startsWith('student_loan'))).toBe(false)
     }
   })
-  it('pays the car off and clears the tolls before the registration renewal', () => {
+  it('pays the car off, and the Caine & Weiner collection right after the catch-up', () => {
     expect(c.car_payoff!.clearedOn! <= '2026-11-15').toBe(true)
-    expect(c.late_payments!.clearedOn! <= '2027-01-15').toBe(true)
+    expect(c.late_payments!.clearedOn! <= '2027-02-15').toBe(true)
   })
-  it('brings the mortgage current on 15 Dec with every bill paid, and Nth is never skipped', () => {
-    expect(c.mortgage_arrears!.clearedOn).toBe('2026-12-15')
+  it('brings the mortgage current on 15 Jan with every bill paid, and Nth is never skipped', () => {
+    expect(c.mortgage_arrears!.clearedOn).toBe('2027-01-15')
     const firsts = all.filter((a) => a.paycheck.scheduledDate.endsWith('-01'))
     for (const a of firsts) expect(a.lines.some((l) => l.key === 'nth_investments' && l.shortfall === 0)).toBe(true)
     expect(all.every((a) => a.lines.filter((l) => !l.swept && !l.target && l.kind !== 'arrears_catchup').every((l) => l.shortfall === 0))).toBe(true)

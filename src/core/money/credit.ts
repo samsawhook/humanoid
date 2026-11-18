@@ -111,9 +111,10 @@ export const TRADELINES: Tradeline[] = [
       '30–59 days late as of 27 Oct — one payment behind. 15/11/6 times 30/60/90 late since ' +
       '2023. "Active military duty" and a dispute noted.',
     action:
-      'One extra full payment on 15 Jan makes it current — deliberately after the federal ' +
-      'student loan, which is the heavier review finding. Regular payment every 1st without ' +
-      'fail; then ask NFCU for a letter confirming it is current.',
+      'Your schedule (18 Nov): the 1 Dec cheque pays October, 15 Dec November, 1 Jan December, ' +
+      '15 Jan January — current about 13 Jan, when the 15 Jan pay lands. Mark each extra ' +
+      'payment "apply to the oldest past-due payment". Then ask NFCU for a letter confirming ' +
+      'it is current.',
     by: '2027-01-15',
   },
   {
@@ -164,8 +165,9 @@ export const TRADELINES: Tradeline[] = [
     action:
       'Ask Caine & Weiner in writing for validation and a settlement or pay-in-full letter that ' +
       'says the account will be reported paid (ask for deletion; Progressive may agree). Pay only ' +
-      'against that letter, from the 15 Jan cheque, and keep it and the receipt for the review file.',
-    by: '2027-01-15',
+      'against that letter, from the 15 Feb cheque (15 Jan carries the last mortgage catch-up), ' +
+      'and keep it and the receipt for the review file.',
+    by: '2027-02-15',
   },
   {
     key: 'carecredit',

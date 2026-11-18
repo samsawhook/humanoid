@@ -18,7 +18,8 @@ const base = runPlan()
 
 describe('the briefing', () => {
   it('pays every bill even with the two assumed emergencies', () => {
-    expect(EMERGENCIES).toHaveLength(2)
+    // One in the plan (June); February's moved to the stress test on 18 Nov.
+    expect(EMERGENCIES).toHaveLength(1)
     expect(base.billsUnpaid).toBe(0)
   })
 

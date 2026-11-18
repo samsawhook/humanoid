@@ -97,6 +97,7 @@ export function Briefing() {
   const tight = tightestPayday(base)
   const startDebt = openingDebt()
   const early = stress.find((s) => s.case.key === 'early')!
+  const feb = stress.find((s) => s.case.key === 'feb')!
   const calm = stress.find((s) => s.case.key === 'none')!
   const freed = MORTGAGE_PAYMENT + CAR_PAYMENT
   const emergencyTotal = -EMERGENCIES.reduce((s, e) => s + e.amount, 0)
@@ -197,13 +198,15 @@ export function Briefing() {
     },
     {
       level: 'warning',
-      title: `December to February is thin`,
+      title: `December to March has no room for a surprise`,
       body:
-        `Tightest payday ${nice(tight?.date ?? null)}: ${usd0(tight?.left ?? 0)} left after bills. ` +
-        `An emergency before February leaves ${usd0(early.outcome.billsUnpaid)} of bills unpaid ` +
-        `(Nth, then Avant, then Chase give). Playbook below.`,
-      amount: usd0(early.outcome.billsUnpaid),
-      note: 'at risk',
+        `Two mortgage catch-ups (15 Dec, 15 Jan), Caine & Weiner (15 Feb) and the MAcc course (Mar–Apr) ` +
+        `use every spare dollar. Tightest payday ${nice(tight?.date ?? null)}: ${usd0(tight?.left ?? 0)} left. ` +
+        `A $1,500 emergency in February leaves ${usd0(feb.outcome.billsUnpaid)} unpaid; one in December, ` +
+        `${usd0(early.outcome.billsUnpaid)}. If it happens: call Chase and Nelnet before the due dates, ` +
+        `and Nth waits a couple of weeks. Playbook below.`,
+      amount: usd0(feb.outcome.billsUnpaid),
+      note: 'if Feb goes wrong',
     },
     {
       level: 'warning',
@@ -216,12 +219,12 @@ export function Briefing() {
     },
     {
       level: 'serious',
-      title: 'Caine & Weiner collection — $475, paid 15 Jan',
+      title: 'Caine & Weiner collection — $475, paid 15 Feb',
       body:
         'Unpaid Progressive premiums, now with a collector. A collection is a review finding. Write first: ' +
         'ask for validation and a settlement or pay-in-full letter that says it will be reported paid ' +
-        '(ask for deletion). Pay only against that letter, on 15 Jan — the earliest the plan can carry it ' +
-        'alongside the December catch-up and Christmas — and keep both for the review file.',
+        '(ask for deletion). Pay only against that letter, on 15 Feb — the earliest the plan can carry it ' +
+        'after the two mortgage catch-ups (15 Dec, 15 Jan) — and keep both for the review file.',
       amount: settle ? signed(settle.delta) : '$475',
       note: settle ? 'if settled at $300' : 'due',
     },
@@ -304,7 +307,7 @@ export function Briefing() {
             <>
               Every bill paid, the house <em>current {nice(base.mortgageCurrent)}</em>, and{' '}
               <em>{usd0(startDebt - base.debtLeft)}</em> of debt gone before you come home —{' '}
-              <span style={{ whiteSpace: 'nowrap' }}>even after two emergencies.</span>
+              <span style={{ whiteSpace: 'nowrap' }}>even after an emergency in June.</span>
             </>
           ) : (
             <>{usd0(base.billsUnpaid)} of bills go unpaid as modelled.</>
@@ -508,7 +511,7 @@ export function Briefing() {
           <>
             Cash is the emergency fund, checking and SDP deposits; debt is everything you are actually
             paying (cards, Avant, Chase, car, arrears, tolls — not Goldman or PSECU, not mortgage
-            principal). Dashed red lines are the two assumed emergencies: the fund pays what it holds,
+            principal). The dashed red line is the assumed June emergency: the fund pays what it holds,
             refills, and the plan carries on. Hover or tap for any payday.
           </>
         }
@@ -681,10 +684,11 @@ export function Briefing() {
         title="Cash for coming home, if things go wrong"
         caption={
           <>
-            The plan already assumes two emergencies ({usd0(emergencyTotal)}). A quiet year is worth{' '}
-            {signed(calm.outcome.comingHomeCash - base.comingHomeCash)}; a third emergency costs most of the
-            SDP but no bills. The one that breaks something is an emergency <em>during the catch-up</em>,
-            before the buffer exists — which is why the playbook below exists.
+            The plan assumes one emergency, in June ({usd0(emergencyTotal)}). A quiet year is worth{' '}
+            {signed(calm.outcome.comingHomeCash - base.comingHomeCash)}. What breaks something is an emergency
+            between December and March, while the catch-ups, the collection and the course use every spare
+            dollar: a February one leaves {usd0(feb.outcome.billsUnpaid)} unpaid — which is why the playbook
+            below exists.
           </>
         }
       >
@@ -734,7 +738,7 @@ export function Briefing() {
             Nelnet put the loan in <strong>administrative forbearance</strong>: the $974.60 past due is
             cleared, nothing is due until <strong>10 February</strong>, then $75.83 a month. That took federal
             default — the heaviest finding in a review, and a threat to SLRP — off the table, and it freed
-            the December cash that now brings the <strong>mortgage current on 15 December</strong>.
+            the cash for the two catch-up payments that bring the <strong>mortgage current about 13 January</strong>.
           </p>
           <p>
             Two loose ends. Interest still accrues in forbearance (~$30 a month): ask for the{' '}

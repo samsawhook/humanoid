@@ -29,6 +29,7 @@ import {
   OBLIGATIONS,
   ONE_OFFS,
   EMERGENCIES,
+  FEB_EMERGENCY,
   PLAN_START,
   AGREEMENT_MONTHLY,
 } from './obligations'
@@ -274,11 +275,13 @@ export interface StressCase {
 
 export const STRESS_CASES: StressCase[] = [
   { key: 'none', label: 'Nothing goes wrong', emergencies: [] },
-  { key: 'base', label: 'Two emergencies — the plan', emergencies: EMERGENCIES },
+  { key: 'base', label: 'One emergency (June) — the plan', emergencies: EMERGENCIES },
+  { key: 'feb', label: 'A February emergency too', emergencies: [FEB_EMERGENCY, ...EMERGENCIES] },
   {
     key: 'three',
     label: 'Three emergencies',
     emergencies: [
+      FEB_EMERGENCY,
       ...EMERGENCIES,
       {
         key: 'emergency_third',
@@ -306,7 +309,7 @@ export const STRESS_CASES: StressCase[] = [
 ]
 
 export function stressTest(cases: StressCase[] = STRESS_CASES) {
-  const nonEmergency = ONE_OFFS.filter((o) => !EMERGENCIES.some((e) => e.key === o.key))
+  const nonEmergency = ONE_OFFS.filter((o) => ![...EMERGENCIES, FEB_EMERGENCY].some((e) => e.key === o.key))
   return cases.map((c) => ({
     case: c,
     totalHit: round2(-c.emergencies.reduce((s, e) => s + e.amount, 0)),

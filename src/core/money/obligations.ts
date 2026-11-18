@@ -114,6 +114,11 @@ const SCHEDULED_KEYS = scheduledDebts().map((d) => d.key)
  * paid — ideally settled in writing first. Kept on the 15 Jan cheque.
  */
 export const LATE_PAYMENTS_BALANCE = 475
+/**
+ * 15 Feb, not 15 Jan: the 15 Jan cheque now carries the second mortgage catch-up
+ * (18 Nov schedule), and Caine & Weiner fits on the next 15th.
+ */
+export const COLLECTION_PAY_DATE = '2027-02-15' as const
 
 /** What the drill back pay is actually worth after tax. Computed, never typed in. */
 export const EXPECTED_BACK_PAY_NET = backPay(EXPECTED_BACK_PAY).net
@@ -152,7 +157,13 @@ export const MORTGAGE_PAYMENT = 1381.79
  * than every month. Modelled as two to go, on the 15 December and 15 January cheques;
  * if the count is different, change it here — the end date is MORTGAGE_CATCHUP_LAST.
  */
-export const MORTGAGE_ARREARS_PAYMENTS_LEFT = 1
+/**
+ * TWO, from 2026-11-18 — your schedule: the 1 Dec cheque (spendable ~27 Nov) pays
+ * OCTOBER, 15 Dec pays November, 1 Jan pays December, 15 Jan pays January — caught up
+ * about 13 Jan, when the 15 Jan pay lands two business days early. So two payments
+ * behind today (October and November), made good on the 15 Dec and 15 Jan cheques.
+ */
+export const MORTGAGE_ARREARS_PAYMENTS_LEFT = 2
 /** Your call, 2026-11-11: the catch-up finishes in January. The last extra payment is the 15 January cheque. */
 /**
  * The extra mortgage payment's date. History: 15 Jan (your first deadline) → 15 Apr
@@ -162,7 +173,9 @@ export const MORTGAGE_ARREARS_PAYMENTS_LEFT = 1
  * fits on the 15 Dec cheque with every bill still paid. Current a month sooner than any
  * earlier plan, which is what a security review wants to see.
  */
-export const MORTGAGE_CATCHUP_LAST = '2026-12-15' as const
+export const MORTGAGE_CATCHUP_FIRST = '2026-12-15' as const
+/** The second catch-up payment: the 15 Jan cheque, spendable ~13 Jan. Current from then. */
+export const MORTGAGE_CATCHUP_LAST = '2027-01-15' as const
 export const MORTGAGE_ARREARS_BALANCE =
   Math.round(MORTGAGE_ARREARS_PAYMENTS_LEFT * MORTGAGE_PAYMENT * 100) / 100
 
@@ -204,31 +217,31 @@ export const ALL_ONE_OFFS: OneOff[] = [
   {
     key: 'spend_trim_2027_01',
     label: '$150 less of your own spending this month (course plan)',
-    date: '2027-01-20',
+    date: '2027-01-10',
     amount: 150,
   },
   {
     key: 'spend_trim_2027_02',
     label: '$150 less of your own spending this month (course plan)',
-    date: '2027-02-20',
+    date: '2027-02-10',
     amount: 150,
   },
   {
     key: 'spend_trim_2027_03',
     label: '$150 less of your own spending this month (course plan)',
-    date: '2027-03-20',
+    date: '2027-03-10',
     amount: 150,
   },
   {
     key: 'spend_trim_2027_04',
     label: '$150 less of your own spending this month (course plan)',
-    date: '2027-04-20',
+    date: '2027-04-10',
     amount: 150,
   },
   {
     key: 'spend_trim_2027_05',
     label: '$150 less of your own spending this month (course plan)',
-    date: '2027-05-20',
+    date: '2027-05-10',
     amount: 150,
   },
   {
@@ -240,15 +253,16 @@ export const ALL_ONE_OFFS: OneOff[] = [
   },
   {
     key: 'december_trim',
-    label: 'December: ~$190 less of your own spending',
+    label: 'December: ~$225 less of your own spending',
     date: '2026-12-10',
     /**
      * Not money arriving — $15 of your December PX/personal money not spent. The $75/mo
      * international pass (added 18 Nov) leaves the 15 Dec cheque $11 short of the mortgage
      * catch-up plus a full $500 Christmas; the anniversary flowers ($178.62, 18 Nov) add
-     * ~$172 more. ~$95 less PX / eating out on each December cheque keeps both whole.
+     * ~$172 more, and the second catch-up on 15 Jan ~$35 more. ~$112 less PX / eating out
+     * on each December cheque keeps all of it whole.
      */
-    amount: 190,
+    amount: 225,
   },
   {
     key: 'anniversary_robe',
@@ -293,14 +307,22 @@ export const ALL_ONE_OFFS: OneOff[] = [
  * Each is paid from the emergency fund first; the fund refills through the waterfall.
  * Only what the fund cannot cover lands on checking.
  */
+/**
+ * The February emergency, moved from the plan to the stress test on 18 Nov (your call).
+ * With both mortgage catch-ups, the MAcc course and the collection in Dec–Apr, there is no
+ * room for it: if it happens, ~$930 goes unpaid (Mar 1 Nth and Chase first). The stress
+ * test shows it; the briefing says what gives.
+ */
+export const FEB_EMERGENCY: OneOff = {
+  key: 'emergency_vehicle',
+  label: 'Emergency — vehicle repair (assumed)',
+  date: '2027-02-20',
+  amount: -1500,
+  drawsFrom: 'emergency_fund',
+}
+
+/** The emergency the base plan carries: one, in June. */
 export const EMERGENCIES: OneOff[] = [
-  {
-    key: 'emergency_vehicle',
-    label: 'Emergency — vehicle repair (assumed)',
-    date: '2027-02-20',
-    amount: -1500,
-    drawsFrom: 'emergency_fund',
-  },
   {
     key: 'emergency_house',
     label: 'Emergency — house or HVAC (assumed)',
@@ -693,8 +715,8 @@ export const OBLIGATIONS: Obligation[] = [
     amountPerPaycheck: LATE_PAYMENTS_BALANCE,
     /** Fixed on the 1 Jan cheque: a Texas toll hold can block the registration renewal. */
     payDays: 'fifteenth',
-    activeFrom: '2027-01-15',
-    activeTo: '2027-01-15',
+    activeFrom: COLLECTION_PAY_DATE,
+    activeTo: COLLECTION_PAY_DATE,
     priority: 38.6,
     kind: 'unsecured_debt',
     balanceCap: LATE_PAYMENTS_BALANCE,
@@ -827,7 +849,7 @@ export const OBLIGATIONS: Obligation[] = [
     amountPerPaycheck: MORTGAGE_PAYMENT,
     payDays: 'fifteenth',
     /** Starts with the 15 December cheque; the 15 November one is left to rebuild the buffer. */
-    activeFrom: MORTGAGE_CATCHUP_LAST,
+    activeFrom: MORTGAGE_CATCHUP_FIRST,
     activeTo: MORTGAGE_CATCHUP_LAST,
     priority: 38,
     /** A bill, not the gauge: if it cannot be paid in full the page should say so. */
