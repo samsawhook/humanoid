@@ -31,7 +31,8 @@ describe('the briefing', () => {
     // Home in June: the June emergency lands days before the last payday, so the fund
     // has no time to refill — but the cash is there, in checking.
     // With the $75/mo international pass (18 Nov) it comes home short of the full $1,000.
-    expect(base.emergencyFund + base.checking).toBeGreaterThanOrEqual(600)
+    // With the phone pass and the MAcc catch-up course it comes home well short of $1,000.
+    expect(base.emergencyFund + base.checking).toBeGreaterThanOrEqual(400)
   })
 
   it('lands only the uncovered part of an emergency on checking', () => {
@@ -157,11 +158,13 @@ describe('the boat', () => {
 })
 
 describe('the student loan deferment', () => {
-  const base = runPlan()
-  const d = moveImpacts(base).find((i) => i.move.key === 'sl_deferment')!
-  it('stops the interest and frees the cash — worth more than zero, every bill still paid', () => {
-    expect(d.delta).toBeGreaterThan(200)
-    expect(d.outcome.billsUnpaid).toBe(0)
-    expect(d.outcome.debtLeft + d.outcome.comingHomeCash).toBeGreaterThan(0)
+  it('is assumed in the plan (pending Nelnet): no student-loan payment while deployed', () => {
+    const base = runPlan()
+    const paid = base.allocations.reduce(
+      (t, a) => t + (a.lines.find((l) => l.key === 'student_loan_payment')?.allocated ?? 0),
+      0,
+    )
+    expect(paid).toBe(0)
+    expect(base.billsUnpaid).toBe(0)
   })
 })

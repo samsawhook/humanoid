@@ -191,6 +191,47 @@ export const AUTO_LIABILITY_MONTHLY = 100
  */
 export const ALL_ONE_OFFS: OneOff[] = [
   {
+    key: 'macc_catchup_1',
+    label: 'MAcc catch-up course (Spring II) — first half',
+    date: '2027-03-08',
+    amount: -875,
+    note:
+      'One TAMU-CC course, $1,750, paid in two halves (your figure, 18 Nov). Out of pocket: ' +
+      'Hazlewood is suspended until an A brings the GPA back to 3.0 (B- and C+ so far). ' +
+      'Taken while deployed so full-time study is open on return.',
+  },
+  { key: 'macc_catchup_2', label: 'MAcc catch-up course (Spring II) — second half', date: '2027-04-08', amount: -875 },
+  {
+    key: 'spend_trim_2027_01',
+    label: '$150 less of your own spending this month (course plan)',
+    date: '2027-01-20',
+    amount: 150,
+  },
+  {
+    key: 'spend_trim_2027_02',
+    label: '$150 less of your own spending this month (course plan)',
+    date: '2027-02-20',
+    amount: 150,
+  },
+  {
+    key: 'spend_trim_2027_03',
+    label: '$150 less of your own spending this month (course plan)',
+    date: '2027-03-20',
+    amount: 150,
+  },
+  {
+    key: 'spend_trim_2027_04',
+    label: '$150 less of your own spending this month (course plan)',
+    date: '2027-04-20',
+    amount: 150,
+  },
+  {
+    key: 'spend_trim_2027_05',
+    label: '$150 less of your own spending this month (course plan)',
+    date: '2027-05-20',
+    amount: 150,
+  },
+  {
     key: 'anniversary_flowers',
     label: '4th anniversary — flowers',
     date: '2026-11-18',
@@ -552,14 +593,15 @@ export const OBLIGATIONS: Obligation[] = [
   },
   {
     key: 'nth_investments',
-    label: 'Nth Investments (+ $30 wire fee)',
+    label: 'Nth Investments (ACH)',
     /**
      * $500 sent by outgoing WIRE, and Wells Fargo charges $30 for each one — on the
      * statements in September, October and November. So it costs $530 to invest $500:
      * a 6% drag before the money does anything. An ACH transfer would be free; see the
      * `wire_to_ach` move in briefing.ts.
      */
-    amountPerPaycheck: 530,
+    /** By ACH from 18 Nov (your OK): the same $500, without the $30 wire fee. */
+    amountPerPaycheck: 500,
     /** Confirmed 2026-11-11 to be the Bank of America transfer, which posts early in the month. */
     payDays: 'first',
     /**
@@ -720,8 +762,12 @@ export const OBLIGATIONS: Obligation[] = [
      */
     amountPerPaycheck: STUDENT_LOAN_MONTHLY,
     payDays: 'first',
-    /** Administrative forbearance (13 Nov 2026): $0 until the 10 Feb 2027 payment. */
-    activeFrom: '2027-02-01',
+    /**
+     * Administrative forbearance (13 Nov 2026): $0 until 10 Feb 2027. Then — PENDING
+     * Nelnet's approval — military service deferment through the deployment (18 Nov plan,
+     * to fit the MAcc catch-up course). If Nelnet says no, set this back to '2027-02-01'.
+     */
+    activeFrom: '2027-08-02',
     activeTo: null,
     /** Above Avant and the cards: a federal loan in default can take tax refunds. */
     priority: 34,

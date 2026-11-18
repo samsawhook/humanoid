@@ -217,46 +217,17 @@ const trimSpending = (monthly: number) => (inputs: PlanInputs) =>
   }))
 
 export const MOVES: Move[] = [
+  // Adopted 18 Nov, so no longer offered as moves: Nth by ACH, the Nelnet deferment (in the
+  // plan, pending approval). Ruled out by you: pausing the nanny extras. The "tolls" pile
+  // turned out to be a real collection, so it is paid, not wished away.
   {
-    key: 'sl_deferment',
-    label: 'Student loan: deferment + 0% interest',
+    key: 'cw_settle',
+    label: 'Settle Caine & Weiner for less',
     action:
-      'Already current by forbearance. Ask Nelnet for military service deferment through the ' +
-      'deployment (no $75.83 from Feb) and the 0% interest benefit for imminent-danger service.',
-    basis: 'computed',
-    apply: (i) => ({
-      ...i,
-      obligations: i.obligations.filter((o) => !o.key.startsWith('student_loan')),
-    }),
-  },
-  {
-    key: 'wire_to_ach',
-    label: 'Send Nth by ACH, not wire',
-    action:
-      'Every Nth transfer goes out as a wire, and Wells Fargo charges $30 each time. Ask the ' +
-      'recipient for ACH details, or push it from the Bank of America side, and it is free.',
-    basis: 'computed',
-    apply: (i) => adjust(i, 'nth_investments', (o) => ({ ...o, amountPerPaycheck: 500 })),
-  },
-  {
-    key: 'tolls_paid',
-    label: 'Tolls already paid',
-    action: 'Confirm the last ~$400 of tolls and late fees is already paid.',
-    basis: 'computed',
-    apply: (i) => adjust(i, 'late_payments', () => null),
-  },
-  {
-    key: 'extras_200',
-    label: 'Extras home to $200/mo',
-    action: 'Hold sporadic transfers home to about $200/mo instead of the $400 observed.',
-    basis: 'computed',
-    // Both extras lines: the pre-December one and the one that resumes in January.
-    apply: (i) =>
-      adjust(
-        adjust(i, 'support_home_extras', (o) => ({ ...o, amountPerPaycheck: 100 })),
-        'support_home_extras_2027',
-        (o) => ({ ...o, amountPerPaycheck: 100 }),
-      ),
+      'Collectors routinely settle small balances. Offer ~$300 in writing against a letter that ' +
+      'says the account will be reported paid (or deleted), and pay only against that letter.',
+    basis: 'estimate',
+    apply: (i) => adjust(i, 'late_payments', (o) => ({ ...o, amountPerPaycheck: 300, balanceCap: 300 })),
   },
   // Hugedomains ($99.79/mo) is sawhook.com — kept by your choice (2026-11-13), so it is
   // not offered as a saving.

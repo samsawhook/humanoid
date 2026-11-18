@@ -100,7 +100,7 @@ export function Briefing() {
   const calm = stress.find((s) => s.case.key === 'none')!
   const freed = MORTGAGE_PAYMENT + CAR_PAYMENT
   const emergencyTotal = -EMERGENCIES.reduce((s, e) => s + e.amount, 0)
-  const tolls = impacts.find((i) => i.move.key === 'tolls_paid')
+  const settle = impacts.find((i) => i.move.key === 'cw_settle')
   const together$ = together.netPosition - base.netPosition
   const maxMove = Math.max(1, together$, ...impacts.map((i) => i.delta))
   const maxStress = Math.max(1, ...stress.map((s) => s.outcome.comingHomeCash))
@@ -117,7 +117,6 @@ export function Briefing() {
     .filter((d) => d.date >= '2026-09-01')
     .reduce((m, d) => Math.min(m, d.balance), Infinity)
   const readiness = reviewReadiness()
-  const wire = impacts.find((i) => i.move.key === 'wire_to_ach')
 
   // ── Calls to attention, most urgent first ──
   const attention: { level: Level; title: string; body: string; amount?: string; note?: string }[] = [
@@ -208,22 +207,34 @@ export function Briefing() {
     },
     {
       level: 'warning',
-      title: 'Every Nth transfer costs $30',
+      title: 'Switch Nth to ACH before the 1 Dec transfer',
       body:
-        'It goes out as a wire — $30 in September, October and November. That is $360 a year to invest ' +
-        '$6,000. Switch to ACH and it is free.',
-      amount: wire ? signed(wire.delta) : '$30/mo',
-      note: 'by homecoming',
+        'Agreed 18 Nov and already in the plan: the same $500, without the $30 wire fee. Set it up ' +
+        'from the Bank of America side or ask for ACH details — the plan assumes no fee from December.',
+      amount: '$30/mo',
+      note: 'saved',
     },
     {
       level: 'serious',
-      title: 'Tolls: last ~$400, paid 15 Jan, before the registration renewal',
+      title: 'Caine & Weiner collection — $475, paid 15 Jan',
       body:
-        'You think most are paid, with maybe $400 of random pieces left. In Texas unpaid tolls can ' +
-        'block a registration renewal, so the plan pays the remainder on 15 Jan. If the renewal is due ' +
-        'sooner, look them up and pay them first — it is small enough to fit any payday.',
-      amount: tolls ? signed(tolls.delta) : undefined,
-      note: 'if already paid',
+        'Unpaid Progressive premiums, now with a collector. A collection is a review finding. Write first: ' +
+        'ask for validation and a settlement or pay-in-full letter that says it will be reported paid ' +
+        '(ask for deletion). Pay only against that letter, on 15 Jan — the earliest the plan can carry it ' +
+        'alongside the December catch-up and Christmas — and keep both for the review file.',
+      amount: settle ? signed(settle.delta) : '$475',
+      note: settle ? 'if settled at $300' : 'due',
+    },
+    {
+      level: 'warning',
+      title: 'MAcc catch-up course — Spring II, $1,750 out of pocket',
+      body:
+        'One course, paid $875 on 8 Mar and $875 on 8 Apr, taken while deployed so full-time study is ' +
+        'open when you are home. It must be an A (not A-) to bring the GPA from 2.50 to 3.00 and restore ' +
+        'Hazlewood. It fits with every bill paid because: Nth by ACH, the Nelnet military deferment ' +
+        '(PENDING — call them), and $150/mo less of your own spending January to May.',
+      amount: '$1,750',
+      note: 'Mar + Apr',
     },
     {
       level: 'serious',
@@ -728,12 +739,9 @@ export function Briefing() {
           <p>
             Two loose ends. Interest still accrues in forbearance (~$30 a month): ask for the{' '}
             <strong>0% interest benefit</strong> for Direct Loans while serving in an imminent-danger area,
-            and a military service deferment through the deployment — together worth{' '}
-            {(() => {
-              const d = impacts.find((i) => i.move.key === 'sl_deferment')
-              return d ? <strong>{signed(d.delta)}</strong> : null
-            })()}{' '}
-            by homecoming. And save the forbearance confirmation for the review file.
+            and a <strong>military service deferment through the deployment</strong> — the plan now
+            assumes it (no $75.83 payments from February), because it is what makes room for the MAcc
+            catch-up course. Call Nelnet; if they say no, the plan needs re-running. And save the forbearance confirmation for the review file.
           </p>
         </div>
         <div className="rec">
@@ -753,7 +761,7 @@ export function Briefing() {
           <p>
             Each Nth transfer leaves as an outgoing wire, and Wells Fargo charges $30 for every one —
             $360 a year, a 6% haircut before the money is invested. Ask for ACH details or pull it from the
-            Bank of America side. {wire ? <>Worth <strong>{signed(wire.delta)}</strong> by homecoming.</> : null}
+            Bank of America side. Agreed 18 Nov and already in the plan from December.
           </p>
         </div>
         <div className="rec">

@@ -60,12 +60,11 @@ describe('calibration against the statements', () => {
     expect(first.splitAdjustment + mid.splitAdjustment).toBeCloseTo(0, 2)
   })
 
-  it('carries the $30 wire fee on Nth, and prices switching to ACH', () => {
+  it('found the $30 wire fee on Nth, and the plan now sends it by ACH (18 Nov)', () => {
     const nth = OBLIGATIONS.find((o) => o.key === 'nth_investments')!
-    expect(nth.amountPerPaycheck).toBe(500 + STATEMENT_FINDINGS.wireFee)
-    expect(MOVES.some((m) => m.key === 'wire_to_ach')).toBe(true)
-    const ach = moveImpacts(runPlan()).find((i) => i.move.key === 'wire_to_ach')!
-    expect(ach.delta).toBeGreaterThan(200)
+    expect(STATEMENT_FINDINGS.wireFee).toBe(30)
+    expect(nth.amountPerPaycheck).toBe(500)
+    expect(MOVES.some((m) => m.key === 'wire_to_ach')).toBe(false)
   })
 
   it('bills Avant from the 15th, matching its ~20th draft date', () => {
