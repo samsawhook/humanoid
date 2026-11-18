@@ -272,13 +272,27 @@ type Chip = { text: string; cls: 'paid' | 'todo' | 'sched' | 'auto' | 'warn' | '
 function lineChip(l: StatementLine, spendable: string): Chip | null {
   if (l.nonCash || l.amount <= 0) return null
   const spent = l.spent ?? 0
+  if (l.accounts) {
+    const by = (st: string) => l.accounts!.filter((r) => r.status === st).map((r) => r.name.replace(/ \(closed\)/, ''))
+    if (by('todo').length) return { text: `To do · pay ${by('todo').join(', ')}`, cls: 'todo' }
+    if (by('check').length) return { text: `⚠ Check ${by('check').join(' & ')}`, cls: 'warn' }
+    if (by('paid').length === l.accounts.length) return { text: '✓ All paid', cls: 'paid' }
+    return null
+  }
   if (l.todo) return { text: `To do · ${l.todo}`, cls: 'todo' }
   if (spent > l.amount + 0.5) return { text: `Over by ${usd(spent - l.amount)} · ${usd(spent)} spent`, cls: 'over' }
   if (spent >= l.amount - 0.5) return { text: '✓ Paid', cls: 'paid' }
   if (l.scheduled) return { text: `◷ Scheduled ${nice(l.scheduled.date)} (${l.scheduled.by})`, cls: 'sched' }
   if (l.info?.unconfirmed) return { text: '⚠ Unconfirmed — may not be going out', cls: 'warn' }
   if (l.info?.how === 'automatic') {
-    return { text: spent > 0 ? `Auto · ${usd(spent)} so far` : `Auto · ${l.info.when}`, cls: 'auto' }
+    if (spent > 0) return { text: `Auto · ${usd(spent)} so far`, cls: 'auto' }
+    if (l.info.day) {
+      // The first draft day on or after the money is spendable.
+      const sp = new Date(spendable + 'T12:00:00Z')
+      const d = new Date(Date.UTC(sp.getUTCFullYear(), sp.getUTCMonth() + (sp.getUTCDate() > l.info.day ? 1 : 0), l.info.day, 12))
+      return { text: `Auto · drafts ~${nice(d.toISOString().slice(0, 10))} — nothing to do`, cls: 'auto' }
+    }
+    return { text: `Auto · ${l.info.when} — nothing to do`, cls: 'auto' }
   }
   if (!l.info && !l.byHand) return spent > 0 ? { text: `${usd(spent)} so far`, cls: 'auto' } : null
   if (l.info?.when === 'done') return null
@@ -313,10 +327,14 @@ function Line({
           {!l.nonCash && <span className="ln-pct">{pct(l.amount, gross)}</span>}
         </div>
       </div>
-      {!l.nonCash && <BudgetBar amount={l.amount} gross={gross} spent={l.spent} showPaid={showActuals} color={color} />}
+      {/* Under ~4% of gross the bar is a sliver that reads as a checkbox: leave it out. */}
+      {!l.nonCash && !l.accounts && l.amount / gross >= 0.04 && (
+        <BudgetBar amount={l.amount} gross={gross} spent={l.spent} showPaid={showActuals} color={color} />
+      )}
       {(l.info || l.note) && (
         <div className="ln-meta">
-          {l.info && (
+          {l.info && l.accounts && <span>From {l.info.from} · by hand, by each due date</span>}
+          {l.info && !l.accounts && (
             <span>
               {l.info.from} → {l.info.to}
             </span>
@@ -325,6 +343,23 @@ function Line({
         </div>
       )}
       {chip && <span className={`chip chip-${chip.cls}`}>{chip.text}</span>}
+      {l.accounts && (
+        <ul className="accts">
+          {l.accounts.map((r) => (
+            <li key={r.key} className={`ar ar-${r.status}`}>
+              <div className="ar-top">
+                <span className="ar-name">
+                  <span className="ar-ic">{r.status === 'paid' ? '✓' : r.status === 'todo' ? '●' : r.status === 'check' ? '⚠' : '○'}</span>
+                  {r.name}
+                </span>
+                <span className="ar-amt">{r.paid > 0 ? usd(r.paid) : `~${usd(r.minimum)}`}</span>
+              </div>
+              <div className="ar-text">{r.text}</div>
+              {r.status !== 'paid' && <div className="ar-where">→ {r.payAt}</div>}
+            </li>
+          ))}
+        </ul>
+      )}
       {(l.short ?? 0) > 0 && <span className="chip chip-over">Short {usd(l.short!)}</span>}
       {l.txns.length > 0 && (
         <ul className="txns">

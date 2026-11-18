@@ -70,7 +70,6 @@ export const PAYMENT_INFO: Record<string, PaymentInfo> = {
     // From the statements (Jul–Nov): WF Platinum by online transfer (~10th–19th);
     // Brightway as "Mastercard Payment …28" (~9th–13th); Credit One by its own ACH,
     // "Credit One Bank Payment" (Jul 9 $215, Sep 1 $90, Oct 16 $150) — not yet in November.
-    note: 'November so far: Brightway $25 (9 Nov), WF Platinum $47 (10 Nov). Credit One not yet — last paid $150 on 16 Oct.',
   },
   card_minimums_closed: {
     from: CHECKING,
@@ -78,7 +77,6 @@ export const PAYMENT_INFO: Record<string, PaymentInfo> = {
     how: 'manual',
     when: 'by each due date',
     unconfirmed: true,
-    note: 'May not be going out right now — you are checking.',
   },
   nth_investments: {
     from: CHECKING,
@@ -133,4 +131,71 @@ export const SPENDING_INFO: Record<string, PaymentInfo> = {
 /** One-time set-up tasks tied to a paycheck's line — shown as a to-do until done. */
 export const SETUP_TODOS: { key: string; payday: LocalDate; text: string }[] = [
   { key: 'nth_investments', payday: '2026-12-01', text: 'Set up the ACH before this transfer (or it goes as a $30 wire)' },
+]
+
+/**
+ * The cards behind the two "card minimums" lines, one by one — what the payday card lists
+ * under each line. From the Wells Fargo statements, Jul–Nov 2026.
+ */
+export interface CardAccount {
+  /** debts.ts key. */
+  key: string
+  line: 'card_minimums_open' | 'card_minimums_closed'
+  name: string
+  /** Matches this card's payments in the actuals. */
+  match: RegExp
+  /** Where you go to pay it. */
+  payAt: string
+  /** When it has gone out before. */
+  when: string
+  /** Last payment seen, when it is useful to know. */
+  last?: string
+  /** Nothing seen going to this card: say so and ask for a check rather than a payment. */
+  unseen?: string
+}
+
+export const CARD_ACCOUNTS: CardAccount[] = [
+  {
+    key: 'platinum',
+    line: 'card_minimums_open',
+    name: 'WF Platinum',
+    match: /Platinum/i,
+    payAt: 'Wells Fargo app → Transfer to the Platinum card',
+    when: 'paid every month, ~10th–19th',
+  },
+  {
+    key: 'brightway',
+    line: 'card_minimums_open',
+    name: 'Brightway',
+    match: /Brightway/i,
+    payAt: 'Brightway app — posts as "Mastercard Payment …28"',
+    when: 'paid ~9th–13th',
+  },
+  {
+    key: 'credit_one',
+    line: 'card_minimums_open',
+    name: 'Credit One',
+    match: /Credit One/i,
+    payAt: 'Credit One app — pay from WF Joint Checking',
+    when: 'no fixed day so far: 9 Jul, 1 Sep, 16 Oct',
+    last: '$150 on Fri 16 Oct',
+  },
+  {
+    key: 'citi',
+    line: 'card_minimums_closed',
+    name: 'Citi (closed)',
+    match: /Citi/i,
+    payAt: 'Citi app',
+    when: '',
+    unseen: 'No Citi payment in the Jul–Nov statements.',
+  },
+  {
+    key: 'capital_one',
+    line: 'card_minimums_closed',
+    name: 'Capital One (closed)',
+    match: /Capital One/i,
+    payAt: 'Capital One app',
+    when: '',
+    unseen: 'No Capital One payment in the Jul–Nov statements.',
+  },
 ]

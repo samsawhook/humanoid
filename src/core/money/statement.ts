@@ -23,7 +23,8 @@
 import type { Allocation } from './allocation'
 import { DEPLOYED_ACTUALS } from './household'
 import { ACTUALS, type Actual } from './actuals'
-import { PAYMENT_INFO, SETUP_TODOS, SPENDING_INFO, scheduledFor, type PaymentInfo, type Scheduled } from './execution'
+import { CARD_ACCOUNTS, PAYMENT_INFO, SETUP_TODOS, SPENDING_INFO, scheduledFor, type PaymentInfo, type Scheduled } from './execution'
+import { DEBTS, minimumPayment } from './debts'
 import type { LocalDate } from '../types'
 
 /** Your regular transfer for the nanny; anything above it on that line is the top-up. */
@@ -49,6 +50,21 @@ export interface StatementLine {
   short?: number
   /** A one-time set-up task for this line on this paycheck. */
   todo?: string
+  /** One row per account behind the line (the card minimums). */
+  accounts?: AccountRow[]
+}
+
+export interface AccountRow {
+  key: string
+  name: string
+  /** Estimated minimum. */
+  minimum: number
+  paid: number
+  txns: Actual[]
+  status: 'paid' | 'todo' | 'check' | 'later'
+  /** One sentence: what happened or what to do. */
+  text: string
+  payAt: string
 }
 
 export interface StatementSection {
@@ -149,6 +165,13 @@ function txnsFor(payday: LocalDate, key: string, sub?: string, actuals: Actual[]
 
 const spentOf = (t: Actual[]) => r2(t.reduce((s, a) => s + a.amount, 0))
 
+const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const MON3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+function niceDate(d: string): string {
+  const t = new Date(d + 'T12:00:00Z')
+  return `${DOW[t.getUTCDay()]} ${t.getUTCDate()} ${MON3[t.getUTCMonth()]}`
+}
+
 export function paycheckStatement(a: Allocation, next: Allocation | undefined, actuals: Actual[] = ACTUALS): PaycheckStatement {
   const payday = a.paycheck.scheduledDate
   const p = a.paycheck
@@ -207,8 +230,44 @@ export function paycheckStatement(a: Allocation, next: Allocation | undefined, a
   ]
   let toSavings = 0
 
+  const live = actuals.some((x) => x.payday === payday)
   const baseLine = (key: string, label: string, amount: number, short = 0, sub?: string): StatementLine => {
     const txns = txnsFor(payday, key, sub, actuals)
+    const cards = CARD_ACCOUNTS.filter((c) => c.line === key)
+    if (cards.length) {
+      const accounts: AccountRow[] = cards.map((c) => {
+        const t = txns.filter((x) => c.match.test(x.description))
+        const paid = spentOf(t)
+        const minimum = minimumPayment(DEBTS.find((d) => d.key === c.key)!)
+        const est = `the minimum shown in the app (~$${minimum} est.)`
+        let status: AccountRow['status']
+        let text: string
+        if (paid > 0) {
+          status = 'paid'
+          text = `Paid ${'$' + paid.toFixed(2)} on ${niceDate(t.at(-1)!.date)}`
+        } else if (c.unseen) {
+          status = 'check'
+          text = `${c.unseen} Open the app — if a minimum is due, pay it (~$${minimum} est.) from WF Joint Checking.`
+        } else if (live) {
+          status = 'todo'
+          text = `Not paid yet this month. Pay ${est}.${c.last ? ` Last paid ${c.last}.` : ''}`
+        } else {
+          status = 'later'
+          text = `Pay ${est} — ${c.when}.`
+        }
+        return { key: c.key, name: c.name, minimum, paid, txns: t, status, text, payAt: c.payAt }
+      })
+      return {
+        key,
+        label,
+        amount: r2(amount),
+        spent: spentOf(txns),
+        txns: [],
+        info: PAYMENT_INFO[key],
+        short,
+        accounts,
+      }
+    }
     return {
       key: sub ?? key,
       label,
