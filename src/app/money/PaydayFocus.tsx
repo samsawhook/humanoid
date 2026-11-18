@@ -257,7 +257,7 @@ function Section({
   spendable,
   showActuals,
   sign = '−',
-  open = true,
+  open = false,
 }: {
   sec: StatementSection
   gross: number
@@ -427,7 +427,7 @@ export function PaydayFocus({
       <p className="sub" style={{ marginBottom: 10 }}>
         Paid-so-far as of your last update: <strong>{nice(asOf.date)}, {asOf.time}</strong> ({asOf.source}
         {asOf.availableBalance != null && <>; {usd(asOf.availableBalance)} available then</>}). The 1st and the
-        15th sit side by side; tick <em>One-month view</em> to see the month summed. Tap a category to fold it.{' '}
+        15th sit side by side; tick <em>One-month view</em> to see the month summed. Tap a category to open it.{' '}
         <strong className="todo-label">Bold blue</strong> lines are yours to do.
       </p>
       {months.map((m) => {
