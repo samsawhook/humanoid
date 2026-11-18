@@ -30,6 +30,7 @@ import { DEPLOYED_ACTUALS, deployedActualsTotal, SENT_HOME } from '@/core/money/
 import { OBSERVED_NET_MONTHLY } from '@/core/money/rates'
 import { projectSdp, SDP_CAP } from '@/core/money/sdp'
 import { Briefing } from './Briefing'
+import { PaydayFocus } from './PaydayFocus'
 import { RETIREMENT_ACCOUNTS } from '@/core/money/lawschool'
 import { ENTITLEMENTS, TAX, TIMELINE } from '@/core/money/rates'
 import { SCRA_INTEREST_CAP, SCRA_TARGETS, SCRA_EXCLUDED } from '@/core/money/debts'
@@ -189,6 +190,7 @@ export default function MoneyPage() {
   return (
     <>
       <h1>Money</h1>
+      <PaydayFocus allocations={allocations} />
       <Briefing />
 
       <details className="detail">
