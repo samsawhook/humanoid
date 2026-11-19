@@ -29,7 +29,7 @@ import type { Obligation, OneOff } from './allocation'
 import type { WindfallClaim } from './windfall'
 import { backPay, EXPECTED_BACK_PAY } from './drillPay'
 import { TIMELINE } from './rates'
-import { householdTotals, deployedActualsTotal, SENT_HOME } from './household'
+import { householdTotals, deployedActualsTotal, DEPLOYED_ACTUALS, SENT_HOME } from './household'
 import { SDP_CAP, SDP_LAST_DEPOSIT } from './sdp'
 import { DEBTS, scheduledDebts, openDebts, totalBalance, totalMinimums } from './debts'
 
@@ -445,6 +445,9 @@ export const LAWN_CUTS: { payday: LocalDate; amount: number; note: string }[] = 
 export const lawnKey = (payday: string) => `lawn_${payday.replace(/-/g, '_')}`
 export const LAWN_KEYS = LAWN_CUTS.map((c) => lawnKey(c.payday))
 
+/** T-Mobile, one AutoPay a month on the 21st: plan $147 + the $75 pass. */
+export const PHONE_MONTHLY = DEPLOYED_ACTUALS.find((d) => d.key === 'phone')!.monthly
+
 export const OBLIGATIONS: Obligation[] = [
   {
     key: 'mortgage_current',
@@ -555,7 +558,7 @@ export const OBLIGATIONS: Obligation[] = [
      * roughly $1,000 actual — and most of what it was estimating (groceries, utilities,
      * pets) is now paid at home out of the money you send.
      */
-    amountPerPaycheck: deployedActualsTotal() / 2,
+    amountPerPaycheck: (deployedActualsTotal() - PHONE_MONTHLY) / 2,
     payDays: 'both',
     activeFrom: TIMELINE.premobStart,
     activeTo: null,
@@ -563,8 +566,24 @@ export const OBLIGATIONS: Obligation[] = [
     kind: 'living',
     execution: 'automatic',
     note:
-      'Observed Sep–Nov 2026 — subscriptions, phone, PX, food, the odd trip. Two months ' +
-      'of data, so re-read it after a third.',
+      'Observed Sep–Nov 2026 — subscriptions, PX, food, the odd trip (the phone is its own ' +
+      'line). Two months of data, so re-read it after a third.',
+  },
+  {
+    key: 'phone',
+    label: 'Phone (T-Mobile)',
+    /**
+     * One bill a month: AutoPay on the 21st (your setup, Nov), which lands in the 15th
+     * paycheck's window. Was half on each paycheck inside "your own spending" — wrong:
+     * nothing goes out on the 1st.
+     */
+    amountPerPaycheck: PHONE_MONTHLY,
+    payDays: 'fifteenth',
+    activeFrom: TIMELINE.premobStart,
+    activeTo: null,
+    priority: 30,
+    kind: 'living',
+    execution: 'automatic',
   },
   {
     key: 'support_home',

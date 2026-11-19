@@ -70,7 +70,15 @@ export const PLAN_BARS: PlanBar[] = [
     note: 'Fine with above-median numbers; scholarship money thins as the weeks go. Have the essays, résumé and letters ready before the score lands.',
   },
   { lane: 'law', label: 'Decisions come back', start: '2027-01-15', end: '2027-04-15', estimated: true },
-  { lane: 'law', label: '1L — Texas Tech', start: '2027-08-16', end: '2028-05-15', estimated: true },
+  {
+    lane: 'law',
+    label: 'Seat deposits due',
+    start: '2027-04-01',
+    end: '2027-05-31',
+    estimated: true,
+    note: 'No deposit before 1 Apr (LSAC guidance; A&M says so outright). Each admit letter gives its own date — last cycle A&M’s was 1 Apr.',
+  },
+  { lane: 'law', label: '1L', start: '2027-08-16', end: '2028-05-15', estimated: true, note: 'Texas Tech, UH, UNT Dallas or A&M — whichever you choose on the decision date.' },
 
   // ── Law, fall 2028 entry: the 2027–28 cycle, applying early. ──
   { lane: 'law28', label: 'Retake, only if you want a higher score', start: lsat('apr_2027').testDate, end: '2027-08-31', estimated: true },
@@ -93,13 +101,19 @@ export const PLAN_POINTS: PlanPoint[] = [
   // Law 2027
   { lane: 'law', label: 'LSAT taken (remote)', date: LSAT_TAKEN.date },
   { lane: 'law', label: 'Score', date: LSAT_TAKEN.scoreExpected, estimated: true, note: 'About three weeks after the sitting — your LSAC account has the real date.' },
+  // Your schools (19 Nov): Texas Tech, UNT Dallas, UH; A&M a reach. Deadlines are the
+  // schools' published ones for the last cycle — they rarely move, but confirm on each site.
+  { lane: 'law', label: 'Texas A&M (reach) — priority deadline', date: '2027-02-01', estimated: true, note: 'Late deadline 1 Mar; the class can fill before the final date. law.tamu.edu' },
+  { lane: 'law', label: 'Texas Tech — deadline', date: '2027-03-01', estimated: true, note: 'Rolling admissions. depts.ttu.edu/law' },
+  { lane: 'law', label: 'UH full-time + UNT Dallas — deadlines', date: '2027-03-15', estimated: true, note: 'UH says its dates do not change year to year. UNT Dallas charges no application fee.' },
+  { lane: 'law', label: 'UH part-time evening — deadline', date: '2027-05-15', estimated: true, note: 'The night-law path: UH’s part-time evening JD.' },
   {
     lane: 'law',
     label: 'Retake? Register for the February LSAT',
     date: lsat('feb_2027').registrationDeadline!,
     note: `Only if the score is under target. Sitting ${lsat('feb_2027').testDate}, score ${lsat('feb_2027').scoreRelease} — which pushes applications into the costly weeks.`,
   },
-  { lane: 'law', label: 'Decision: law, or MAcc + job', date: '2027-05-01', decision: true, estimated: true, note: 'Admissions and scholarship offers in hand; seat deposits due around now. Weigh against job offers.' },
+  { lane: 'law', label: 'Decision: which school, or MAcc + job', date: '2027-05-01', decision: true, estimated: true, note: 'Admissions and scholarship offers in hand; seat deposits due around now. Weigh against job offers.' },
   { lane: 'law', label: '1L starts', date: '2027-08-16', estimated: true },
   // Law 2028
   { lane: 'law28', label: 'Decision', date: '2028-04-15', decision: true, estimated: true },

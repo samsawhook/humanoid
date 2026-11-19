@@ -30,6 +30,7 @@ export interface PaymentInfo {
 }
 
 export const PAYMENT_INFO: Record<string, PaymentInfo> = {
+  phone: { from: CHECKING, to: 'T-Mobile', how: 'automatic', when: 'AutoPay, 21st', day: 21 },
   mortgage_current: {
     from: CHECKING,
     to: 'Navy Federal (mortgage)',
