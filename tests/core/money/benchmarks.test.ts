@@ -13,7 +13,7 @@ describe('benchmarks', () => {
   const rows = benchmarkRows(month)
 
   it('covers every category as a share of gross', () => {
-    expect(rows.map((r) => r.key)).toEqual(['deductions', 'home', 'car', 'sent', 'personal', 'tech', 'debt', 'invest', 'business', 'cash'])
+    expect(rows.map((r) => r.key)).toEqual(['deductions', 'home', 'car', 'sent', 'personal', 'tech', 'debt', 'invest', 'brokerage', 'business', 'cash'])
     const home = rows.find((r) => r.key === 'home')!
     expect(home.you).toBeCloseTo((month.spending.find((s) => s.key === 'home')!.total / month.gross.total) * 100, 0)
   })

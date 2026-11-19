@@ -60,6 +60,7 @@ const SHORT: Record<string, { typical?: number; advisor?: { text: string; min?: 
   tech: { typical: 4, advisor: { text: '3–5%', min: 3, max: 5 } },
   debt: { typical: 5, advisor: { text: '≤36% w/ home' } },
   invest: { typical: 12, advisor: { text: '≥15%', min: 15 } },
+  brokerage: { typical: 2, advisor: { text: 'after debt' } },
   business: { typical: 0 },
   cash: { typical: 5, advisor: { text: '3–6 mo' } },
 }
@@ -141,6 +142,11 @@ export const VOICES: Record<string, { robo: Voice; ramsey: Voice; kiyosaki: Voic
     robo: { pct: 6, min: 5.5, max: 9, why: 'TSP 5% of base for the full match. More only once the cards and the runway are done.' },
     ramsey: { pct: 0, why: 'Pause all investing, the match included, until debt-free. Then 15% to Roth.' },
     kiyosaki: { pct: 3, why: 'Keep the match; he’s wary of paper retirement funds you don’t control.' },
+  },
+  brokerage: {
+    robo: { pct: 0, why: 'Nothing here until the cards are clear and the runway is built.' },
+    ramsey: { pct: 0, why: 'After Baby Step 3: 15% to retirement first, then other investing.' },
+    kiyosaki: { pct: 0, why: 'Paper assets are not his game — he would sooner buy cash-flowing property or silver.' },
   },
   business: {
     robo: {
@@ -231,11 +237,19 @@ const RULES: Rule[] = [
   },
   {
     key: 'invest',
-    label: 'Investing (TSP)',
+    label: 'TSP / 401(k)',
     typical: '≈7% yours, ≈12% with the match',
     advisor: '15% of gross for retirement, match included',
     target: '5% of base pay + the 5% match',
     min: 5.5,
+  },
+  {
+    key: 'brokerage',
+    label: 'Brokerage',
+    typical: '≈2% (taxable investing, for those who do any)',
+    advisor: 'Only after the match, high-rate debt and 3–6 months of cash',
+    target: '0% for now — cards and runway first',
+    max: 0,
   },
   {
     key: 'business',
@@ -263,7 +277,8 @@ export function benchmarkRows(st: PaycheckStatement): BenchRow[] {
   const pct = (n: number) => r1((n / g) * 100)
   const sec = (k: string) => st.spending.find((s) => s.key === k)?.total ?? 0
   const match = st.investing.lines.filter((l) => l.nonCash).reduce((s, l) => s + l.amount, 0)
-  const nthAmt = st.investing.lines.filter((l) => l.key === 'nth_investments' || /Nth/.test(l.label)).reduce((s, l) => s + l.amount, 0)
+  const inv = (k: string) => st.investing.lines.find((l) => l.key === k)?.amount ?? 0
+  const nthAmt = inv('business')
   const you: Record<string, number> = {
     deductions: pct(st.deductions.total),
     home: pct(sec('home')),
@@ -272,7 +287,8 @@ export function benchmarkRows(st: PaycheckStatement): BenchRow[] {
     personal: pct(sec('personal')),
     tech: pct(sec('tech')),
     debt: pct(sec('debt')),
-    invest: pct(st.investing.total + match - nthAmt),
+    invest: pct(inv('retirement') + match),
+    brokerage: pct(inv('brokerage')),
     business: pct(nthAmt),
     cash: pct(st.netCash.total),
   }

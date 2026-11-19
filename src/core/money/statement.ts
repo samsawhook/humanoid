@@ -218,6 +218,54 @@ function techRowsFor(key: string, payday: LocalDate, txns: Actual[]): AccountRow
   return undefined
 }
 
+/**
+ * Investing in three: TSP / 401(k), Brokerage, Business (Nth). Each is one line with its
+ * items as rows — your 5% and the match; the Nth transfer and any fee on it.
+ */
+export function groupInvesting(lines: StatementLine[]): StatementLine[] {
+  const kind = (l: StatementLine) =>
+    l.key === 'tsp' || l.key === 'tsp_match' || /TSP|401\(k\)/.test(l.label)
+      ? 'retirement'
+      : l.key === 'nth_investments' || /Nth/.test(l.label)
+        ? 'business'
+        : 'brokerage'
+  const GROUPS: { key: 'retirement' | 'brokerage' | 'business'; label: string }[] = [
+    { key: 'retirement', label: 'TSP / 401(k)' },
+    { key: 'brokerage', label: 'Brokerage' },
+    { key: 'business', label: 'Business — Nth Venture' },
+  ]
+  const out: StatementLine[] = []
+  for (const g of GROUPS) {
+    const parts = lines.filter((l) => kind(l) === g.key)
+    if (!parts.length) continue
+    const cash = parts.filter((l) => !l.nonCash)
+    out.push({
+      key: g.key,
+      label: g.label,
+      amount: r2(cash.reduce((t, l) => t + l.amount, 0)),
+      spent: cash.some((l) => l.spent !== undefined) ? r2(cash.reduce((t, l) => t + (l.spent ?? 0), 0)) : undefined,
+      txns: parts.flatMap((l) => l.txns),
+      info: parts.find((l) => l.info)?.info,
+      todo: parts.find((l) => l.todo)?.todo,
+      note: parts.find((l) => l.note)?.note,
+      accounts:
+        parts.length > 1
+          ? parts.map((l) => ({
+              key: l.key,
+              name: l.nonCash ? `${l.label} — not from your pay` : l.label,
+              minimum: l.amount,
+              paid: l.spent ?? 0,
+              txns: l.txns,
+              status: 'part' as const,
+              text: l.nonCash ? 'On top of your pay; counts toward the total invested.' : l.note ?? '',
+              payAt: '',
+            }))
+          : undefined,
+    })
+  }
+  return out
+}
+
 export function paycheckStatement(a: Allocation, next: Allocation | undefined, actuals: Actual[] = ACTUALS): PaycheckStatement {
   const payday = a.paycheck.scheduledDate
   const p = a.paycheck
@@ -474,7 +522,7 @@ export function paycheckStatement(a: Allocation, next: Allocation | undefined, a
   const spendTotal = r2(spending.reduce((s, x) => s + x.total, 0))
   const freeCashFlow = r2(netIncome - spendTotal)
 
-  const investing: StatementSection = { key: 'invest', label: 'Investing', lines: investLines, total: sum(investLines) }
+  const investing: StatementSection = { key: 'invest', label: 'Investing', lines: groupInvesting(investLines), total: sum(investLines) }
   const savingsChange = r2(toSavings - draws)
   const checkingChange = r2(freeCashFlow - investing.total - savingsChange)
   const netCash: StatementSection = {

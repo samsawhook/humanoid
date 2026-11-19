@@ -351,7 +351,7 @@ function BenchHeader() {
 
 /** What is still to go out of checking this paycheck: budget not yet seen, plus the savings transfer. */
 function stillToGo(st: PaycheckStatement): number {
-  const out = [...st.spending.flatMap((x) => x.lines), ...st.investing.lines.filter((l) => l.key !== 'tsp')].filter(
+  const out = [...st.spending.flatMap((x) => x.lines), ...st.investing.lines.filter((l) => l.key !== 'tsp' && l.key !== 'retirement')].filter(
     (l) => !l.nonCash && l.amount > 0,
   )
   const toSavings = Math.max(0, st.netCash.lines.find((l) => l.key === 'savings')?.amount ?? 0)
@@ -455,7 +455,7 @@ function Line({
         return (
           <details className="ar-more">
             <summary>
-              {l.accounts.length} {parts ? 'parts of the bill' : l.accounts.length === 1 ? 'item' : 'items'}
+              {l.accounts.length} {parts && l.key.startsWith('phone') ? 'parts of the bill' : l.accounts.length === 1 ? 'item' : 'items'}
             </summary>
             {list}
           </details>
@@ -599,6 +599,30 @@ function PaydayCard({
 }) {
   const g = st.gross.total
   const benchRows = bench ? benchmarkRows(st) : null
+  // Net cash that ties to the walk: checking's change is end − start (bank-anchored), and any
+  // gap from what the records explain is shown as its own line, never blended in.
+  const netCashTied = (() => {
+    const savingsLine = st.netCash.lines.find((l) => l.key === 'savings')
+    const checking = r2(checkingAfter - checkingBefore)
+    const gap = r2(st.netCash.total - checking - (savingsLine?.amount ?? 0))
+    const lines: StatementLine[] = [
+      { key: 'checking', label: `Change to checking (${usd(checkingBefore)} → ${usd(checkingAfter)})`, amount: checking, txns: [] },
+      ...st.netCash.lines.filter((l) => l.key !== 'checking'),
+    ]
+    if (Math.abs(gap) > 0.005) {
+      lines.push({
+        key: 'unexplained',
+        label:
+          gap < 0
+            ? `Bank shows ${usd(-gap)} more than the records explain — not yet explained`
+            : `Bank shows ${usd(gap)} less than the records explain — not yet explained`,
+        amount: gap,
+        txns: [],
+        note: 'Usually a charge that has not posted yet, or one the records do not have. Send a screenshot and it gets matched.',
+      })
+    }
+    return { ...st.netCash, lines }
+  })()
   const bx = (k: string) => (benchRows ? (benchRows.find((r) => r.key === k) ?? undefined) : undefined)
   return (
     <article className={`pcard${wide ? ' pcard-wide' : ''}${bench ? ' pcard-bench' : ''}`}>
@@ -661,10 +685,9 @@ function PaydayCard({
         gross={g}
         spendable={spendable}
         showActuals={showActuals}
-        bench={bx('invest')}
-        lineBench={benchRows ? { nth_investments: bx('business')! } : undefined}
+        lineBench={benchRows ? { retirement: bx('invest')!, brokerage: bx('brokerage')!, business: bx('business')! } : undefined}
       />
-      <Section sec={st.netCash} gross={g} spendable={spendable} showActuals={false} sign={st.netCash.total < 0 ? '−' : '+'} bar={false} bench={bx('cash')}>
+      <Section sec={netCashTied} gross={g} spendable={spendable} showActuals={false} sign={st.netCash.total < 0 ? '−' : '+'} bar={false} bench={bx('cash')}>
       {(() => {
         const d = (k: string) => st.netCash.lines.find((l) => l.key === k)?.amount ?? 0
         // The cash walk for checking: where it starts, what comes in, what has gone, what is
@@ -672,7 +695,7 @@ function PaydayCard({
         const end = checkingAfter
         const start = checkingBefore
         const plannedOut = r2(start + st.takeHome - end)
-        const out = [...st.spending.flatMap((x) => x.lines), ...st.investing.lines.filter((l) => l.key !== 'tsp')].filter(
+        const out = [...st.spending.flatMap((x) => x.lines), ...st.investing.lines.filter((l) => l.key !== 'tsp' && l.key !== 'retirement')].filter(
           (l) => !l.nonCash && l.amount > 0,
         )
         const gone = r2(out.reduce((t, l) => t + (l.spent ?? 0), 0))

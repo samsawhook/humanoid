@@ -16,7 +16,7 @@ describe('paycheck statement, gross to cash', () => {
       expect(s.freeCashFlow).toBeCloseTo(s.netIncome - spend, 2)
       expect(s.netCash.total).toBeCloseTo(s.freeCashFlow - s.investing.total, 2)
       // take-home = net income − the TSP withheld
-      const tsp = s.investing.lines.find((l) => l.key === 'tsp')!.amount
+      const tsp = s.investing.lines.find((l) => l.key === 'retirement')!.amount
       expect(s.takeHome).toBeCloseTo(s.netIncome - tsp, 2)
       const checking = s.netCash.lines.find((l) => l.key === 'checking')!.amount
       expect(checking).toBeCloseTo(all[i + 1]!.openingBuffer - all[i]!.openingBuffer, 2)
@@ -33,7 +33,7 @@ describe('paycheck statement, gross to cash', () => {
     expect(dec.lines.find((l) => l.key === 'nanny_topup')!.amount).toBe(200)
     expect(sent.lines.some((l) => l.label.startsWith('Gifts'))).toBe(true)
     expect(s.spending.find((x) => x.key === 'personal')!.lines.some((l) => l.label.startsWith('Gifts'))).toBe(false)
-    expect(s.investing.lines.find((l) => l.key === 'tsp_match')!.nonCash).toBe(true)
+    expect(s.investing.lines.find((l) => l.key === 'retirement')!.accounts!.find((r) => r.key === 'tsp_match')!.name).toMatch(/not from your pay/)
   })
 })
 

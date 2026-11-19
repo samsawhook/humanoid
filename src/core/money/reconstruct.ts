@@ -13,7 +13,7 @@
 
 import type { LocalDate } from '../types'
 import type { Actual } from './actuals'
-import { MORTGAGE_PRINCIPAL_EST, type PaycheckStatement, type StatementLine, type StatementSection } from './statement'
+import { MORTGAGE_PRINCIPAL_EST, groupInvesting, type PaycheckStatement, type StatementLine, type StatementSection } from './statement'
 import { projectPaycheck } from './paychecks'
 
 export const NOV1 = {
@@ -170,11 +170,11 @@ export function nov1Statement(): PaycheckStatement {
   const investing: StatementSection = {
     key: 'invest',
     label: 'Investing',
-    lines: [
+    lines: groupInvesting([
       { key: 'tsp', label: 'TSP — your 5% of base pay (Roth, withheld)', amount: tsp, txns: [], note: '5% of base pay, not of gross — so about 2.9% of gross.' },
       { key: 'tsp_match', label: 'TSP — 5% match on base pay (from the Army, not your pay)', amount: tsp, nonCash: true, txns: [] },
       ...nth.lines,
-    ],
+    ]),
     total: r2(tsp + nth.total),
   }
   const checkingChange = r2(NOV1.checkingAfter - NOV1.checkingBefore)

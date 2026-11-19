@@ -6,7 +6,7 @@ describe('the 1 Nov paycheck, rebuilt from the bank', () => {
   it('reconciles to the bank: free cash flow − investing = the change in cash', () => {
     const spend = s.spending.reduce((t, x) => t + x.total, 0)
     expect(s.freeCashFlow).toBeCloseTo(s.netIncome - spend, 2)
-    const tsp = s.investing.lines.find((l) => l.key === 'tsp')!.amount
+    const tsp = s.investing.lines.find((l) => l.key === 'retirement')!.amount
     // net income − TSP = what reached checking (the deposit + the small DFAS adjustment)
     expect(s.netIncome - tsp).toBeCloseTo(NOV1.deposit + 26, 2)
     expect(s.netCash.total).toBeCloseTo(s.freeCashFlow - s.investing.total, 2)
