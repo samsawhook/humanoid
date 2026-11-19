@@ -105,7 +105,13 @@ export const PLAN_POINTS: PlanPoint[] = [
   // schools' published ones for the last cycle — they rarely move, but confirm on each site.
   { lane: 'law', label: 'Texas A&M (reach) — priority deadline', date: '2027-02-01', estimated: true, note: 'Late deadline 1 Mar; the class can fill before the final date. law.tamu.edu' },
   { lane: 'law', label: 'Texas Tech — deadline', date: '2027-03-01', estimated: true, note: 'Rolling admissions. depts.ttu.edu/law' },
-  { lane: 'law', label: 'UH full-time + UNT Dallas — deadlines', date: '2027-03-15', estimated: true, note: 'UH says its dates do not change year to year. UNT Dallas charges no application fee.' },
+  {
+    lane: 'law',
+    label: 'UH full-time + UNT Dallas (day or evening) — deadlines',
+    date: '2027-03-15',
+    estimated: true,
+    note: 'UH says its dates do not change year to year. UNT Dallas: one deadline for its full-time day and part-time evening divisions (2025 ABA report), no application fee; you can switch division after the first year.',
+  },
   { lane: 'law', label: 'UH part-time evening — deadline', date: '2027-05-15', estimated: true, note: 'The night-law path: UH’s part-time evening JD.' },
   {
     lane: 'law',
