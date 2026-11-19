@@ -231,13 +231,17 @@ export function groupInvesting(lines: StatementLine[]): StatementLine[] {
         : 'brokerage'
   const GROUPS: { key: 'retirement' | 'brokerage' | 'business'; label: string }[] = [
     { key: 'retirement', label: 'TSP / 401(k)' },
-    { key: 'brokerage', label: 'Brokerage' },
+    { key: 'brokerage', label: 'IRA / Brokerage' },
     { key: 'business', label: 'Business — Nth Venture' },
   ]
   const out: StatementLine[] = []
   for (const g of GROUPS) {
     const parts = lines.filter((l) => kind(l) === g.key)
-    if (!parts.length) continue
+    // Always show the three, with $0 where nothing goes in (IRA / Brokerage, for now).
+    if (!parts.length) {
+      out.push({ key: g.key, label: g.label, amount: 0, spent: 0, txns: [], note: 'Nothing going in yet.' })
+      continue
+    }
     const cash = parts.filter((l) => !l.nonCash)
     out.push({
       key: g.key,

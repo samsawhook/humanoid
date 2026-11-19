@@ -6,6 +6,9 @@ import { PAYMENT_INFO, scheduledFor, CHECKING, SAVINGS, type PaymentInfo, type S
 import { nov1Statement, NOV1 } from '@/core/money/reconstruct'
 import { combineStatements, paycheckStatement, type PaycheckStatement, type StatementLine, type StatementSection } from '@/core/money/statement'
 import { benchmarkRows, type BenchRow, type BenchStatus } from '@/core/money/benchmarks'
+import { limitsFor } from '@/core/money/limits'
+import { projectPaycheck } from '@/core/money/paychecks'
+import { monthlyBasicPay } from '@/core/money/drillPay'
 
 /**
  * The next six paychecks, open at the top of the Money page.
@@ -310,6 +313,65 @@ function lineChip(l: StatementLine, spendable: string): Chip | null {
 /** Card minimums are estimates until the statement says; everything else is an exact amount. */
 const ESTIMATED_MINIMUMS = ['platinum', 'brightway', 'credit_one', 'citi', 'capital_one', 'chase']
 
+export interface Maxing {
+  year: number
+  /** Your own TSP / 401(k) contributions so far this year (through this month). */
+  yours: number
+  /** The match so far. */
+  match: number
+  ira: number
+  /** Part of `yours` estimated (paychecks before the plan's data begins). */
+  estimatedPart: number
+}
+
+/** Progress toward the year's limits: one bar each, filled = in so far. */
+function MaxingBox({ m }: { m: Maxing }) {
+  const L = limitsFor(m.year)
+  const rows = [
+    {
+      k: 'TSP / 401(k) — your contributions',
+      v: m.yours,
+      max: L.elective,
+      tip: `The elective limit covers your TSP and any civilian 401(k) together.${m.estimatedPart > 0 ? ` Includes ~${usd(m.estimatedPart)} ESTIMATED before the plan's data — drills, the 4-week AT and Jul 31 – Nov 1 at 5% of base. Your LES shows the real year-to-date.` : ''}`,
+    },
+    {
+      k: 'TSP all-in, with the match (tax-free pay can go this high)',
+      v: m.yours + m.match,
+      max: L.additions,
+      tip: 'The annual-additions limit: everything into the TSP. Combat-zone tax-free pay can be contributed up to this, not just the elective limit.',
+    },
+    {
+      k: 'IRA (Roth or traditional)',
+      v: m.ira,
+      max: L.ira,
+      tip: `Contributions for ${m.year} count until 15 Apr ${m.year + 1}. Tax-free combat pay counts as compensation.`,
+    },
+  ]
+  return (
+    <div className="maxing">
+      <div className="maxing-title">
+        Progress to the {m.year} max{L.estimated ? ' (limits are estimates until the IRS posts them)' : ''}
+      </div>
+      {rows.map((r) => {
+        const p = Math.min(100, (r.v / r.max) * 100)
+        return (
+          <div className="mx-row" key={r.k} title={r.tip}>
+            <div className="mx-top">
+              <span>{r.k}</span>
+              <span className="mx-amt">
+                {usd(r.v)} <span className="ln-dim">of {usd(r.max)} · {p.toFixed(1)}%</span>
+              </span>
+            </div>
+            <div className="mx-bar">
+              <i style={{ width: `${Math.max(p, r.v > 0 ? 0.6 : 0)}%` }} />
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 const LIGHT_TEXT: Record<string, string> = { green: 'on track', yellow: 'close', red: 'off', none: '' }
 
 /** The month view's comparison strip: you, then six benchmarks — a number, a light, a hover. */
@@ -376,7 +438,9 @@ function Line({
   color,
   base,
   bench,
+  compact = false,
 }: {
+  compact?: boolean
   l: StatementLine
   gross: number
   spendable: string
@@ -408,6 +472,9 @@ function Line({
       {!l.nonCash && l.amount > 0 && (
         <BudgetBar amount={l.amount} gross={base} spent={l.spent} showPaid={showActuals} color={color} />
       )}
+      {(() => {
+        const detail = (
+          <>
       {(l.info || l.note) && (
         <div className="ln-meta">
           {l.info && l.accounts && <span>From {l.info.from}</span>}
@@ -477,6 +544,18 @@ function Line({
           ))}
         </ul>
       )}
+          </>
+        )
+        // Month view: the line shows only its name, amount, strip and pill; the rest folds.
+        if (!compact) return detail
+        const has = !!(l.info || l.note || chip || l.accounts || l.txns.length || l.unfunded || l.short)
+        return has ? (
+          <details className="ar-more">
+            <summary>details</summary>
+            {detail}
+          </details>
+        ) : null
+      })()}
     </div>
   )
 }
@@ -491,6 +570,7 @@ function Section({
   bar = true,
   bench,
   lineBench,
+  compactLines = false,
   children,
 }: {
   children?: React.ReactNode
@@ -503,8 +583,10 @@ function Section({
   bar?: boolean
   /** Month view: the comparison strip for this category. */
   bench?: BenchRow
-  /** Month view: a strip for a single line (Nth, inside Investing). */
+  /** Month view: a strip for each of the section's lines (Investing's three). */
   lineBench?: Record<string, BenchRow>
+  /** Month view: lines show only name, amount and strip — their detail stays folded. */
+  compactLines?: boolean
 }) {
   const out = sec.lines.filter((l) => !l.nonCash && l.amount > 0 && l.spent !== undefined)
   const budget = out.reduce((s, l) => s + l.amount, 0)
@@ -540,7 +622,7 @@ function Section({
       </summary>
       <div className="sec-body">
         {sec.lines.map((l) => (
-          <Line key={l.key} l={l} gross={gross} spendable={spendable} showActuals={showActuals} color={color} base={gross} bench={lineBench?.[l.key]} />
+          <Line key={l.key} l={l} gross={gross} spendable={spendable} showActuals={showActuals} color={color} base={gross} bench={lineBench?.[l.key]} compact={compactLines} />
         ))}
         {children}
       </div>
@@ -577,6 +659,7 @@ function PaydayCard({
   live = false,
   wide = false,
   bench = false,
+  maxing,
 }: {
   /** The paycheck your latest bank update falls in: "now" comes from the bank. */
   live?: boolean
@@ -584,6 +667,8 @@ function PaydayCard({
   wide?: boolean
   /** Show how the categories compare: typical, advisor rule, your target. */
   bench?: boolean
+  /** Month view: progress this calendar year toward the TSP / 401(k) and IRA limits. */
+  maxing?: Maxing
   st: PaycheckStatement
   tag: string
   title: string
@@ -686,7 +771,12 @@ function PaydayCard({
         spendable={spendable}
         showActuals={showActuals}
         lineBench={benchRows ? { retirement: bx('invest')!, brokerage: bx('brokerage')!, business: bx('business')! } : undefined}
-      />
+        open={!!bench}
+        compactLines={!!bench}
+      >
+        {maxing && <MaxingBox m={maxing} />}
+      </Section>
+
       <Section sec={netCashTied} gross={g} spendable={spendable} showActuals={false} sign={st.netCash.total < 0 ? '−' : '+'} bar={false} bench={bx('cash')}>
       {(() => {
         const d = (k: string) => st.netCash.lines.find((l) => l.key === k)?.amount ?? 0
@@ -801,6 +891,27 @@ export function PaydayFocus({
   const asOf = ACTUALS_AS_OF
   const seen = new Set(ACTUALS.map((x) => x.payday))
   const latestSeen = [...seen].sort().at(-1)
+  // Year-to-date TSP: the plan's paychecks, plus 2026's deployed paychecks before the plan's
+  // data (estimated at the same 5% of base).
+  const tspOf = (a: Allocation) => a.paycheck.deductions.find((d) => d.key === 'tsp')?.amount ?? 0
+  // 2026 before the plan's data, all ESTIMATES at 5% of base pay until your LES gives the
+  // real year-to-date: drills (about one weekend — 4 periods — a month, six months), the
+  // 4-week annual training, Jul 31 (the first day on orders), then the Aug 15 – Nov 1 paychecks.
+  const base30 = monthlyBasicPay() / 30
+  const PRE_PLAN_2026 = ['2026-08-15', '2026-09-01', '2026-09-15', '2026-10-01', '2026-10-15', '2026-11-01'] as const
+  const prePlan = r2(
+    PRE_PLAN_2026.reduce((t, d) => t + (projectPaycheck(d).deductions.find((x) => x.key === 'tsp')?.amount ?? 0), 0) +
+      0.05 * base30 * (6 * 4 /* drills */ + 28 /* annual training */ + 1 /* 31 Jul */),
+  )
+  const maxingThrough = (month: string): Maxing => {
+    const year = Number(month.slice(0, 4))
+    const plan = allocations
+      .filter((a) => a.paycheck.scheduledDate.slice(0, 4) === String(year) && a.paycheck.scheduledDate.slice(0, 7) <= month)
+      .reduce((t, a) => t + tspOf(a), 0)
+    const est = year === 2026 ? prePlan : 0
+    const yours = r2(plan + est)
+    return { year, yours, match: yours, ira: 0, estimatedPart: est }
+  }
   // Savings balance after each paycheck: what the save lines put in, less emergency draws.
   const saveKeys = (BUCKETS.find((b) => b.key === 'save')?.keys ?? []) as readonly string[]
   const savingsAfter: number[] = []
@@ -930,6 +1041,7 @@ export function PaydayFocus({
                   showActuals={present.some((c) => c.showActuals)}
                   checkingAfter={last.checkingAfter}
                   checkingBefore={present[0]!.checkingBefore}
+                  maxing={maxingThrough(m)}
                   savings={last.savings}
                   short={present.reduce((s, c) => s + c.short, 0)}
                   spendable={present[0]!.spendable}

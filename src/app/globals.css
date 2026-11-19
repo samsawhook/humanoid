@@ -579,3 +579,12 @@ body:has(nav.rail) main { margin-left: 60px; }
 }
 /* The money views no longer carry their own menu. */
 .mlayout { display: block !important; }
+
+/* Month view: progress to the year's retirement maximums. */
+.maxing { background: var(--panel-2); border-radius: 10px; padding: 10px 12px; margin: 10px 0 4px; }
+.maxing-title { font-size: 11.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.mx-row { padding: 5px 0; cursor: help; }
+.mx-top { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
+.mx-amt { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mx-bar { height: 8px; border: 1.5px solid #9085e9; border-radius: 4px; margin-top: 4px; overflow: hidden; box-sizing: border-box; }
+.mx-bar i { display: block; height: 100%; background: #9085e9; }

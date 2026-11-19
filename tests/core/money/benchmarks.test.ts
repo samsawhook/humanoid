@@ -35,3 +35,21 @@ describe('outside voices', () => {
     }
   })
 })
+
+describe('investing split', () => {
+  it('counts the match in the TSP / 401(k) share and keeps IRA / Brokerage at zero', async () => {
+    const { allocateAll } = await import('@/core/money/allocation')
+    const { projectPaychecks } = await import('@/core/money/paychecks')
+    const { OBLIGATIONS, ONE_OFFS, PLAN_START } = await import('@/core/money/obligations')
+    const { TIMELINE } = await import('@/core/money/rates')
+    const { paycheckStatement } = await import('@/core/money/statement')
+    const { benchmarkRows } = await import('@/core/money/benchmarks')
+    const all = allocateAll(projectPaychecks(PLAN_START, TIMELINE.lastPayday), OBLIGATIONS, ONE_OFFS)
+    const st = paycheckStatement(all[1]!, all[2])
+    const rows = benchmarkRows(st)
+    const tsp = st.investing.lines.find((l) => l.key === 'retirement')!.amount
+    expect(rows.find((r) => r.key === 'invest')!.you).toBeCloseTo(((tsp * 2) / st.gross.total) * 100, 1)
+    expect(st.investing.lines.map((l) => l.key)).toEqual(['retirement', 'brokerage', 'business'])
+    expect(rows.find((r) => r.key === 'brokerage')!.you).toBe(0)
+  })
+})

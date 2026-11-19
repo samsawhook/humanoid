@@ -18,7 +18,7 @@ import { ENTITLEMENTS, TAX } from './rates'
 /** One drill period. The Army pays these in units of one, not in days. */
 export const MUTAS_PER_DRILL_DAY = 2
 
-function monthlyBasicPay(): number {
+export function monthlyBasicPay(): number {
   return ENTITLEMENTS.find((e) => e.key === 'base_pay')!.monthlyAmount
 }
 

@@ -245,7 +245,7 @@ const RULES: Rule[] = [
   },
   {
     key: 'brokerage',
-    label: 'Brokerage',
+    label: 'IRA / Brokerage',
     typical: '≈2% (taxable investing, for those who do any)',
     advisor: 'Only after the match, high-rate debt and 3–6 months of cash',
     target: '0% for now — cards and runway first',
@@ -276,7 +276,9 @@ export function benchmarkRows(st: PaycheckStatement): BenchRow[] {
   if (g <= 0) return []
   const pct = (n: number) => r1((n / g) * 100)
   const sec = (k: string) => st.spending.find((s) => s.key === k)?.total ?? 0
-  const match = st.investing.lines.filter((l) => l.nonCash).reduce((s, l) => s + l.amount, 0)
+  // The match sits inside the TSP / 401(k) line as a row (not from your pay).
+  const match = st.investing.lines.flatMap((l) => l.accounts ?? []).filter((r) => r.key === 'tsp_match').reduce((t, r) => t + r.minimum, 0) +
+    st.investing.lines.filter((l) => l.nonCash).reduce((t, l) => t + l.amount, 0)
   const inv = (k: string) => st.investing.lines.find((l) => l.key === k)?.amount ?? 0
   const nthAmt = inv('business')
   const you: Record<string, number> = {
