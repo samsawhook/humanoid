@@ -106,8 +106,9 @@ const LINE_HOME: Record<string, string> = {
   nordvpn: 'tech',
   hvac_plan: 'home',
   mortgage_current: 'home',
-  arrears_catchup_payment: 'home',
-  mortgage_arrears: 'home',
+  // Past-due mortgage payments are debt catch-up, not this month's housing (your call, 19 Nov).
+  arrears_catchup_payment: 'debt',
+  mortgage_arrears: 'debt',
   auto_liability: 'car',
   car_payoff_now: 'car',
   car_payoff: 'car',

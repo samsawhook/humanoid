@@ -50,8 +50,10 @@ describe('one-month view', () => {
     expect(m.netCash.total).toBeCloseTo(a.netCash.total + b.netCash.total, 2)
     const spend = (s: typeof a) => s.spending.reduce((t, x) => t + x.total, 0)
     expect(spend(m)).toBeCloseTo(spend(a) + spend(b), 2)
-    // the mortgage line appears once, with both payments
+    // December's regular mortgage is housing; the past-due catch-up payment is debt (19 Nov).
     const home = m.spending.find((s) => s.key === 'home')!
-    expect(home.total).toBeGreaterThan(2700)
+    expect(home.lines.some((l) => l.key === 'mortgage_current')).toBe(true)
+    const debt = m.spending.find((s) => s.key === 'debt')!
+    expect(debt.lines.find((l) => l.key === 'arrears_catchup_payment')!.amount).toBeCloseTo(1381.79, 2)
   })
 })

@@ -1046,7 +1046,7 @@ export const OBLIGATIONS: Obligation[] = [
   },
   {
     key: 'arrears_catchup_payment',
-    label: 'Mortgage — second full payment (catch-up)',
+    label: 'Mortgage catch-up — a past-due payment',
     /**
      * What you are actually doing: whole extra payments on top of the current one,
      * finishing in January. A bill on a date, not a sweep —
