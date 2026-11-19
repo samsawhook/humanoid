@@ -110,8 +110,9 @@ const LINE_HOME: Record<string, string> = {
   arrears_catchup_payment: 'debt',
   mortgage_arrears: 'debt',
   auto_liability: 'car',
-  car_payoff_now: 'car',
-  car_payoff: 'car',
+  // Paying off a loan that was behind is arrears, not this month's car cost (your call, 19 Nov).
+  car_payoff_now: 'debt',
+  car_payoff: 'debt',
   support_home_deployed: 'sent',
   nanny_topup: 'sent',
   support_home_extras: 'sent',
@@ -425,6 +426,48 @@ export function paycheckStatement(a: Allocation, next: Allocation | undefined, a
     }
   }
 
+  // Arrears & catch-up: every payment that makes good something already behind — the mortgage
+  // catch-ups, the car payoff, the collection, Avant's past-due — as one line, a row each.
+  const ARREARS = ['arrears_catchup_payment', 'mortgage_arrears', 'car_payoff_now', 'car_payoff', 'late_payments', 'avant_past_due']
+  const debtNow = sections.get('debt')
+  if (debtNow) {
+    const parts = debtNow.filter((l) => ARREARS.includes(l.key))
+    if (parts.length) {
+      const rows: AccountRow[] = parts.map((l) => {
+        const spent = l.spent ?? 0
+        const done = spent >= l.amount - 0.5
+        const auto = l.info?.how === 'automatic'
+        return {
+          key: l.key,
+          name: l.label,
+          minimum: l.amount,
+          paid: spent,
+          txns: l.txns,
+          status: done ? 'paid' : l.scheduled ? 'auto' : auto ? 'auto' : live ? 'todo' : 'later',
+          text: done
+            ? `Paid ${'$' + spent.toFixed(2)}${l.txns.length ? ` on ${niceDate(l.txns.at(-1)!.date)}` : ''}`
+            : l.scheduled
+              ? `Scheduled ${niceDate(l.scheduled.date)} (${l.scheduled.by})`
+              : `${l.info ? `${l.info.to}, ${l.info.when}` : 'By hand'}${l.note ? ` — ${l.note}` : ''}`,
+          payAt: l.info ? `${l.info.from} → ${l.info.to}` : '',
+        }
+      })
+      const merged: StatementLine = {
+        key: 'arrears',
+        label: 'Arrears & catch-up',
+        amount: r2(parts.reduce((t, l) => t + l.amount, 0)),
+        spent: r2(parts.reduce((t, l) => t + (l.spent ?? 0), 0)),
+        short: r2(parts.reduce((t, l) => t + (l.short ?? 0), 0)) || undefined,
+        txns: [],
+        accounts: rows,
+      }
+      const at = debtNow.indexOf(parts[0]!)
+      const rest = debtNow.filter((l) => !ARREARS.includes(l.key))
+      rest.splice(Math.min(at, rest.length), 0, merged)
+      sections.set('debt', rest)
+    }
+  }
+
   const order = ['home', 'car', 'sent', 'personal', 'tech', 'debt', 'emergency', 'other']
   const spending: StatementSection[] = order
     .filter((k) => sections.has(k))
@@ -447,15 +490,16 @@ export function paycheckStatement(a: Allocation, next: Allocation | undefined, a
 
   // ── Balance-sheet impact ──
   const debtPaid = spending.find((s) => s.key === 'debt')?.total ?? 0
-  const carPaid = (sections.get('car') ?? []).filter((l) => l.key.startsWith('car_payoff')).reduce((s, l) => s + l.amount, 0)
-  const catchUp = (sections.get('home') ?? []).filter((l) => l.key === 'arrears_catchup_payment' || l.key === 'mortgage_arrears').reduce((s, l) => s + l.amount, 0)
+  const arrearsRows = (sections.get('debt') ?? []).find((l) => l.key === 'arrears')?.accounts ?? []
+  const catchUp = arrearsRows.filter((r) => r.key === 'arrears_catchup_payment' || r.key === 'mortgage_arrears').reduce((s, r) => s + r.minimum, 0)
+  const carPaid = 0
   const regularMortgage = (sections.get('home') ?? []).some((l) => l.key === 'mortgage_current') ? MORTGAGE_PRINCIPAL_EST : 0
   const nth = investLines.filter((l) => l.key === 'nth_investments').reduce((s, l) => s + l.amount, 0)
   const bsLines: StatementLine[] = [
     { key: 'bs_cash', label: 'Cash (checking + savings)', amount: netCash.total, txns: [] },
     { key: 'bs_tsp', label: 'TSP (your 5% + the match)', amount: r2(tspEmployee * 2), txns: [] },
     ...(nth ? [{ key: 'bs_nth', label: 'Nth Venture — your business, at cost', amount: nth, txns: [] }] : []),
-    ...(debtPaid + carPaid ? [{ key: 'bs_debt', label: 'Debt paid down (incl. some interest — approx.)', amount: r2(debtPaid + carPaid), txns: [] }] : []),
+    ...(debtPaid - catchUp + carPaid ? [{ key: 'bs_debt', label: 'Debt paid down (incl. some interest — approx.)', amount: r2(debtPaid - catchUp + carPaid), txns: [] }] : []),
     ...(catchUp ? [{ key: 'bs_arrears', label: 'Mortgage past-due made good', amount: r2(catchUp), txns: [] }] : []),
     ...(regularMortgage ? [{ key: 'bs_mortgage', label: 'Mortgage principal (approx.)', amount: regularMortgage, txns: [] }] : []),
   ]

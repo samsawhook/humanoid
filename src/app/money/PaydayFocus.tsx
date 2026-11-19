@@ -307,6 +307,9 @@ function lineChip(l: StatementLine, spendable: string): Chip | null {
   return { text: `To do · ${so}${usd(l.amount - spent)}${l.date ? '' : ` from ${nice(spendable)}`}`, cls: 'todo' }
 }
 
+/** Card minimums are estimates until the statement says; everything else is an exact amount. */
+const ESTIMATED_MINIMUMS = ['platinum', 'brightway', 'credit_one', 'citi', 'capital_one', 'chase']
+
 const LIGHT_TEXT: Record<string, string> = { green: 'on track', yellow: 'close', red: 'off', none: '' }
 
 /** The month view's comparison strip: you, then six benchmarks — a number, a light, a hover. */
@@ -430,7 +433,9 @@ function Line({
                   <span className="ar-ic">{r.status === 'paid' ? '✓' : r.status === 'todo' ? '●' : r.status === 'check' ? '⚠' : r.status === 'auto' ? '↻' : r.status === 'part' ? '·' : '○'}</span>
                   {r.name}
                 </span>
-                <span className="ar-amt">{r.paid > 0 ? usd(r.paid) : r.status === 'auto' || r.status === 'part' ? usd(r.minimum) : `~${usd(r.minimum)}`}</span>
+                <span className="ar-amt">
+                  {r.paid > 0 ? usd(r.paid) : ESTIMATED_MINIMUMS.includes(r.key) && r.status !== 'auto' ? `~${usd(r.minimum)}` : usd(r.minimum)}
+                </span>
               </div>
               <BudgetBar
                 amount={r.minimum}

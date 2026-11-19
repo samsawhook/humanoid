@@ -54,6 +54,8 @@ describe('one-month view', () => {
     const home = m.spending.find((s) => s.key === 'home')!
     expect(home.lines.some((l) => l.key === 'mortgage_current')).toBe(true)
     const debt = m.spending.find((s) => s.key === 'debt')!
-    expect(debt.lines.find((l) => l.key === 'arrears_catchup_payment')!.amount).toBeCloseTo(1381.79, 2)
+    const arrears = debt.lines.find((l) => l.key === 'arrears')!
+    expect(arrears.label).toBe('Arrears & catch-up')
+    expect(arrears.accounts!.find((r) => r.key === 'arrears_catchup_payment')!.minimum).toBeCloseTo(1381.79, 2)
   })
 })
