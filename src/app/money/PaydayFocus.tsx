@@ -5,7 +5,7 @@ import { ACTUALS, ACTUALS_AS_OF, actualsFor, spentOn, type Actual } from '@/core
 import { PAYMENT_INFO, scheduledFor, CHECKING, SAVINGS, type PaymentInfo, type Scheduled } from '@/core/money/execution'
 import { nov1Statement, NOV1 } from '@/core/money/reconstruct'
 import { combineStatements, paycheckStatement, type PaycheckStatement, type StatementLine, type StatementSection } from '@/core/money/statement'
-import { benchmarkRows, type BenchStatus } from '@/core/money/benchmarks'
+import { benchmarkRows, type BenchRow, type BenchStatus } from '@/core/money/benchmarks'
 
 /**
  * The next six paychecks, open at the top of the Money page.
@@ -527,6 +527,8 @@ function PaydayCard({
           </div>
         )
       })()}
+      {bench && <MonthTable st={st} />}
+      {!bench && (
       <div className="pcard-body">
       <div className="pcol">
       <Section sec={st.gross} gross={g} spendable={spendable} showActuals={false} sign="" bar={false} />
@@ -573,8 +575,8 @@ function PaydayCard({
       <Total label="Net worth change (approx.)" amount={st.balanceSheet.total} gross={g} strong />
       {short > 0 && <div className="chip chip-over" style={{ marginTop: 8 }}>{usd(short)} of bills can&rsquo;t be covered by this paycheck</div>}
       </div>
-      {bench && <Benchmarks st={st} />}
       </div>
+      )}
     </article>
   )
 }
@@ -587,99 +589,158 @@ const BENCH_CHIP: Record<BenchStatus, { cls: string; text: string }> = {
   info: { cls: 'auto', text: '—' },
 }
 
-/** The month against typical households, the advisor rules and your targets. */
-function Benchmarks({ st }: { st: PaycheckStatement }) {
-  const rows = benchmarkRows(st)
-  return (
-    <details className="sec bench" open>
-      <summary>
-        <div className="sec-top">
-          <span className="sec-name">How this month compares</span>
-          <span className="sec-amt ln-dim" style={{ fontWeight: 400, fontSize: 12.5 }}>% of gross · scroll sideways →</span>
+/**
+ * The one-month view: ONE table. Each category is a row across the full width — your
+ * dollars and share on the left, then typical, the advisor rule, the robo, Ramsey,
+ * Kiyosaki, the plan target and status. Tap a category to open its lines beneath it.
+ */
+function MonthTable({ st }: { st: PaycheckStatement }) {
+  const g = st.gross.total
+  const bench = benchmarkRows(st)
+  const b = (k: string) => bench.find((r) => r.key === k)
+  const sec = (k: string) => st.spending.find((x) => x.key === k)
+  const isNth = (l: StatementLine) => l.key === 'nth_investments' || /Nth/.test(l.label)
+  const tsp = st.investing.lines.filter((l) => !isNth(l))
+  const nth = st.investing.lines.filter(isNth)
+  const cash = (ls: StatementLine[]) => ls.filter((l) => !l.nonCash).reduce((t, l) => t + l.amount, 0)
+
+  type Row =
+    | { kind: 'group'; key: string; label: string; amount: number; sign: string; lines: StatementLine[]; bench?: BenchRow }
+    | { kind: 'total'; label: string; amount: number }
+  const rows: Row[] = [
+    { kind: 'group', key: 'gross', label: 'Gross income', amount: g, sign: '', lines: st.gross.lines },
+    { kind: 'group', key: 'deductions', label: 'Deduction expenses', amount: st.deductions.total, sign: '−', lines: st.deductions.lines, bench: b('deductions') },
+    { kind: 'total', label: 'Net income', amount: st.netIncome },
+    ...st.spending.map(
+      (x): Row => ({ kind: 'group', key: x.key, label: x.label, amount: x.total, sign: '−', lines: x.lines, bench: b(x.key) }),
+    ),
+    { kind: 'total', label: 'Free cash flow', amount: st.freeCashFlow },
+    { kind: 'group', key: 'invest', label: 'Investing (TSP)', amount: cash(tsp), sign: '−', lines: tsp, bench: b('invest') },
+    ...(nth.length ? [{ kind: 'group' as const, key: 'business', label: 'Nth — your business', amount: cash(nth), sign: '−', lines: nth, bench: b('business') }] : []),
+    { kind: 'group', key: 'cash', label: 'Net cash', amount: st.netCash.total, sign: st.netCash.total < 0 ? '−' : '+', lines: st.netCash.lines, bench: b('cash') },
+    { kind: 'group', key: 'bs', label: 'Balance sheet impact', amount: st.balanceSheet.total, sign: '+', lines: st.balanceSheet.lines },
+    { kind: 'total', label: 'Net worth change (approx.)', amount: st.balanceSheet.total },
+  ]
+  const pctOf = (n: number) => `${((n / g) * 100).toFixed(1)}%`
+  const voice = (v?: { pct: number; why: string }, status?: BenchStatus) =>
+    v ? (
+      <>
+        <div className="v-pct">
+          {v.pct}%
+          {status && status !== 'info' && <span className={`chip chip-${BENCH_CHIP[status].cls} v-chip`}>{BENCH_CHIP[status].text}</span>}
         </div>
-      </summary>
-      <div className="tablewrap">
-        <table className="benchtable">
-          <thead>
-            <tr>
-              <th>Category</th>
-              <th>This month</th>
-              <th>You</th>
-              <th>Typical, age 25–34</th>
-              <th>Advisor rule</th>
-              <th>Robo, tuned to you</th>
-              <th>Dave Ramsey</th>
-              <th>Robert Kiyosaki</th>
-              <th>Plan target</th>
-              <th>Status vs plan</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.key}>
+        <div className="v-why">{v.why}</div>
+      </>
+    ) : null
+
+  return (
+    <div className="tablewrap mt-wrap">
+      <table className="monthtable">
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th className="num">This month</th>
+            <th className="num">% gross</th>
+            <th>Typical, age 25–34</th>
+            <th>Advisor rule</th>
+            <th>Robo, tuned to you</th>
+            <th>Dave Ramsey</th>
+            <th>Robert Kiyosaki</th>
+            <th>Plan target</th>
+            <th>Status vs plan</th>
+          </tr>
+        </thead>
+        {rows.map((r, i) => {
+          if (r.kind === 'total') {
+            return (
+              <tbody key={`t${i}`} className="mt-total">
+                <tr>
+                  <td>{r.label}</td>
+                  <td className={`num${r.amount < 0 ? ' neg' : ''}`}>{usd(r.amount)}</td>
+                  <td className="num">{pctOf(r.amount)}</td>
+                  <td colSpan={7} />
+                </tr>
+              </tbody>
+            )
+          }
+          const bx = r.bench
+          return (
+            <tbody key={r.key} className="mt-grp">
+              <tr className="mt-head">
                 <td>
-                  <i className="swatch-dot" style={{ background: CAT_COLOR[r.key] ?? CAT_COLOR.other, marginRight: 8 }} />
-                  {r.label}
+                  <label className="mt-name">
+                    <input type="checkbox" className="mt-tog" />
+                    <i className="swatch-dot" style={{ background: CAT_COLOR[r.key] ?? CAT_COLOR.other }} />
+                    {r.label}
+                  </label>
                 </td>
-                <td className="b-you">{usd(r.amount)}</td>
-                <td className="b-you">{r.you.toFixed(1)}%</td>
-                <td>{r.typical}</td>
-                <td>{r.advisor}</td>
-                <td>
-                  <div className="v-pct">
-                    {r.robo.pct}%
-                    {r.robo.status !== 'info' && (
-                      <span className={`chip chip-${BENCH_CHIP[r.robo.status].cls} v-chip`}>{BENCH_CHIP[r.robo.status].text}</span>
-                    )}
-                  </div>
-                  <div className="v-why">{r.robo.why}</div>
+                <td className="num b-you">
+                  {r.sign}
+                  {usd(Math.abs(r.amount))}
                 </td>
-                <td>
-                  <div className="v-pct">{r.ramsey.pct}%</div>
-                  <div className="v-why">{r.ramsey.why}</div>
+                <td className="num b-you">
+                  {bx ? `${bx.you.toFixed(1)}%` : pctOf(r.amount)}
+                  {bx?.key === 'invest' && <div className="v-why">incl. match</div>}
                 </td>
+                <td>{bx?.typical}</td>
+                <td>{bx?.advisor}</td>
+                <td>{voice(bx?.robo, bx?.robo.status)}</td>
+                <td>{voice(bx?.ramsey)}</td>
+                <td>{voice(bx?.kiyosaki)}</td>
+                <td>{bx?.target}</td>
                 <td>
-                  <div className="v-pct">{r.kiyosaki.pct}%</div>
-                  <div className="v-why">{r.kiyosaki.why}</div>
-                </td>
-                <td>{r.target}</td>
-                <td>
-                  <span className={`chip chip-${BENCH_CHIP[r.status].cls}`} style={{ marginTop: 0 }}>{BENCH_CHIP[r.status].text}</span>
-                  {r.verdict && <div className="b-verdict">{r.verdict}</div>}
+                  {bx && (
+                    <>
+                      <span className={`chip chip-${BENCH_CHIP[bx.status].cls}`} style={{ marginTop: 0 }}>
+                        {BENCH_CHIP[bx.status].text}
+                      </span>
+                      {bx.verdict && <div className="b-verdict">{bx.verdict}</div>}
+                    </>
+                  )}
                 </td>
               </tr>
-            ))}
-            <tr className="b-total">
-              <td>Total</td>
-              <td className="b-you">{usd(rows.reduce((t, r) => t + r.amount, 0))}</td>
-              <td className="b-you" title="Over 100% because investing counts the Army's match, which is on top of your pay">
-                {rows.reduce((t, r) => t + r.you, 0).toFixed(0)}%<div className="v-why">incl. match</div>
-              </td>
-              <td />
-              <td />
-              <td>{rows.reduce((t, r) => t + r.robo.pct, 0)}%</td>
-              <td>{rows.reduce((t, r) => t + r.ramsey.pct, 0)}%</td>
-              <td>{rows.reduce((t, r) => t + r.kiyosaki.pct, 0)}%</td>
-              <td />
-              <td />
-            </tr>
-          </tbody>
-        </table>
-      </div>
+              {r.lines.map((l) => (
+                <tr key={l.key} className="mt-line">
+                  <td>
+                    {l.label}
+                    {l.date && <span className="ln-dim"> · {nice(l.date)}</span>}
+                  </td>
+                  <td className={`num${l.nonCash ? ' ln-dim' : ''}`}>{l.nonCash ? `(${usd(l.amount)})` : usd(l.amount)}</td>
+                  <td className="num ln-dim">{pctOf(l.amount)}</td>
+                  <td colSpan={7} className="mt-meta">
+                    {l.info && `${l.info.from} → ${l.info.to}`}
+                    {(l.spent ?? 0) > 0 && !l.nonCash && <span> · {usd(l.spent!)} gone out</span>}
+                    {(l.unfunded ?? 0) > 0 && <span className="neg"> · ⚠ {usd(l.unfunded!)} over budget</span>}
+                    {l.accounts && <span> · {l.accounts.map((a) => a.name).join(', ')}</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          )
+        })}
+        <tbody className="mt-total">
+          <tr>
+            <td>Allocations</td>
+            <td />
+            <td className="num">{bench.reduce((t, r) => t + r.you, 0).toFixed(0)}%</td>
+            <td colSpan={2} className="v-why">Yours counts the Army’s match, so it tops 100%.</td>
+            <td>{bench.reduce((t, r) => t + r.robo.pct, 0)}%</td>
+            <td>{bench.reduce((t, r) => t + r.ramsey.pct, 0)}%</td>
+            <td>{bench.reduce((t, r) => t + r.kiyosaki.pct, 0)}%</td>
+            <td colSpan={2} />
+          </tr>
+        </tbody>
+      </table>
       <p className="b-note">
         <strong>Robo</strong>: what an automated planner would set from your profile alone — not from this plan: deployed and
         tax-free to July, a household to run, ~$18k of card-rate debt, little cash, and an uncertain income from August. Match
         first, runway second, highest-rate debt third, then investing. <strong>Ramsey</strong> and <strong>Kiyosaki</strong>:
-        paraphrased from their published advice and applied to you — not quotes. Ramsey&rsquo;s Baby Steps: $1,000 starter fund, then
-        the debt snowball with all investing paused. Kiyosaki: buy assets that pay you, treat the house and car as liabilities, and
-        don&rsquo;t hold savings in dollars. Each of the three sums to 100% of gross.
-      </p>
-      <p className="b-note">
+        paraphrased from their published advice and applied to you — not quotes. Each of the three sums to 100% of gross.
         Typical: US households with a head aged 25–34, approximate (BLS Consumer Expenditure Survey, Fed debt-service ratio,
-        Vanguard How America Saves). Your gross includes untaxed BAH and BAS, so every share reads a little low against a civilian
-        salary. Targets are for this phase: deployed, cards to clear, emergency fund to build.
+        Vanguard How America Saves); your gross includes untaxed BAH and BAS, so every share reads a little low. Tap a category
+        to see its lines; the 1st and 15th cards have every transaction.
       </p>
-    </details>
+    </div>
   )
 }
 

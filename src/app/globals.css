@@ -483,3 +483,37 @@ main:has(.gantt-wrap) { max-width: 1600px; }
 .benchtable { min-width: 1060px; }
 /* Expand across: the card takes the row and its neighbour steps aside (untick to bring it back). */
 .pgrid:has(> .pcard .wide-toggle input:checked) > :not(:has(.wide-toggle input:checked)) { display: none; }
+
+/* The one-month table: every category one row across the full width. */
+.mt-wrap { margin-top: 6px; }
+.monthtable { width: 100%; min-width: 1320px; border-collapse: collapse; table-layout: fixed; font-size: 13px; }
+.monthtable th { text-align: left; font-size: 11px; padding: 8px 8px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); }
+.monthtable th:nth-child(1) { width: 13%; }
+.monthtable th:nth-child(2) { width: 7.5%; }
+.monthtable th:nth-child(3) { width: 5.5%; }
+.monthtable th:nth-child(4) { width: 9%; }
+.monthtable th:nth-child(5) { width: 9.5%; }
+.monthtable th:nth-child(6), .monthtable th:nth-child(7), .monthtable th:nth-child(8) { width: 12%; }
+.monthtable th:nth-child(9) { width: 8.5%; }
+.monthtable th:nth-child(10) { width: 11%; }
+.monthtable td { padding: 9px 8px; vertical-align: top; color: var(--muted); overflow-wrap: anywhere; }
+.monthtable .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.monthtable th.num { text-align: right; }
+.monthtable td.neg, .monthtable .neg { color: var(--bad); }
+.mt-grp { border-top: 1px solid var(--line); }
+.mt-head td:first-child { color: var(--text); font-weight: 650; }
+.mt-head td.b-you { color: var(--text); font-weight: 700; }
+.mt-name { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.mt-name::before { content: '▸'; color: var(--muted); font-size: 11px; width: 10px; display: inline-block; transition: transform .12s; }
+.mt-grp:has(.mt-tog:checked) .mt-name::before { transform: rotate(90deg); }
+.mt-tog { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.mt-line { display: none; }
+.mt-grp:has(.mt-tog:checked) .mt-line { display: table-row; }
+.mt-line td { padding: 5px 8px; font-size: 12.5px; border-top: 1px dashed var(--line); }
+.mt-line td:first-child { padding-left: 34px; color: var(--text); }
+.mt-meta { font-size: 12px; }
+.mt-total td { background: var(--panel-2); color: var(--text); font-weight: 700; padding: 10px 8px; }
+.mt-total td:first-child { border-radius: 8px 0 0 8px; }
+.monthtable td, .monthtable th { white-space: normal; text-align: left; }
+.monthtable td.num, .monthtable th.num { white-space: nowrap; text-align: right; }
+.monthtable .v-why, .monthtable .b-verdict { white-space: normal; }
