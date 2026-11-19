@@ -39,6 +39,41 @@ export const GROUP_LABEL: Record<ScenarioGroup, string> = {
 }
 
 const school = (k: string) => LAW_SCHOOLS.find((s) => s.key === k)!
+
+/** Day-job pay ladders, shared by the CPA routes and the night-law day jobs. MY ESTIMATES. */
+const LADDER: Record<'fed' | 'mid' | 'small', { name: string; salary: Anchor[]; dependsOn: string }> = {
+  fed: {
+    name: 'federal / contractor',
+    salary: PATH_ASSUMPTIONS.macc.salary,
+    dependsOn: 'A GS-11/12 federal FM or audit job, or a defense contractor',
+  },
+  mid: {
+    name: 'mid-size public firm',
+    salary: [
+      ['2027-11', 78000],
+      ['2029-09', 90000],
+      ['2031-09', 115000],
+      ['2034-09', 145000],
+      ['2037-09', 185000],
+      ['2041-09', 240000],
+      ['2046-12', 280000],
+    ],
+    dependsOn: 'A senior-associate offer at a mid-size firm (audit experience counts)',
+  },
+  small: {
+    name: 'small local firm',
+    salary: [
+      ['2027-11', 65000],
+      ['2029-09', 75000],
+      ['2031-09', 90000],
+      ['2034-09', 105000],
+      ['2037-09', 120000],
+      ['2041-09', 150000],
+      ['2046-12', 175000],
+    ],
+    dependsOn: 'A small-firm hire',
+  },
+}
 const base = PATH_ASSUMPTIONS
 const COMMON = ['VA rating 50% (your range 30–80%)', 'Off orders 31 Jul 2027']
 
@@ -62,17 +97,20 @@ function law(k: string, short: string, city: string, extra: string[] = []): Scen
   }
 }
 
-function evening(k: string, short: string, rent: number, dayJobScale: number): Scenario {
+function evening(k: string, short: string, rent: number, dayJobScale: number, job: keyof typeof LADDER): Scenario {
   const s = school(k)
+  const j = LADDER[job]
+  const school_ = s.name.replace('University of Houston Law Center', 'UH Law Center')
   return {
-    id: `night_${k}`,
+    id: `night_${k}_${job}`,
     group: 'evening',
-    short,
-    label: `Night law — ${s.name.replace('University of Houston Law Center', 'UH Law Center')} evening, working in ${s.city}`,
+    short: `${short} · ${j.name.split(' ')[0] === 'federal' ? 'federal' : j.name.split(' ')[0]}`,
+    label: `Night law — ${school_} evening, day job at a ${j.name} in ${s.city}`,
     path: 'night',
-    a: { ...base, label: undefined, night: { ...base.night, school: s, rent, dayJobScale } },
+    a: { ...base, label: `Night law — ${school_} evening, by day at a ${j.name} in ${s.city}`, night: { ...base.night, school: s, rent, dayJobScale }, macc: { ...base.macc, salary: j.salary } },
     dependsOn: [
-      `A finance or audit day job in ${s.city} by Nov 2027`,
+      `${j.dependsOn} in ${s.city} by Nov 2027`,
+      ...(job === 'mid' ? ['Busy-season hours on top of night classes'] : []),
       'Admission to the evening JD',
       'Four years of night school with a young family',
       'Corpus house let at ~$1,705',
@@ -98,24 +136,18 @@ export const SCENARIOS: Scenario[] = [
   law('uh', 'UH (full-time)', 'Houston'),
   law('unt', 'UNT Dallas (full-time)', 'Dallas'),
   law('tamu', 'Texas A&M (reach)', 'Fort Worth', ['A reach admit — the numbers may not get you in']),
-  evening('uh', 'UH evening', 2300, 1.06),
-  evening('unt', 'UNT Dallas evening', 2400, 1.08),
-  cpa('cpa_fed', 'Federal / contractor', 'MAcc → CPA — federal or contractor job, Corpus', base.macc.salary, {}, [
-    'A GS-11/12 federal FM or audit job, or a defense contractor, by Nov 2027',
-  ]),
+  evening('uh', 'UH evening', 2300, 1.06, 'fed'),
+  evening('uh', 'UH evening', 2300, 1.06, 'mid'),
+  evening('uh', 'UH evening', 2300, 1.06, 'small'),
+  evening('unt', 'UNT evening', 2400, 1.08, 'fed'),
+  evening('unt', 'UNT evening', 2400, 1.08, 'mid'),
+  evening('unt', 'UNT evening', 2400, 1.08, 'small'),
+  cpa('cpa_fed', 'Federal / contractor', 'MAcc → CPA — federal or contractor job, Corpus', LADDER.fed.salary, {}, [`${LADDER.fed.dependsOn} by Nov 2027`]),
   cpa(
     'cpa_mid',
     'Mid-size public firm',
     'MAcc → CPA — mid-size public accounting firm',
-    [
-      ['2027-11', 78000],
-      ['2029-09', 90000],
-      ['2031-09', 115000],
-      ['2034-09', 145000],
-      ['2037-09', 185000],
-      ['2041-09', 240000],
-      ['2046-12', 280000],
-    ],
+    LADDER.mid.salary,
     {},
     ['A senior-associate offer by Nov 2027 (audit experience counts)', 'Busy-season hours'],
   ),
@@ -123,15 +155,7 @@ export const SCENARIOS: Scenario[] = [
     'cpa_small',
     'Small firm',
     'MAcc → CPA — small local firm',
-    [
-      ['2027-11', 65000],
-      ['2029-09', 75000],
-      ['2031-09', 90000],
-      ['2034-09', 105000],
-      ['2037-09', 120000],
-      ['2041-09', 150000],
-      ['2046-12', 175000],
-    ],
+    LADDER.small.salary,
     {},
     ['A local firm hire by Nov 2027', 'A partner buy-in later, if offered'],
   ),
