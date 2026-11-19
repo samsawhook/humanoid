@@ -133,7 +133,6 @@ export const SPENDING_INFO: Record<string, PaymentInfo> = {
   phone: { from: CHECKING, to: 'T-Mobile', how: 'automatic', when: 'AutoPay, 21st', day: 21 },
   personal_local: { from: CHECKING, to: 'Debit card, Cash App', how: 'automatic', when: 'as you spend' },
   entertainment: { from: CHECKING, to: 'Debit card', how: 'automatic', when: 'as you spend' },
-  fuel: { from: CHECKING, to: 'Debit card', how: 'automatic', when: 'as you spend' },
 }
 
 /** One-time set-up tasks tied to a paycheck's line — shown as a to-do until done. */

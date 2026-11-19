@@ -753,6 +753,50 @@ function ReturnBudget() {
     { label: 'Mid-size firm', salary: 78000 },
     { label: 'Small firm', salary: 65000 },
   ].map((o) => ({ ...o, left: Math.round(monthlyCash(o.salary, other).cash - spend) }))
+  // Export: every line with your number (and mine where you changed it), the totals and
+  // the solve — as text to paste back into the chat, or as a file.
+  const [copied, setCopied] = useState(false)
+  const exportText = () => {
+    const out: string[] = [`BACK-HOME BUDGET — exported ${new Date().toISOString().slice(0, 10)}`, '']
+    out.push('Income (not salary):')
+    for (const l of OTHER_INCOME) {
+      const mine = v(`in:${l.key}`, l.amount)
+      out.push(`  ${l.label}: ${mine}${mine !== l.amount ? ` (estimate was ${l.amount})` : ''}`)
+    }
+    for (const c of cats) {
+      out.push('', `${c.label}: ${Math.round(c.total * 100) / 100}`)
+      for (const l of c.lines) {
+        const mine = v(`${c.key}:${l.key}`, l.amount)
+        out.push(`  ${l.label}: ${mine}${mine !== l.amount ? ` (estimate was ${l.amount})` : ''}`)
+      }
+    }
+    out.push(
+      '',
+      `Spending: ${Math.round(spend)} a month`,
+      `Salary needed: ${need.salary} a year (gross ${need.grossMonthly} a month with VA and drill; taxes ${need.taxes}; 401k ${need.k401})`,
+      ...offers.map((o) => `${o.label} at ${o.salary}: ${o.left >= 0 ? '+' : ''}${o.left} a month`),
+      '',
+      `Changed lines: ${Object.keys(edits).length}`,
+    )
+    return out.join('\n')
+  }
+  const copyExport = async () => {
+    try {
+      await navigator.clipboard.writeText(exportText())
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      downloadExport()
+    }
+  }
+  const downloadExport = () => {
+    const blob = new Blob([exportText()], { type: 'text/plain' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `back-home-budget-${new Date().toISOString().slice(0, 10)}.txt`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
   const input = (k: string, d: number) => (
     <input
       type="number"
@@ -783,9 +827,17 @@ function ReturnBudget() {
           <div className="pcard-gross">
             <div className="pcard-big">{usd0(gross)}</div>
             <div className="pcard-sub">gross a month</div>
-            <button className="btn-ghost" style={{ marginTop: 6 }} onClick={() => save({})} disabled={Object.keys(edits).length === 0}>
-              Reset to my estimates
-            </button>
+            <div className="rb-actions">
+              <button className="btn-ghost" onClick={() => copyExport()}>
+                {copied ? 'Copied ✓' : 'Copy for Claude'}
+              </button>
+              <button className="btn-ghost" onClick={() => downloadExport()}>
+                Download
+              </button>
+              <button className="btn-ghost" onClick={() => save({})} disabled={Object.keys(edits).length === 0}>
+                Reset to my estimates
+              </button>
+            </div>
           </div>
         </header>
         <div className="rb-offers">
@@ -876,45 +928,10 @@ function ReturnBudget() {
   )
 }
 
-type View = 'paychecks' | 'scenarios' | 'balances' | 'briefing'
-
-/** Line icons, 24×24, drawn in the text colour. */
-const ICON: Record<View, React.ReactNode> = {
-  // A banknote: pay coming in and going out.
-  paychecks: (
-    <>
-      <rect x="2.5" y="6" width="19" height="12" rx="2" />
-      <circle cx="12" cy="12" r="2.5" />
-      <path d="M6 9.5v5M18 9.5v5" />
-    </>
-  ),
-  // A fork in the road: the paths home.
-  scenarios: (
-    <>
-      <path d="M12 21v-7" />
-      <path d="M12 14 6 8M12 14l6-6" />
-      <path d="M3.5 8.5 6 6l2.5 2.5M15.5 8.5 18 6l2.5 2.5" />
-    </>
-  ),
-  // Scales: what you own against what you owe.
-  balances: (
-    <>
-      <path d="M12 4v16M7 20h10" />
-      <path d="M5 7h14" />
-      <path d="M5 7 2.5 13a2.6 2.6 0 0 0 5 0L5 7ZM19 7l-2.5 6a2.6 2.6 0 0 0 5 0L19 7Z" />
-    </>
-  ),
-  // A clipboard: the to-do list and the notes.
-  briefing: (
-    <>
-      <rect x="5" y="4.5" width="14" height="17" rx="2" />
-      <path d="M9 3h6v3H9z" />
-      <path d="M8.5 11h7M8.5 14.5h7M8.5 18h4" />
-    </>
-  ),
-}
+type View = 'paychecks' | 'scenarios' | 'balances' | 'home' | 'briefing'
 
 const NAV: { key: View; label: string; hint: string }[] = [
+  { key: 'home', label: 'Back-home budget', hint: 'A normal month home, worked back to the salary' },
   { key: 'paychecks', label: 'Paycheck allocation', hint: 'Every payday to the end of the deployment' },
   { key: 'scenarios', label: 'Return scenarios', hint: 'First year home, by path' },
   { key: 'balances', label: 'Balance sheet', hint: 'Debts & assets over time' },
@@ -989,10 +1006,13 @@ export function MoneyShell({
   return (
     <div className="mlayout">
       <div className="mview">
-        <div hidden={view !== 'paychecks'}>
-          {paychecks}
-          <ReturnBudget />
-        </div>
+        <div hidden={view !== 'paychecks'}>{paychecks}</div>
+        {view === 'home' && (
+          <section>
+            <h2 style={{ marginTop: 0 }}>Back-home budget</h2>
+            <ReturnBudget />
+          </section>
+        )}
         {view === 'scenarios' && (
           <section className="outlook viz">
             <h2 style={{ marginTop: 0 }}>Return scenarios</h2>

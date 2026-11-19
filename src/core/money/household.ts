@@ -368,8 +368,9 @@ export const DEPLOYED_ACTUALS: ObservedCategory[] = [
   {
     key: 'gas',
     label: 'Fuel',
-    monthly: 10,
-    basis: 'About $10 a month.',
+    /** None while deployed (your call, 19 Nov). */
+    monthly: 0,
+    basis: 'No fuel while deployed — your call, 19 Nov.',
   },
 ]
 

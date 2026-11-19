@@ -53,6 +53,17 @@ const MONEY: Item[] = [
     ),
   },
   {
+    href: '/#home',
+    label: 'Back-home budget',
+    icon: svg(
+      <>
+        <path d="M3.5 11 12 4l8.5 7" />
+        <path d="M5.5 9.5V20h13V9.5" />
+        <path d="M12 12.5v5M10 14h3a1.5 1.5 0 0 1 0 3h-2" />
+      </>,
+    ),
+  },
+  {
     href: '/#briefing',
     label: 'Briefing & detail',
     icon: svg(

@@ -299,7 +299,7 @@ describe('the real plan', () => {
     // Christmas on 15 Dec; on 1 Feb the over-budget subscriptions + NordVPN show their own gap.
     const gaps = allocations.flatMap((a) => a.lines.filter((l) => l.shortfall > 0).map((l) => l.key))
     expect(gaps.every((k) => ['christmas', 'subscriptions', 'subscriptions_mid', 'nordvpn'].includes(k))).toBe(true)
-    expect(allocations.find((a) => a.paycheck.scheduledDate === '2026-12-15')!.lines.find((l) => l.key === 'christmas')!.shortfall).toBeCloseTo(208.34, 2)
+    expect(allocations.find((a) => a.paycheck.scheduledDate === '2026-12-15')!.lines.find((l) => l.key === 'christmas')!.shortfall).toBeCloseTo(193.34, 2)
   })
 
   it('asks for a second FULL mortgage payment on the 15th, and only until current', () => {

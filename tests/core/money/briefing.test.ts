@@ -21,7 +21,7 @@ const base = runPlan()
  * T-Mobile bill and November's roaming came out of the 15 Nov cheque, so less carries
  * forward and the 15 Dec cheque covers only part of Christmas. Everything else is paid.
  */
-const XMAS_GAP = 208.34
+const XMAS_GAP = 193.34
 /** Subscriptions run over budget and show it themselves (19 Nov) — shown as gaps, not bills missed. */
 const GAP_LINES = ['christmas', 'subscriptions', 'subscriptions_mid', 'nordvpn']
 const unpaidBesidesChristmas = (o: ReturnType<typeof runPlan>) =>
