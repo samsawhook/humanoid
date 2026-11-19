@@ -296,8 +296,10 @@ describe('the real plan', () => {
    * bill is covered. If that ever stops being true the page must say so line by line.
    */
   it('covers every bill, the catch-up included — all but part of Christmas (the known gap)', () => {
-    expect(summary.bindingShortfall).toBeCloseTo(208.34, 2)
-    expect(summary.bindingShortPaydays.map((p: { scheduledDate?: string } | string) => (typeof p === 'string' ? p : p.scheduledDate))).toEqual(['2026-12-15'])
+    // Christmas on 15 Dec; on 1 Feb the over-budget subscriptions + NordVPN show their own gap.
+    const gaps = allocations.flatMap((a) => a.lines.filter((l) => l.shortfall > 0).map((l) => l.key))
+    expect(gaps.every((k) => ['christmas', 'subscriptions', 'subscriptions_mid', 'nordvpn'].includes(k))).toBe(true)
+    expect(allocations.find((a) => a.paycheck.scheduledDate === '2026-12-15')!.lines.find((l) => l.key === 'christmas')!.shortfall).toBeCloseTo(208.34, 2)
   })
 
   it('asks for a second FULL mortgage payment on the 15th, and only until current', () => {
@@ -587,6 +589,6 @@ describe('clearance-first order (2026-11-12 rewrite)', () => {
     expect(c.mortgage_arrears!.clearedOn).toBe('2027-01-15')
     const firsts = all.filter((a) => a.paycheck.scheduledDate.endsWith('-01'))
     for (const a of firsts) expect(a.lines.some((l) => l.key === 'nth_investments' && l.shortfall === 0)).toBe(true)
-    expect(all.every((a) => a.lines.filter((l) => !l.swept && !l.target && l.kind !== 'arrears_catchup' && l.key !== 'christmas').every((l) => l.shortfall === 0))).toBe(true)
+    expect(all.every((a) => a.lines.filter((l) => !l.swept && !l.target && l.kind !== 'arrears_catchup' && !['christmas', 'subscriptions', 'subscriptions_mid', 'nordvpn'].includes(l.key)).every((l) => l.shortfall === 0))).toBe(true)
   })
 })

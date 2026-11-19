@@ -636,6 +636,19 @@ export const OBLIGATIONS: Obligation[] = [
     kind: 'living',
     execution: 'automatic',
   },
+  {
+    key: 'nordvpn',
+    label: 'NordVPN — yearly renewal (28 Jan)',
+    /** Your note, 19 Nov: renews for $100 on 28 Jan — spendable from the 1 Feb cheque. */
+    amountPerPaycheck: 100,
+    payDays: 'first',
+    activeFrom: '2027-02-01',
+    activeTo: '2027-02-01',
+    /** Last with the subscriptions: if February is short, this shows it. */
+    priority: 39.5,
+    kind: 'living',
+    execution: 'automatic',
+  },
   /** Subscriptions, item by item in tech.ts: nearly all draft around the 1st. */
   {
     key: 'subscriptions',

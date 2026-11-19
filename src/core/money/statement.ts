@@ -25,7 +25,7 @@ import { DEPLOYED_ACTUALS } from './household'
 import { ACTUALS, type Actual } from './actuals'
 import { CARD_ACCOUNTS, CLOSED_ACCOUNTS_LABEL, PAYMENT_INFO, SETUP_TODOS, SPENDING_INFO, scheduledFor, type PaymentInfo, type Scheduled } from './execution'
 import { DEBTS, minimumPayment } from './debts'
-import { PHONE_BILL, PHONE_ROAMING_NOV, SUBSCRIPTIONS, phoneBillOn, type TechItem } from './tech'
+import { PHONE_BILL, PHONE_ROAMING_NOV, phoneBillOn, subscriptionsOn, type TechItem } from './tech'
 import type { LocalDate } from '../types'
 
 /** Your regular transfer for the nanny; anything above it on that line is the top-up. */
@@ -103,6 +103,7 @@ const LINE_HOME: Record<string, string> = {
   tmobile_past_due: 'tech',
   subscriptions: 'tech',
   subscriptions_mid: 'tech',
+  nordvpn: 'tech',
   hvac_plan: 'home',
   mortgage_current: 'home',
   arrears_catchup_payment: 'home',
@@ -209,8 +210,8 @@ function techRowsFor(key: string, payday: LocalDate, txns: Actual[]): AccountRow
     text: `${i.what}${i.note ? '. ' + i.note : ''}`,
     payAt: '',
   })
-  if (key === 'subscriptions') return SUBSCRIPTIONS.filter((i) => i.payday === 'first').map(sub)
-  if (key === 'subscriptions_mid') return SUBSCRIPTIONS.filter((i) => i.payday === 'fifteenth').map(sub)
+  if (key === 'subscriptions') return subscriptionsOn(payday).filter((i) => i.payday === 'first').map(sub)
+  if (key === 'subscriptions_mid') return subscriptionsOn(payday).filter((i) => i.payday === 'fifteenth').map(sub)
   if (key === 'phone_nov') return [...PHONE_BILL.filter((i) => i.key !== 'pass'), PHONE_ROAMING_NOV].map(part)
   if (key === 'phone' || key === 'phone_home') return phoneBillOn(payday).map(part)
   return undefined

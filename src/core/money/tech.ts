@@ -64,16 +64,27 @@ export const SUBSCRIPTIONS: TechItem[] = [
   },
   {
     key: 'apple_32',
-    name: 'Apple — $32.48',
-    what: 'new in November (iCloud+ or Apple One?)',
+    name: 'Apple — $32.48 (Super Grok)',
+    what: '$30 + 8.25% Texas sales tax, through the App Store',
     amount: 32.48,
     day: 2,
     payday: 'first',
     seen: '2 Nov only',
-    note: 'New this month — check Settings → Subscriptions.',
+    to: '2026-11-30',
+    note: 'Cancelled 19 Nov (your note) — no charge from December.',
   },
   { key: 'apple_14', name: 'Apple — $14.06', what: 'subscription', amount: 14.06, day: 6, payday: 'first', seen: '6 Jul, 12 Aug, 6 Sep, 9 Nov' },
-  { key: 'apple_16', name: 'Apple — $16.23', what: 'subscription', amount: 16.23, day: 8, payday: 'first', seen: '8 Jul, 6 Oct, 9 Nov' },
+  {
+    key: 'apple_16',
+    name: 'Apple — $16.23 (Apple TV+)',
+    what: '$14.99 + 8.25% Texas sales tax — entertainment',
+    amount: 16.23,
+    day: 8,
+    payday: 'first',
+    seen: '8 Jul, 6 Oct, 9 Nov',
+    to: '2026-11-30',
+    note: 'Cancelled 19 Nov (your note) — no charge from December.',
+  },
   {
     key: 'anthropic',
     name: 'Anthropic — Claude',
@@ -88,9 +99,14 @@ export const SUBSCRIPTIONS: TechItem[] = [
 ]
 
 const sumOf = (items: TechItem[]) => Math.round(items.reduce((s, i) => s + i.amount, 0) * 100) / 100
-export const SUBSCRIPTIONS_ON_FIRST = sumOf(SUBSCRIPTIONS.filter((i) => i.payday === 'first'))
-export const SUBSCRIPTIONS_ON_FIFTEENTH = sumOf(SUBSCRIPTIONS.filter((i) => i.payday === 'fifteenth'))
-export const SUBSCRIPTIONS_MONTHLY = sumOf(SUBSCRIPTIONS)
+/** The subscriptions still running on a date (a cancelled one drops off after its `to`). */
+export function subscriptionsOn(date: string): TechItem[] {
+  return SUBSCRIPTIONS.filter((i) => (!i.from || date >= i.from) && (!i.to || date <= i.to))
+}
+const ongoing = subscriptionsOn('2026-12-15')
+export const SUBSCRIPTIONS_ON_FIRST = sumOf(ongoing.filter((i) => i.payday === 'first'))
+export const SUBSCRIPTIONS_ON_FIFTEENTH = sumOf(ongoing.filter((i) => i.payday === 'fifteenth'))
+export const SUBSCRIPTIONS_MONTHLY = sumOf(ongoing)
 
 /**
  * The T-Mobile bill, part by part (bill issued 7 Nov 2026: Go5G Military, 2 voice lines).

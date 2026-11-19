@@ -36,6 +36,7 @@ export const PAYMENT_INFO: Record<string, PaymentInfo> = {
   tmobile_past_due: { from: CHECKING, to: 'T-Mobile', how: 'manual', when: 'paid 16 Nov' },
   subscriptions: { from: CHECKING, to: 'Each merchant, by debit card', how: 'automatic', when: 'as each renews' },
   subscriptions_mid: { from: CHECKING, to: 'Apple, by debit card', how: 'automatic', when: '~25th', day: 25 },
+  nordvpn: { from: CHECKING, to: 'NordVPN', how: 'automatic', when: 'renews 28 Jan, yearly', note: 'Cancel before 28 Jan if you will not need it once home.' },
   hvac_plan: { from: CHECKING, to: 'HVAC service plan', how: 'automatic', when: 'monthly, ~12th', day: 12 },
   mortgage_current: {
     from: CHECKING,
