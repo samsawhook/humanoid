@@ -12,8 +12,11 @@ describe('the 1 Nov paycheck, rebuilt from the bank', () => {
     expect(s.netCash.total).toBeCloseTo(s.freeCashFlow - s.investing.total, 2)
   })
   it('shows the mortgage check, the car payment and the transfers home', () => {
-    expect(s.spending.find((x) => x.key === 'home')!.total).toBe(1381.79)
-    expect(s.spending.find((x) => x.key === 'car')!.total).toBe(355)
+    // Both were on accounts that were behind: arrears & catch-up under Debt (19 Nov).
+    const arrears = s.spending.find((x) => x.key === 'debt')!.lines.find((l) => l.label === 'Arrears & catch-up')!
+    expect(arrears.amount).toBeCloseTo(1381.79 + 355, 2)
     expect(s.spending.find((x) => x.key === 'sent')!.total).toBe(1350)
+    // The Cash App cash-out nets against personal spending; net cash is the real checking change.
+    expect(s.netCash.total).toBeCloseTo(27.11 - 281.66, 2)
   })
 })

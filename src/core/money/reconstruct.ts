@@ -43,8 +43,9 @@ const T = (date: string, amount: number, description: string, cat: Cat, line: st
 })
 
 export const NOV1_TXNS: Txn[] = [
-  T('2026-11-02', 1381.79, 'Check #5 — Navy Federal mortgage', 'home', 'Mortgage'),
-  T('2026-11-02', 355.0, 'Westlake — auto loan payment', 'car', 'Auto loan payment'),
+  // Both were payments on accounts that were behind: arrears & catch-up, like the later cards.
+  T('2026-11-02', 1381.79, 'Check #5 — Navy Federal mortgage (a past-due payment)', 'debt', 'Arrears & catch-up'),
+  T('2026-11-02', 355.0, 'Westlake — auto loan payment', 'debt', 'Arrears & catch-up'),
   T('2026-10-29', 1150.0, 'Venmo to Sommer — nanny + top-up', 'sent', 'Nanny + top-up'),
   T('2026-11-05', 200.0, 'Venmo to Sommer — supplemental', 'sent', 'Supplemental'),
   T('2026-11-02', 26.65, 'Squarespace', 'tech', 'Subscriptions — AI, email & domains, Apple'),
@@ -182,8 +183,10 @@ export function nov1Statement(): PaycheckStatement {
     ],
     total: r2(checkingChange),
   }
-  const debt = spending.find((s) => s.key === 'debt')?.total ?? 0
-  const car = spending.find((s) => s.key === 'car')?.total ?? 0
+  const debtAll = spending.find((s) => s.key === 'debt')?.total ?? 0
+  // The mortgage catch-up is its own balance-sheet line; take it out of "debt paid down".
+  const debt = r2(debtAll - 1381.79)
+  const car = 0
   const bsLines: StatementLine[] = [
     { key: 'bs_cash', label: 'Cash (checking)', amount: netCash.total, txns: [] },
     { key: 'bs_tsp', label: 'TSP (your 5% + the match)', amount: r2(tsp * 2), txns: [] },
