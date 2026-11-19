@@ -668,7 +668,7 @@ export const OBLIGATIONS: Obligation[] = [
   },
   {
     key: 'subscriptions_mid',
-    label: 'Subscriptions — Apple $2.99',
+    label: 'Subscriptions — iCloud+',
     amountPerPaycheck: SUBSCRIPTIONS_ON_FIFTEENTH,
     payDays: 'fifteenth',
     activeFrom: TIMELINE.premobStart,

@@ -73,7 +73,15 @@ export const SUBSCRIPTIONS: TechItem[] = [
     to: '2026-11-30',
     note: 'Cancelled 19 Nov (your note) — no charge from December.',
   },
-  { key: 'apple_14', name: 'Apple — $14.06', what: 'subscription', amount: 14.06, day: 6, payday: 'first', seen: '6 Jul, 12 Aug, 6 Sep, 9 Nov' },
+  {
+    key: 'apple_14',
+    name: 'Apple — $14.06',
+    what: '$12.99 + 8.25% Texas sales tax — which app?',
+    amount: 14.06,
+    day: 6,
+    payday: 'first',
+    seen: '6 Jul, 12 Aug, 6 Sep, 9 Nov',
+  },
   {
     key: 'apple_16',
     name: 'Apple — $16.23 (Apple TV+)',
@@ -95,7 +103,7 @@ export const SUBSCRIPTIONS: TechItem[] = [
     match: /Anthropic|Claude/i,
     seen: '8 Oct, 9 Nov',
   },
-  { key: 'apple_3', name: 'Apple — $2.99', what: 'subscription', amount: 2.99, day: 25, payday: 'fifteenth', seen: '25th every month, Jul–Oct' },
+  { key: 'apple_3', name: 'Apple — iCloud+ 200GB', what: 'storage', amount: 2.99, day: 25, payday: 'fifteenth', seen: '25th every month, Jul–Oct' },
 ]
 
 const sumOf = (items: TechItem[]) => Math.round(items.reduce((s, i) => s + i.amount, 0) * 100) / 100
