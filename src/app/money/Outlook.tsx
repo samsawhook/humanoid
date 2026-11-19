@@ -590,9 +590,16 @@ export function MoneyShell({
 }) {
   const [view, setViewState] = useState<View>('paychecks')
   const [path, setPath] = useState<string>('law')
+  // The side rail (layout) switches views by the address's #hash.
   useEffect(() => {
-    const h = window.location.hash.slice(1) as View
-    if (NAV.some((n) => n.key === h)) setViewState(h)
+    const read = () => {
+      const h = window.location.hash.slice(1) as View
+      setViewState(NAV.some((n) => n.key === h) ? h : 'paychecks')
+      window.scrollTo({ top: 0 })
+    }
+    read()
+    window.addEventListener('hashchange', read)
+    return () => window.removeEventListener('hashchange', read)
   }, [])
   const setView = (v: View) => {
     setViewState(v)
@@ -613,19 +620,6 @@ export function MoneyShell({
   )
   return (
     <div className="mlayout">
-      <nav className="mnav" aria-label="Money views">
-        {NAV.map((n) => (
-          <button key={n.key} className={n.key === view ? 'on' : ''} onClick={() => setView(n.key)} aria-current={n.key === view} aria-label={n.label} title={`${n.label} — ${n.hint}`}>
-            <span className="mnav-row">
-              <svg className="mnav-ic" viewBox="0 0 24 24" aria-hidden fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
-                {ICON[n.key]}
-              </svg>
-              <span className="mnav-label">{n.label}</span>
-            </span>
-            <small>{n.hint}</small>
-          </button>
-        ))}
-      </nav>
       <div className="mview">
         <div hidden={view !== 'paychecks'}>{paychecks}</div>
         {view === 'scenarios' && (
