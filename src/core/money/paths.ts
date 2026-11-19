@@ -40,7 +40,8 @@ export const PATH_ASSUMPTIONS = {
    * they are costed one by one in `family` below, so the budget grows as the family does.
    * Today's $2,400 pays a full-time nanny because you are away. MY ESTIMATE.
    */
-  familySupportMonthly: 500,
+  /** From your back-home budget (19 Nov): her spending & extras $300; groceries $0 on your side. */
+  familySupportMonthly: 300,
   /**
    * The family. Child 1 about a year old on 14 Nov 2026 (your figure), so born ~Nov 2025. Your plan: pregnant
    * a few months after you are home (so child 2 ~Jun 2028) and the same spacing again
@@ -89,7 +90,12 @@ export const PATH_ASSUMPTIONS = {
    * was $2,834, on income that did not cover it — which is how the debts happened. The
    * plan budgets $1,800: restaurants, cash and fuel are where the difference comes from.
    */
-  personalSpendingMonthly: 1800,
+  /**
+   * From your back-home budget (19 Nov): your spending $600, gifts $75, phone $150,
+   * subscriptions $257.81, car (GEICO, fuel, upkeep) $474.50, HVAC and upkeep $169.95;
+   * utilities $0 on your side.
+   */
+  personalSpendingMonthly: 1727,
   /** Tricare Select Reserve, family. Your figure. Kept in both paths. */
   tricareMonthly: 260,
   inflation: 0.025,

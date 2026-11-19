@@ -631,3 +631,7 @@ body:has(nav.rail) main { margin-left: 60px; }
 .rb-line input { width: 110px; text-align: right; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; font: inherit; font-size: 14px; font-variant-numeric: tabular-nums; }
 .rb-line input.edited { border-color: var(--accent); }
 .rb-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; margin-top: 6px; }
+.rb-slider { width: 100%; margin: 8px 0 2px; accent-color: #7cc4fa; }
+.rb-ticks { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.rb-ticks span.in-range { color: var(--text); }
+.rb-line input.rb-slider { width: 100%; padding: 0; border: 0; background: none; }

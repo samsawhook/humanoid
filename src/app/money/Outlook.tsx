@@ -10,7 +10,7 @@
 import { useEffect, useState } from 'react'
 import { TrendChart, type TrendSeries } from '@/components/TrendChart'
 import type { AccountDef, GroupKey, Ledger, PathSummary, Side } from '@/core/money/ledger'
-import { OTHER_INCOME, RETURN_BUDGET, monthlyCash, salaryNeeded } from '@/core/money/returnBudget'
+import { DEFAULT_RATING, OTHER_INCOME, RETURN_BUDGET, monthlyCash, salaryNeeded, vaNet } from '@/core/money/returnBudget'
 
 const usd0 = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -739,7 +739,8 @@ function ReturnBudget() {
     } catch {}
   }
   const v = (k: string, d: number) => edits[k] ?? d
-  const other = { va: v('in:va', OTHER_INCOME[0]!.amount), drill: v('in:drill', OTHER_INCOME[1]!.amount) }
+  const rating = v('rating', DEFAULT_RATING)
+  const other = { va: vaNet(rating), drill: v('in:drill', OTHER_INCOME[1]!.amount) }
   const cats = RETURN_BUDGET.map((c) => ({
     ...c,
     total: c.lines.reduce((t, l) => t + v(`${c.key}:${l.key}`, l.amount), 0),
@@ -759,7 +760,8 @@ function ReturnBudget() {
   const exportText = () => {
     const out: string[] = [`BACK-HOME BUDGET — exported ${new Date().toISOString().slice(0, 10)}`, '']
     out.push('Income (not salary):')
-    for (const l of OTHER_INCOME) {
+    out.push(`  VA rating: ${rating}% → ${other.va} a month, net of drill days`)
+    for (const l of OTHER_INCOME.filter((x) => x.key !== 'va')) {
       const mine = v(`in:${l.key}`, l.amount)
       out.push(`  ${l.label}: ${mine}${mine !== l.amount ? ` (estimate was ${l.amount})` : ''}`)
     }
@@ -867,7 +869,32 @@ function ReturnBudget() {
                     <div className="ln-amt">{usd0(need.salary / 12)}<span className="ln-pct">{pct(need.salary / 12)}</span></div>
                   </div>
                 </div>
-                {OTHER_INCOME.map((l) => (
+                <div className="ln rb-line" title="VA compensation for a veteran with a spouse and one child, about 2028 rates, less ~39 drill and AT days a year. Your range is 30–80%.">
+                  <div className="ln-top">
+                    <div className="ln-name">
+                      VA disability — <b>{rating}%</b>
+                    </div>
+                    <div className="ln-amt">{usd0(other.va)}</div>
+                  </div>
+                  <input
+                    className="rb-slider"
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={10}
+                    value={rating}
+                    aria-label="VA disability rating"
+                    onChange={(e) => save({ ...edits, rating: Number(e.target.value) })}
+                  />
+                  <div className="rb-ticks">
+                    {[0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((t) => (
+                      <span key={t} className={t >= 30 && t <= 80 ? 'in-range' : ''}>
+                        {t}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                {OTHER_INCOME.filter((l) => l.key !== 'va').map((l) => (
                   <div className="ln rb-line" key={l.key} title={l.basis}>
                     <div className="ln-top">
                       <div className="ln-name">{l.label}</div>

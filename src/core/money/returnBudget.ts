@@ -22,9 +22,32 @@ export interface BudgetCategory {
   lines: BudgetLine[]
 }
 
+/**
+ * VA disability compensation by rating, a veteran with a spouse and one child — about the
+ * 2028 rates (2025 table, carried forward with COLAs). MY ESTIMATE of the tables; check
+ * them against the VA's. Below 30% there is no extra for dependents.
+ */
+export const VA_MONTHLY: Record<number, number> = {
+  0: 0,
+  10: 186,
+  20: 367,
+  30: 645,
+  40: 926,
+  50: 1316,
+  60: 1662,
+  70: 2087,
+  80: 2418,
+  90: 2717,
+  100: 4404,
+}
+/** VA is not paid for drill and AT days: ~39 a year. */
+export const VA_DRILL_WAIVER = 39 / 365
+export const vaNet = (rating: number) => Math.round((VA_MONTHLY[rating] ?? 0) * (1 - VA_DRILL_WAIVER))
+export const DEFAULT_RATING = 50
+
 /** Income that is not salary. */
 export const OTHER_INCOME: BudgetLine[] = [
-  { key: 'va', label: 'VA disability (50%, net of drill days)', amount: 1175, basis: 'Your range is 30–80%; 50% for a veteran with a spouse and child ≈ $1,316, less ~$141 waived for drill and AT days.' },
+  { key: 'va', label: 'VA disability (net of drill days)', amount: vaNet(DEFAULT_RATING), basis: 'From the rating slider. Your range is 30–80%.' },
   { key: 'drill', label: 'Reserve drill pay', amount: 475, basis: 'One weekend a month plus AT, averaged. Taxable.' },
 ]
 
@@ -34,7 +57,7 @@ export const RETURN_BUDGET: BudgetCategory[] = [
     label: 'Home',
     lines: [
       { key: 'mortgage', label: 'Mortgage (P&I + escrow)', amount: 1381.79, basis: 'Navy Federal, current payment.' },
-      { key: 'utilities', label: 'Utilities — electric, water, gas, internet', amount: 350, basis: 'Corpus summers run electric to $250+; water ~$80; internet ~$70. Averaged.' },
+      { key: 'utilities', label: 'Utilities — electric, water, gas, internet', amount: 0, basis: 'Sommer covers it, generally (your note, 19 Nov).' },
       { key: 'hvac', label: 'HVAC service plan', amount: 19.95, basis: 'Your plan, monthly.' },
       { key: 'upkeep', label: 'Upkeep & repairs (you mow)', amount: 150, basis: 'About 1% of the house value a year, less your own labour.' },
     ],
@@ -52,7 +75,7 @@ export const RETURN_BUDGET: BudgetCategory[] = [
     key: 'sent',
     label: 'Wife & Kids',
     lines: [
-      { key: 'groceries', label: 'Groceries & household', amount: 900, basis: 'Family of three, moderate food plan, plus household goods.' },
+      { key: 'groceries', label: 'Groceries & household', amount: 0, basis: 'Sommer covers it, generally (your note, 19 Nov).' },
       { key: 'childcare', label: 'Childcare (one under five)', amount: 900, basis: 'Corpus daycare, if you both work. Drops to $0 if one of you is home.' },
       { key: 'kids', label: 'Kids — diapers, clothes, gear', amount: 250, basis: 'Per child under five.' },
       { key: 'household', label: 'Her spending & the household extras', amount: 300, basis: 'What the supplemental covers now.' },
@@ -62,7 +85,7 @@ export const RETURN_BUDGET: BudgetCategory[] = [
     key: 'personal',
     label: 'Personal spending',
     lines: [
-      { key: 'you', label: 'You — food out, clothes, shopping', amount: 400, basis: 'Above the deployed rate; well under the $2,834 Monarch average before.' },
+      { key: 'you', label: 'You — food out, clothes, shopping', amount: 600, basis: 'Your number (19 Nov).' },
       { key: 'tricare', label: 'Tricare Select Reserve (family)', amount: 263, basis: 'Your figure, with a little inflation.' },
       { key: 'gifts', label: 'Gifts & occasions', amount: 75, basis: 'Birthdays, anniversary, Christmas, averaged.' },
     ],
@@ -71,7 +94,7 @@ export const RETURN_BUDGET: BudgetCategory[] = [
     key: 'tech',
     label: 'Tech',
     lines: [
-      { key: 'phone', label: 'Phone (T-Mobile)', amount: 120.71, basis: 'Plan $100 + Protection $20.71; iPhone paid off, pass cancelled.' },
+      { key: 'phone', label: 'Phone (T-Mobile)', amount: 150, basis: 'Your number (19 Nov).' },
       { key: 'subs', label: 'Subscriptions — Claude, domain, site, email, iCloud', amount: 257.81, basis: 'Today’s list, after Super Grok and Apple TV+.' },
     ],
   },
