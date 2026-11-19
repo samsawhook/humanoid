@@ -10,7 +10,21 @@
 import { useEffect, useState } from 'react'
 import { TrendChart, type TrendSeries } from '@/components/TrendChart'
 import type { AccountDef, GroupKey, Ledger, PathSummary, Side } from '@/core/money/ledger'
-import { DEFAULT_RATING, OTHER_INCOME, RETURN_BUDGET, monthlyCash, salaryNeeded, vaNet } from '@/core/money/returnBudget'
+import {
+  ARRANGEMENT_LABEL,
+  BASE_SELECTION,
+  DEFAULT_RATING,
+  LOCATION_LABEL,
+  OTHER_INCOME,
+  PRINCIPLES,
+  RETURN_BUDGET,
+  WORK_LABEL,
+  buildBridge,
+  monthlyCash,
+  salaryNeeded,
+  vaNet,
+  type Selection,
+} from '@/core/money/returnBudget'
 
 const usd0 = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -724,6 +738,136 @@ const CAT_COLORS: Record<string, string> = {
 }
 const STORE = 'return-budget-v2'
 
+/** Your base, then each modification as a step, to a new total and the salary it takes. */
+function BudgetBridge({ spend, other, rating }: { spend: number; other: { va: number; drill: number }; rating: number }) {
+  const [sel, setSel] = useState<Selection>(BASE_SELECTION)
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem('return-budget-mods')
+      if (raw) setSel({ ...BASE_SELECTION, ...JSON.parse(raw) })
+    } catch {}
+  }, [])
+  const pick = (next: Selection) => {
+    setSel(next)
+    try {
+      window.localStorage.setItem('return-budget-mods', JSON.stringify(next))
+    } catch {}
+  }
+  const b = buildBridge(sel)
+  const delta = b.rows.reduce((t, r) => t + r.amount, 0)
+  const extraIncome = b.income.reduce((t, r) => t + r.amount, 0)
+  const total = spend + delta
+  const base = salaryNeeded(spend, other)
+  // Income that is not salary goes against the spend before solving for the salary.
+  const mod = salaryNeeded(Math.max(0, total - extraIncome), other)
+  const gapNoSalary = Math.round(total - extraIncome - monthlyCash(0, other).cash)
+  const max = Math.max(1, ...b.rows.map((r) => Math.abs(r.amount)))
+  const seg = <K extends keyof Selection>(k: K, opts: Record<string, string>, cast: (x: string) => Selection[K]) => (
+    <div className="seg">
+      {Object.entries(opts).map(([val, label]) => (
+        <button key={val} className={String(sel[k]) === val ? 'on' : ''} onClick={() => pick({ ...sel, [k]: cast(val) })}>
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+  const groups = ['Location', 'Remote / office', 'Type of work', 'Children'] as const
+  return (
+    <section className="bridge">
+      <h3 className="fig-title">Modifications — your base, then my estimates for each change</h3>
+      <div className="mods">
+        <div className="mod"><span>Location</span>{seg('location', LOCATION_LABEL, (x) => x as Selection['location'])}</div>
+        <div className="mod"><span>Remote / office</span>{seg('arrangement', ARRANGEMENT_LABEL, (x) => x as Selection['arrangement'])}</div>
+        <div className="mod"><span>Type of work</span>{seg('work', WORK_LABEL, (x) => x as Selection['work'])}</div>
+        <div className="mod"><span>Children</span>{seg('children', { 1: 'One (base)', 2: 'Two', 3: 'Three' }, (x) => Number(x) as Selection['children'])}</div>
+      </div>
+      <div className="bridge-table">
+        <div className="br-row br-base">
+          <span>Your base — a normal month in Corpus</span>
+          <span />
+          <b>{usd0(spend)}</b>
+        </div>
+        {groups.map((g) => {
+          const rs = b.rows.filter((r) => r.group === g)
+          if (!rs.length) return null
+          return (
+            <div key={g}>
+              <div className="br-group">{g}</div>
+              {rs.map((r) => (
+                <div className="br-row" key={r.label} title={r.why}>
+                  <span>
+                    {r.label}
+                    <small>{r.why}</small>
+                  </span>
+                  <span className="br-bar">
+                    <i className={r.amount < 0 ? 'down' : 'up'} style={{ width: `${(Math.abs(r.amount) / max) * 100}%` }} />
+                  </span>
+                  <b className={r.amount < 0 ? 'ok' : 'bad'}>
+                    {r.amount < 0 ? '−' : '+'}
+                    {usd0(Math.abs(r.amount))}
+                  </b>
+                </div>
+              ))}
+            </div>
+          )
+        })}
+        {b.income.map((r) => (
+          <div className="br-row" key={r.label} title={r.why}>
+            <span>
+              {r.label} <small>{r.why}</small>
+            </span>
+            <span className="br-bar">
+              <i className="down" style={{ width: `${(r.amount / Math.max(max, r.amount)) * 100}%` }} />
+            </span>
+            <b className="ok">+{usd0(r.amount)} in</b>
+          </div>
+        ))}
+        <div className="br-row br-total">
+          <span>Modified month</span>
+          <span />
+          <b>{usd0(total)}</b>
+        </div>
+      </div>
+      <div className="nw-tiles" style={{ marginTop: 10 }}>
+        <div>
+          <span>Salary needed — base</span>
+          <b>{usd0(base.salary)}</b>
+          <small>VA {rating}%</small>
+        </div>
+        {b.noSalary ? (
+          <div>
+            <span>Full-time school — monthly gap</span>
+            <b className={gapNoSalary > 0 ? 'bad' : 'ok'}>{gapNoSalary > 0 ? `−${usd0(gapNoSalary)}` : `+${usd0(-gapNoSalary)}`}</b>
+            <small>after VA, drill and GI Bill housing — borrowed or covered by Sommer</small>
+          </div>
+        ) : (
+          <div>
+            <span>Salary needed — modified</span>
+            <b className={mod.salary > base.salary ? 'bad' : 'ok'}>{usd0(mod.salary)}</b>
+            <small>
+              {mod.salary >= base.salary ? '+' : '−'}
+              {usd0(Math.abs(mod.salary - base.salary))} vs base · city pay ×{b.payScale.toFixed(2)}
+            </small>
+          </div>
+        )}
+        <div>
+          <span>Offers here</span>
+          <b>{usd0(85000 * b.payScale)}</b>
+          <small>federal, scaled to the city · mid-size {usd0(78000 * b.payScale)} · small {usd0(65000 * b.payScale)}</small>
+        </div>
+      </div>
+      <details className="depends">
+        <summary>Your principles — kept in every version</summary>
+        <ul>
+          {PRINCIPLES.map((p) => (
+            <li key={p}>{p}</li>
+          ))}
+        </ul>
+      </details>
+    </section>
+  )
+}
+
 function ReturnBudget() {
   const [edits, setEdits] = useState<Record<string, number>>({})
   useEffect(() => {
@@ -951,6 +1095,7 @@ function ReturnBudget() {
           </div>
         </div>
       </article>
+      <BudgetBridge spend={spend} other={other} rating={rating} />
     </section>
   )
 }

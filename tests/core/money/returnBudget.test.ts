@@ -13,3 +13,14 @@ describe('the after-you-are-home budget', () => {
     expect(salaryNeeded(spend, { ...other, va: 500 }).salary).toBeGreaterThan(salaryNeeded(spend, other).salary)
   })
 })
+
+describe('modifications bridge', () => {
+  it('is empty at the base, and moving to Houston with an office job and night law costs more', async () => {
+    const { buildBridge, BASE_SELECTION } = await import('@/core/money/returnBudget')
+    expect(buildBridge(BASE_SELECTION).rows).toEqual([])
+    const b = buildBridge({ location: 'houston', arrangement: 'office', work: 'nightlaw', children: 2 })
+    expect(b.rows.reduce((t, r) => t + r.amount, 0)).toBeGreaterThan(1000)
+    expect(b.income[0]!.amount).toBeGreaterThan(0)
+    expect(buildBridge({ ...BASE_SELECTION, work: 'lawschool' }).noSalary).toBe(true)
+  })
+})

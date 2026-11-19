@@ -635,3 +635,21 @@ body:has(nav.rail) main { margin-left: 60px; }
 .rb-ticks { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .rb-ticks span.in-range { color: var(--text); }
 .rb-line input.rb-slider { width: 100%; padding: 0; border: 0; background: none; }
+
+/* Back-home: modifications and the bridge from your base. */
+.bridge { margin-top: 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+.mods { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.mod { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mod > span { width: 130px; flex: none; font-size: 11.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.bridge-table { display: flex; flex-direction: column; }
+.br-row { display: grid; grid-template-columns: minmax(0, 1fr) 160px 110px; gap: 12px; align-items: center; padding: 6px 0; border-bottom: 1px dashed var(--line); font-size: 13.5px; }
+.br-row > span:first-child small { display: block; color: var(--muted); font-size: 11.5px; }
+.br-row b { text-align: right; font-variant-numeric: tabular-nums; }
+.br-bar { height: 8px; display: flex; }
+.br-bar i { display: block; height: 100%; border-radius: 4px; }
+.br-bar i.up { background: #ec835a; }
+.br-bar i.down { background: #3fc56b; }
+.br-group { font-size: 11.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-top: 10px; }
+.br-base, .br-total { font-weight: 700; border-bottom: 0; background: var(--panel-2); border-radius: 8px; padding: 8px 10px; }
+.br-total { margin-top: 8px; }
+@media (max-width: 640px) { .br-row { grid-template-columns: minmax(0, 1fr) 90px; } .br-bar { display: none; } }

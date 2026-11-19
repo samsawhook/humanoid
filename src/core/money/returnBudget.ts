@@ -159,3 +159,124 @@ export function salaryNeeded(spend: number, other: { va: number; drill: number }
   const { taxes, k401 } = monthlyCash(hi, other, year)
   return { salary: Math.round(hi), grossMonthly: Math.round(hi / 12 + other.drill + other.va), taxes: Math.round(taxes), k401: Math.round(k401) }
 }
+
+// ── Modifications: your base, then my estimates for each change ─────────────
+
+/** What stays true whatever you pick (yours, not mine). */
+export const PRINCIPLES = [
+  'Nth: $500 a month, never skipped',
+  'Debts on their schedule — nothing skipped to make room',
+  'Sommer covers groceries and utilities',
+  'The emergency fund keeps getting its $300',
+  'The Corpus house is kept — let, if you move',
+]
+
+export type LocationKey = 'corpus' | 'houston' | 'dallas' | 'fortworth' | 'austin' | 'lubbock' | 'country'
+export type ArrangementKey = 'hybrid' | 'remote' | 'office'
+export type WorkKey = 'federal' | 'public' | 'practice' | 'nightlaw' | 'lawschool'
+
+export interface Selection {
+  location: LocationKey
+  arrangement: ArrangementKey
+  work: WorkKey
+  children: 1 | 2 | 3
+}
+export const BASE_SELECTION: Selection = { location: 'corpus', arrangement: 'hybrid', work: 'federal', children: 1 }
+
+export const LOCATION_LABEL: Record<LocationKey, string> = {
+  corpus: 'Corpus (base)',
+  houston: 'Houston',
+  dallas: 'Dallas',
+  fortworth: 'Fort Worth',
+  austin: 'Austin',
+  lubbock: 'Lubbock',
+  country: 'Countryside',
+}
+export const ARRANGEMENT_LABEL: Record<ArrangementKey, string> = { hybrid: 'Hybrid (base)', remote: 'Remote', office: 'Office, 5 days' }
+export const WORK_LABEL: Record<WorkKey, string> = {
+  federal: 'Federal / contractor, 40 hrs (base)',
+  public: 'Public accounting (busy season)',
+  practice: 'Your own practice',
+  nightlaw: 'Day job + night law',
+  lawschool: 'Full-time law school',
+}
+
+/** MY ESTIMATES, monthly, 2027–28 dollars, for a family with one child under five. */
+const CITY: Record<LocationKey, { rent: number; childcare: number; driving: number; insurance: number; parking: number; pay: number; mha: number }> = {
+  corpus: { rent: 0, childcare: 900, driving: 0, insurance: 0, parking: 0, pay: 1, mha: 1400 },
+  houston: { rent: 2300, childcare: 1200, driving: 100, insurance: 40, parking: 120, pay: 1.06, mha: 2100 },
+  dallas: { rent: 2400, childcare: 1250, driving: 100, insurance: 35, parking: 110, pay: 1.08, mha: 2150 },
+  fortworth: { rent: 2100, childcare: 1150, driving: 80, insurance: 25, parking: 60, pay: 1.04, mha: 2000 },
+  austin: { rent: 2700, childcare: 1400, driving: 60, insurance: 20, parking: 150, pay: 1.1, mha: 2300 },
+  lubbock: { rent: 1250, childcare: 850, driving: -30, insurance: -10, parking: 0, pay: 0.95, mha: 1450 },
+  country: { rent: 1500, childcare: 700, driving: 200, insurance: -10, parking: 0, pay: 1, mha: 1170 },
+}
+/** The Corpus house let: $1,705 market rent less management, vacancy and the landlord's tax and insurance. */
+const CORPUS_RENT_NET = 1250
+
+export interface BridgeRow {
+  group: 'Location' | 'Remote / office' | 'Type of work' | 'Children'
+  label: string
+  amount: number
+  why: string
+}
+
+export interface Bridge {
+  rows: BridgeRow[]
+  /** Income changes (GI Bill housing on the law options). */
+  income: BridgeRow[]
+  /** Pay in this city relative to Corpus — the offers scale by it. */
+  payScale: number
+  /** No salary: full-time school. The result is a monthly gap, not a salary. */
+  noSalary: boolean
+}
+
+export function buildBridge(sel: Selection): Bridge {
+  const c = CITY[sel.location]
+  const rows: BridgeRow[] = []
+  const income: BridgeRow[] = []
+  const add = (group: BridgeRow['group'], label: string, amount: number, why: string) => {
+    if (Math.abs(amount) > 0.004) rows.push({ group, label, amount: Math.round(amount * 100) / 100, why })
+  }
+  if (sel.location !== 'corpus') {
+    add('Location', `Rent — ${LOCATION_LABEL[sel.location]}`, c.rent, 'A family-sized place; the mortgage keeps being paid.')
+    add('Location', 'Corpus house let (net)', -CORPUS_RENT_NET, '$1,705 market rent, less management, vacancy and the landlord tax and insurance.')
+    add('Location', 'Childcare — city rate', c.childcare - 900, `Daycare for one under five runs ~$${c.childcare} here vs $900 in Corpus.`)
+    add('Location', 'Driving', c.driving, sel.location === 'country' ? 'Longer drives for everything.' : 'Bigger city, longer drives.')
+    add('Location', 'Car insurance', c.insurance, 'Rates by ZIP.')
+  }
+  if (sel.arrangement === 'remote') add('Remote / office', 'No commute', -120, 'Fuel and wear, five days a week, gone.')
+  if (sel.arrangement === 'office') {
+    add('Remote / office', 'Lunches & coffee out', 120, 'Five office days a week.')
+    add('Remote / office', 'Work clothes', 40, 'Averaged.')
+    add('Remote / office', 'Commute fuel', 60, 'Two more days a week than hybrid.')
+    add('Remote / office', 'Parking', c.parking, c.parking ? 'Downtown parking.' : 'Free parking.')
+  }
+  let noSalary = false
+  if (sel.work === 'public') {
+    add('Type of work', 'Evening & Saturday sitter in busy season', 330, '~$1,000 a month January to April, averaged over the year — the nanny can’t cover 60-hour weeks.')
+    add('Type of work', 'Meals out in busy season', 50, 'Averaged.')
+  }
+  if (sel.work === 'practice') {
+    add('Type of work', 'Childcare — part-time', -300, 'Your own hours: part-time care instead of full-time.')
+    add('Type of work', 'Practice costs', 400, 'Software, E&O insurance, CPE, a small office share.')
+  }
+  if (sel.work === 'nightlaw') {
+    add('Type of work', 'Evening sitter, class nights', 500, 'Three or four nights a week while Sommer works or needs a break.')
+    add('Type of work', 'Books & fees', 50, 'Hazlewood covers tuition.')
+    income.push({ group: 'Type of work', label: 'GI Bill housing, part-time (averaged)', amount: Math.round(c.mha * 0.8 * 0.8 * 0.75), why: 'MHA at the 80% tier and part-time rate, paid September–May.' })
+  }
+  if (sel.work === 'lawschool') {
+    noSalary = true
+    add('Type of work', 'Study-hours sitter', 250, 'Evenings and weekends before exams.')
+    add('Type of work', 'Books & fees', 80, 'Hazlewood covers tuition.')
+    income.push({ group: 'Type of work', label: 'GI Bill housing (averaged)', amount: Math.round(c.mha * 0.8 * 0.75), why: 'MHA at the 80% tier, paid September–May.' })
+  }
+  if (sel.children > 1) {
+    const n = sel.children - 1
+    add('Children', `${n} more child${n > 1 ? 'ren' : ''} — childcare`, c.childcare * n * (sel.work === 'practice' ? 0.67 : 1), 'Another full-time place each.')
+    add('Children', `${n} more — diapers, clothes, gear`, 250 * n, 'Per child under five.')
+    add('Children', 'Bigger groceries — Sommer’s side', 0, 'Groceries stay with Sommer; noted, not counted.')
+  }
+  return { rows, income, payScale: c.pay, noSalary }
+}
