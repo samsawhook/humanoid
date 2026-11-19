@@ -16,11 +16,21 @@ import { OBLIGATIONS, EMERGENCIES, PLAN_START, CHRISTMAS_BUDGET, type ONE_OFFS }
 
 const base = runPlan()
 
+/**
+ * The one known gap (19 Nov, your call: keep everything and show it). The late October
+ * T-Mobile bill and November's roaming came out of the 15 Nov cheque, so less carries
+ * forward and the 15 Dec cheque covers only part of Christmas. Everything else is paid.
+ */
+const XMAS_GAP = 208.34
+const unpaidBesidesChristmas = (o: ReturnType<typeof runPlan>) =>
+  o.allocations.reduce((t, a) => t + a.lines.filter((l) => l.key !== 'christmas').reduce((s, l) => s + l.shortfall, 0), 0)
+
 describe('the briefing', () => {
-  it('pays every bill even with the two assumed emergencies', () => {
+  it('pays every bill but part of Christmas, with the assumed emergency', () => {
     // One in the plan (June); February's moved to the stress test on 18 Nov.
     expect(EMERGENCIES).toHaveLength(1)
-    expect(base.billsUnpaid).toBe(0)
+    expect(base.billsUnpaid).toBeCloseTo(XMAS_GAP, 2)
+    expect(unpaidBesidesChristmas(base)).toBe(0)
   })
 
   it('pays an emergency from the fund first, and the fund refills', () => {
@@ -79,7 +89,7 @@ describe('moves', () => {
     }
     for (const i of impacts) {
       expect(i.delta).toBeGreaterThan(0)
-      expect(i.outcome.billsUnpaid).toBe(0)
+      expect(unpaidBesidesChristmas(i.outcome)).toBe(0)
     }
   })
 
@@ -114,7 +124,7 @@ describe('stress test', () => {
    * catch-up, leaves real bills unpaid.
    */
   it('shows the plan absorbs two emergencies, and a third costs real bills', () => {
-    expect(by('base').outcome.billsUnpaid).toBe(0)
+    expect(by('base').outcome.billsUnpaid).toBeCloseTo(XMAS_GAP, 2)
     expect(by('early').outcome.billsUnpaid).toBeGreaterThan(0)
     expect(by('three').outcome.billsUnpaid).toBeGreaterThan(0)
   })
@@ -129,9 +139,10 @@ describe('Christmas', () => {
     const base = runPlan()
     const dec = base.allocations.find((a) => a.paycheck.scheduledDate === '2026-12-15')!
     const xmas = dec.lines.find((l) => l.key === 'christmas')!
-    expect(xmas.allocated).toBe(CHRISTMAS_BUDGET)
+    // Short by the known gap until something is cut (see XMAS_GAP).
+    expect(xmas.allocated).toBeCloseTo(CHRISTMAS_BUDGET - XMAS_GAP, 2)
     expect(base.allocations.filter((a) => a.lines.some((l) => l.key === 'christmas'))).toHaveLength(1)
-    expect(base.billsUnpaid).toBe(0)
+    expect(unpaidBesidesChristmas(base)).toBe(0)
   })
 })
 
@@ -166,6 +177,6 @@ describe('the student loan deferment', () => {
       0,
     )
     expect(paid).toBe(0)
-    expect(base.billsUnpaid).toBe(0)
+    expect(unpaidBesidesChristmas(base)).toBe(0)
   })
 })

@@ -25,6 +25,7 @@ import { DEPLOYED_ACTUALS } from './household'
 import { ACTUALS, type Actual } from './actuals'
 import { CARD_ACCOUNTS, CLOSED_ACCOUNTS_LABEL, PAYMENT_INFO, SETUP_TODOS, SPENDING_INFO, scheduledFor, type PaymentInfo, type Scheduled } from './execution'
 import { DEBTS, minimumPayment } from './debts'
+import { PHONE_BILL, PHONE_ROAMING_NOV, SUBSCRIPTIONS, phoneBillOn, type TechItem } from './tech'
 import type { LocalDate } from '../types'
 
 /** Your regular transfer for the nanny; anything above it on that line is the top-up. */
@@ -52,6 +53,8 @@ export interface StatementLine {
   todo?: string
   /** One row per account behind the line (the card minimums). */
   accounts?: AccountRow[]
+  /** Bills behind the line that the budget does not cover (subscriptions over budget). */
+  unfunded?: number
 }
 
 export interface AccountRow {
@@ -61,7 +64,7 @@ export interface AccountRow {
   minimum: number
   paid: number
   txns: Actual[]
-  status: 'paid' | 'todo' | 'check' | 'later' | 'auto'
+  status: 'paid' | 'todo' | 'check' | 'later' | 'auto' | 'part'
   /** One sentence: what happened or what to do. */
   text: string
   payAt: string
@@ -95,6 +98,11 @@ const sum = (ls: StatementLine[]) => r2(ls.filter((l) => !l.nonCash).reduce((s, 
 /** Where each plan line belongs. Lines not listed fall into "Other". */
 const LINE_HOME: Record<string, string> = {
   phone: 'tech',
+  phone_home: 'tech',
+  phone_nov: 'tech',
+  tmobile_past_due: 'tech',
+  subscriptions: 'tech',
+  subscriptions_mid: 'tech',
   hvac_plan: 'home',
   mortgage_current: 'home',
   arrears_catchup_payment: 'home',
@@ -127,7 +135,6 @@ const LINE_HOME: Record<string, string> = {
 /** "Your own spending (deployed)" broken into the categories you think in. */
 const LIVING_SPLIT: { sub: string; label: string; section: string; keys: string[] }[] = [
   { sub: 'fuel', label: 'Fuel', section: 'car', keys: ['gas'] },
-  { sub: 'software', label: 'Subscriptions — AI, email & domains, Apple', section: 'tech', keys: ['subscriptions'] },
   { sub: 'entertainment', label: 'Entertainment', section: 'tech', keys: ['entertainment'] },
   {
     sub: 'personal_local',
@@ -169,6 +176,44 @@ const MON3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oc
 function niceDate(d: string): string {
   const t = new Date(d + 'T12:00:00Z')
   return `${DOW[t.getUTCDay()]} ${t.getUTCDate()} ${MON3[t.getUTCMonth()]}`
+}
+
+const ord = (d: number) => `${d}${d % 10 === 1 && d !== 11 ? 'st' : d % 10 === 2 && d !== 12 ? 'nd' : d % 10 === 3 && d !== 13 ? 'rd' : 'th'}`
+
+/** The items behind a Tech line: each subscription, or the parts of the phone bill. */
+function techRowsFor(key: string, payday: LocalDate, txns: Actual[]): AccountRow[] | undefined {
+  const sub = (i: TechItem): AccountRow => {
+    const t = i.match ? txns.filter((x) => i.match!.test(x.description)) : []
+    const paid = spentOf(t)
+    return {
+      key: i.key,
+      name: i.name,
+      minimum: i.amount,
+      paid,
+      txns: t,
+      status: paid > 0 ? 'paid' : 'auto',
+      text:
+        paid > 0
+          ? `Paid $${paid.toFixed(2)} on ${niceDate(t.at(-1)!.date)}`
+          : `${i.what}. Drafts ~${ord(i.day ?? 1)}; statements: ${i.seen ?? '—'}.${i.note ? ' ' + i.note : ''}`,
+      payAt: '',
+    }
+  }
+  const part = (i: TechItem): AccountRow => ({
+    key: i.key,
+    name: i.name,
+    minimum: i.amount,
+    paid: 0,
+    txns: [],
+    status: 'part',
+    text: `${i.what}${i.note ? '. ' + i.note : ''}`,
+    payAt: '',
+  })
+  if (key === 'subscriptions') return SUBSCRIPTIONS.filter((i) => i.payday === 'first').map(sub)
+  if (key === 'subscriptions_mid') return SUBSCRIPTIONS.filter((i) => i.payday === 'fifteenth').map(sub)
+  if (key === 'phone_nov') return [...PHONE_BILL.filter((i) => i.key !== 'pass'), PHONE_ROAMING_NOV].map(part)
+  if (key === 'phone' || key === 'phone_home') return phoneBillOn(payday).map(part)
+  return undefined
 }
 
 export function paycheckStatement(a: Allocation, next: Allocation | undefined, actuals: Actual[] = ACTUALS): PaycheckStatement {
@@ -282,10 +327,17 @@ export function paycheckStatement(a: Allocation, next: Allocation | undefined, a
         accounts,
       }
     }
+    const techItems = techRowsFor(key, payday, txns)
+    const itemsTotal = techItems && key.startsWith('subscriptions') ? r2(techItems.reduce((t, i) => t + i.minimum, 0)) : 0
+    const unfunded = r2(Math.max(0, itemsTotal - amount))
     return {
       key: sub ?? key,
       label,
       amount: r2(amount),
+      ...(techItems ? { accounts: techItems } : {}),
+      ...(unfunded > 0
+        ? { unfunded, note: `The items come to $${itemsTotal.toFixed(2)}; the budget is $${r2(amount).toFixed(2)}. $${unfunded.toFixed(2)} is not covered — cut something or it comes out of checking.` }
+        : {}),
       spent: spentOf(txns),
       txns,
       info: sub ? SPENDING_INFO[sub] : PAYMENT_INFO[key],
@@ -310,7 +362,7 @@ export function paycheckStatement(a: Allocation, next: Allocation | undefined, a
       continue
     }
     if (l.key === 'living_deployed') {
-      const monthly = DEPLOYED_ACTUALS.filter((d) => d.key !== 'phone' && d.key !== 'home_improvement').reduce((s, d) => s + d.monthly, 0)
+      const monthly = DEPLOYED_ACTUALS.filter((d) => d.key !== 'phone' && d.key !== 'home_improvement' && d.key !== 'subscriptions').reduce((s, d) => s + d.monthly, 0)
       for (const part of LIVING_SPLIT) {
         const share = DEPLOYED_ACTUALS.filter((d) => part.keys.includes(d.key)).reduce((s, d) => s + d.monthly, 0) / monthly
         let amt = l.allocated * share

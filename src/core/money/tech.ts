@@ -1,0 +1,136 @@
+/**
+ * Tech, item by item — from the Wells Fargo statements (Jul–Nov 2026) and the T-Mobile
+ * bill issued 7 Nov 2026. Everything drafts from WF Joint Checking by debit card.
+ *
+ * Each item sits on the paycheck whose spending window holds its draft day: the 1st's money
+ * is spendable from ~the 27th, the 15th's from ~the 11th. So almost every subscription
+ * lands on the 1st, and the phone on the 15th.
+ *
+ * No numbers that identify an account or a place.
+ */
+
+import type { LocalDate } from '../types'
+
+export interface TechItem {
+  key: string
+  name: string
+  /** What it is, in a few words. */
+  what: string
+  amount: number
+  /** Day of the month it drafts. */
+  day?: number
+  /** Which paycheck carries it. */
+  payday?: 'first' | 'fifteenth'
+  /** Matches its payments in the actuals. */
+  match?: RegExp
+  /** What the statements show. */
+  seen?: string
+  from?: LocalDate
+  to?: LocalDate
+  note?: string
+}
+
+export const SUBSCRIPTIONS: TechItem[] = [
+  {
+    key: 'hugedomains',
+    name: 'Hugedomains — sawhook.com',
+    what: 'domain, lease-to-own',
+    amount: 99.79,
+    day: 31,
+    payday: 'first',
+    match: /Hugedomains/i,
+    seen: '31 Aug, 30 Sep, 31 Oct',
+    note: 'Keeping (your call). Ask when it is paid off — it should drop to a yearly renewal.',
+  },
+  {
+    key: 'squarespace',
+    name: 'Squarespace',
+    what: 'website',
+    amount: 26.65,
+    day: 30,
+    payday: 'first',
+    match: /Squarespace|Sqsp/i,
+    seen: '30 Jul, 30 Aug, 30 Sep, 30 Oct',
+  },
+  {
+    key: 'google',
+    name: 'Google Workspace',
+    what: 'email',
+    amount: 21.78,
+    day: 1,
+    payday: 'first',
+    match: /Google/i,
+    seen: '13 Aug $60.81, 8 Oct $27.60, 1 Nov $21.78 — the amount has been coming down',
+  },
+  {
+    key: 'apple_32',
+    name: 'Apple — $32.48',
+    what: 'new in November (iCloud+ or Apple One?)',
+    amount: 32.48,
+    day: 2,
+    payday: 'first',
+    seen: '2 Nov only',
+    note: 'New this month — check Settings → Subscriptions.',
+  },
+  { key: 'apple_14', name: 'Apple — $14.06', what: 'subscription', amount: 14.06, day: 6, payday: 'first', seen: '6 Jul, 12 Aug, 6 Sep, 9 Nov' },
+  { key: 'apple_16', name: 'Apple — $16.23', what: 'subscription', amount: 16.23, day: 8, payday: 'first', seen: '8 Jul, 6 Oct, 9 Nov' },
+  {
+    key: 'anthropic',
+    name: 'Anthropic — Claude',
+    what: 'AI',
+    amount: 106.6,
+    day: 8,
+    payday: 'first',
+    match: /Anthropic|Claude/i,
+    seen: '8 Oct, 9 Nov',
+  },
+  { key: 'apple_3', name: 'Apple — $2.99', what: 'subscription', amount: 2.99, day: 25, payday: 'fifteenth', seen: '25th every month, Jul–Oct' },
+]
+
+const sumOf = (items: TechItem[]) => Math.round(items.reduce((s, i) => s + i.amount, 0) * 100) / 100
+export const SUBSCRIPTIONS_ON_FIRST = sumOf(SUBSCRIPTIONS.filter((i) => i.payday === 'first'))
+export const SUBSCRIPTIONS_ON_FIFTEENTH = sumOf(SUBSCRIPTIONS.filter((i) => i.payday === 'fifteenth'))
+export const SUBSCRIPTIONS_MONTHLY = sumOf(SUBSCRIPTIONS)
+
+/**
+ * The T-Mobile bill, part by part (bill issued 7 Nov 2026: Go5G Military, 2 voice lines).
+ * AutoPay on the 21st, from the 15th paycheck.
+ */
+export const PHONE_BILL: TechItem[] = [
+  { key: 'plan', name: 'Go5G Military — 2 lines', what: 'plan, unlimited', amount: 100 },
+  {
+    key: 'iphone',
+    name: 'iPhone 14 — device payment',
+    what: 'installment 18 of 24; $157.49 left',
+    amount: 26.25,
+    to: '2027-05-31',
+    note: 'Last installment on the May bill.',
+  },
+  { key: 'p360', name: 'Protection 360', what: '$19.00 + $1.71 tax', amount: 20.71 },
+  {
+    key: 'pass',
+    name: 'International pass — 30 days',
+    what: '30GB + unlimited calls while deployed',
+    amount: 75,
+    from: '2026-11-18',
+    to: '2027-06-05',
+    note: 'Added 18 Nov (your call). Cancel it when you are home.',
+  },
+]
+
+/** The November bill's one-time charges: calls while roaming, before the pass. */
+export const PHONE_ROAMING_NOV: TechItem = {
+  key: 'roaming',
+  name: 'Calls while roaming — one time',
+  what: '170 min at $0.50 + $15.01 fees + $8.38 tax',
+  amount: 108.39,
+  note: 'Gone from December: the pass covers calls.',
+}
+
+export function phoneBillOn(date: string): TechItem[] {
+  return PHONE_BILL.filter((i) => (!i.from || date >= i.from) && (!i.to || date <= i.to))
+}
+/** Plan + device + protection + pass: what AutoPay takes each month while deployed. */
+export const PHONE_DEPLOYED = sumOf(phoneBillOn('2026-12-15'))
+/** From June: the device is paid off and the pass is cancelled. */
+export const PHONE_HOME = sumOf(phoneBillOn('2027-06-15'))

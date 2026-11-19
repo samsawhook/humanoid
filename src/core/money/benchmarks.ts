@@ -22,6 +22,8 @@ export interface BenchRow {
   label: string
   /** Your share of gross, %. */
   you: number
+  /** The dollars behind it. */
+  amount: number
   typical: string
   advisor: string
   target: string
@@ -277,6 +279,7 @@ export function benchmarkRows(st: PaycheckStatement): BenchRow[] {
       key: r.key,
       label: r.label,
       you: v,
+      amount: Math.round(((v / 100) * g) * 100) / 100,
       typical: r.typical,
       advisor: r.advisor,
       target: r.target,

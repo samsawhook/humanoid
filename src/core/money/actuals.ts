@@ -98,8 +98,8 @@ export const ACTUALS: Actual[] = [
   {
     date: '2026-11-16',
     amount: 289.16,
-    description: 'T-Mobile — past-due balance',
-    lineKey: 'phone',
+    description: 'T-Mobile — October bill, past due',
+    lineKey: 'tmobile_past_due',
     payday: '2026-11-15',
     status: 'pending',
   },

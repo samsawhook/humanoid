@@ -279,6 +279,10 @@ function lineChip(l: StatementLine, spendable: string): Chip | null {
     if (by('todo').length) return { text: `To do · pay ${by('todo').join(', ')}`, cls: 'todo' }
     if (by('check').length) return { text: `⚠ Check ${by('check').join(' & ')}`, cls: 'warn' }
     if (by('paid').length === l.accounts.length) return { text: '✓ All paid', cls: 'paid' }
+    if (l.accounts.every((r) => r.status === 'part' || r.status === 'auto' || r.status === 'paid')) {
+      if (spent >= l.amount - 0.5) return { text: '✓ Paid', cls: 'paid' }
+      if (l.info?.how === 'automatic') return { text: `Auto · ${l.info.when} — nothing to do`, cls: 'auto' }
+    }
     return null
   }
   if (l.todo) return { text: `To do · ${l.todo}`, cls: 'todo' }
@@ -351,18 +355,19 @@ function Line({
             <li key={r.key} className={`ar ar-${r.status}`}>
               <div className="ar-top">
                 <span className="ar-name">
-                  <span className="ar-ic">{r.status === 'paid' ? '✓' : r.status === 'todo' ? '●' : r.status === 'check' ? '⚠' : r.status === 'auto' ? '↻' : '○'}</span>
+                  <span className="ar-ic">{r.status === 'paid' ? '✓' : r.status === 'todo' ? '●' : r.status === 'check' ? '⚠' : r.status === 'auto' ? '↻' : r.status === 'part' ? '·' : '○'}</span>
                   {r.name}
                 </span>
-                <span className="ar-amt">{r.paid > 0 ? usd(r.paid) : r.status === 'auto' ? usd(r.minimum) : `~${usd(r.minimum)}`}</span>
+                <span className="ar-amt">{r.paid > 0 ? usd(r.paid) : r.status === 'auto' || r.status === 'part' ? usd(r.minimum) : `~${usd(r.minimum)}`}</span>
               </div>
               <div className="ar-text">{r.text}</div>
-              {r.status !== 'paid' && r.status !== 'auto' && <div className="ar-where">→ {r.payAt}</div>}
+              {r.payAt && r.status !== 'paid' && r.status !== 'auto' && r.status !== 'part' && <div className="ar-where">→ {r.payAt}</div>}
             </li>
           ))}
         </ul>
       )}
       {(l.short ?? 0) > 0 && <span className="chip chip-over">Short {usd(l.short!)}</span>}
+      {(l.unfunded ?? 0) > 0 && <span className="chip chip-over">⚠ {usd(l.unfunded!)} over budget — not covered</span>}
       {l.txns.length > 0 && (
         <ul className="txns">
           {l.txns.map((t, k) => (
@@ -479,7 +484,7 @@ function PaydayCard({
 }) {
   const g = st.gross.total
   return (
-    <article className={`pcard${wide ? ' pcard-wide' : ''}`}>
+    <article className={`pcard${wide ? ' pcard-wide' : ''}${bench ? ' pcard-bench' : ''}`}>
       <header className="pcard-head">
         <div>
           <div className="pcard-tag">{tag}</div>
@@ -568,8 +573,8 @@ function PaydayCard({
       <Total label="Net worth change (approx.)" amount={st.balanceSheet.total} gross={g} strong />
       {short > 0 && <div className="chip chip-over" style={{ marginTop: 8 }}>{usd(short)} of bills can&rsquo;t be covered by this paycheck</div>}
       </div>
-      </div>
       {bench && <Benchmarks st={st} />}
+      </div>
     </article>
   )
 }
@@ -598,6 +603,7 @@ function Benchmarks({ st }: { st: PaycheckStatement }) {
           <thead>
             <tr>
               <th>Category</th>
+              <th>This month</th>
               <th>You</th>
               <th>Typical, age 25–34</th>
               <th>Advisor rule</th>
@@ -615,6 +621,7 @@ function Benchmarks({ st }: { st: PaycheckStatement }) {
                   <i className="swatch-dot" style={{ background: CAT_COLOR[r.key] ?? CAT_COLOR.other, marginRight: 8 }} />
                   {r.label}
                 </td>
+                <td className="b-you">{usd(r.amount)}</td>
                 <td className="b-you">{r.you.toFixed(1)}%</td>
                 <td>{r.typical}</td>
                 <td>{r.advisor}</td>
@@ -644,6 +651,7 @@ function Benchmarks({ st }: { st: PaycheckStatement }) {
             ))}
             <tr className="b-total">
               <td>Total</td>
+              <td className="b-you">{usd(rows.reduce((t, r) => t + r.amount, 0))}</td>
               <td className="b-you" title="Over 100% because investing counts the Army's match, which is on top of your pay">
                 {rows.reduce((t, r) => t + r.you, 0).toFixed(0)}%<div className="v-why">incl. match</div>
               </td>

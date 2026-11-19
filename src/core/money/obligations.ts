@@ -25,6 +25,7 @@
  */
 
 import type { LocalDate } from '../types'
+import { PHONE_DEPLOYED, PHONE_HOME, SUBSCRIPTIONS_ON_FIFTEENTH } from './tech'
 import type { Obligation, OneOff } from './allocation'
 import type { WindfallClaim } from './windfall'
 import { backPay, EXPECTED_BACK_PAY } from './drillPay'
@@ -447,6 +448,8 @@ export const LAWN_KEYS = LAWN_CUTS.map((c) => lawnKey(c.payday))
 
 /** T-Mobile, one AutoPay a month on the 21st: plan $147 + the $75 pass. */
 export const PHONE_MONTHLY = DEPLOYED_ACTUALS.find((d) => d.key === 'phone')!.monthly
+/** What "your own spending" had budgeted for subscriptions; now its own lines (tech.ts). */
+export const SUBSCRIPTIONS_BUDGETED = DEPLOYED_ACTUALS.find((d) => d.key === 'subscriptions')!.monthly
 /** The HVAC service plan: $19.95 a month, drafted on the 12th. */
 export const HVAC_MONTHLY = 19.95
 
@@ -560,7 +563,7 @@ export const OBLIGATIONS: Obligation[] = [
      * roughly $1,000 actual — and most of what it was estimating (groceries, utilities,
      * pets) is now paid at home out of the money you send.
      */
-    amountPerPaycheck: (deployedActualsTotal() - PHONE_MONTHLY - HVAC_MONTHLY) / 2,
+    amountPerPaycheck: (deployedActualsTotal() - PHONE_MONTHLY - HVAC_MONTHLY - SUBSCRIPTIONS_BUDGETED) / 2,
     payDays: 'both',
     activeFrom: TIMELINE.premobStart,
     activeTo: null,
@@ -583,19 +586,82 @@ export const OBLIGATIONS: Obligation[] = [
     kind: 'living',
     execution: 'automatic',
   },
+  /**
+   * T-Mobile, one AutoPay a month on the 21st (your setup, Nov) — the 15th paycheck's
+   * window. Bill parts in tech.ts: plan $100 + iPhone $26.25 (to May) + Protection 360
+   * $20.71 + the $75 pass (to June). November is its own bill: the October bill was
+   * paid late ($289.16, 16 Nov) and the November bill carries $108.39 of roaming calls.
+   */
+  {
+    key: 'tmobile_past_due',
+    label: 'Phone — October bill, paid late',
+    amountPerPaycheck: 289.16,
+    payDays: 'fifteenth',
+    activeFrom: '2026-11-15',
+    activeTo: '2026-11-15',
+    priority: 30,
+    kind: 'living',
+    execution: 'manual',
+  },
+  {
+    key: 'phone_nov',
+    label: 'Phone — November bill (with roaming calls)',
+    amountPerPaycheck: 255.35,
+    payDays: 'fifteenth',
+    activeFrom: '2026-11-15',
+    activeTo: '2026-11-15',
+    priority: 30,
+    kind: 'living',
+    execution: 'automatic',
+  },
   {
     key: 'phone',
     label: 'Phone (T-Mobile)',
+    amountPerPaycheck: PHONE_DEPLOYED,
+    payDays: 'fifteenth',
+    activeFrom: '2026-12-01',
+    activeTo: '2027-05-31',
+    priority: 30,
+    kind: 'living',
+    execution: 'automatic',
+  },
+  {
+    key: 'phone_home',
+    label: 'Phone (T-Mobile) — iPhone paid off, pass cancelled',
+    amountPerPaycheck: PHONE_HOME,
+    payDays: 'fifteenth',
+    activeFrom: '2027-06-01',
+    activeTo: null,
+    priority: 30,
+    kind: 'living',
+    execution: 'automatic',
+  },
+  /** Subscriptions, item by item in tech.ts: nearly all draft around the 1st. */
+  {
+    key: 'subscriptions',
+    label: 'Subscriptions — AI, email & domains, Apple',
     /**
-     * One bill a month: AutoPay on the 21st (your setup, Nov), which lands in the 15th
-     * paycheck's window. Was half on each paycheck inside "your own spending" — wrong:
-     * nothing goes out on the 1st.
+     * Funded at the budget, not the bill (your call, 19 Nov: keep them all and show the
+     * gap). The items come to more; the card lists them and flags what is not covered.
      */
-    amountPerPaycheck: PHONE_MONTHLY,
+    amountPerPaycheck: Math.round((SUBSCRIPTIONS_BUDGETED - SUBSCRIPTIONS_ON_FIFTEENTH) * 100) / 100,
+    payDays: 'first',
+    activeFrom: TIMELINE.premobStart,
+    activeTo: null,
+    /** Last of all: if a paycheck runs short, these show it — they are what outgrew the budget. */
+    priority: 39.5,
+    kind: 'living',
+    execution: 'automatic',
+  },
+  {
+    key: 'subscriptions_mid',
+    label: 'Subscriptions — Apple $2.99',
+    amountPerPaycheck: SUBSCRIPTIONS_ON_FIFTEENTH,
     payDays: 'fifteenth',
     activeFrom: TIMELINE.premobStart,
     activeTo: null,
-    priority: 30,
+    /** Last of all: if a paycheck runs short, these show it — they are what outgrew the budget. */
+    priority: 39.5,
     kind: 'living',
     execution: 'automatic',
   },

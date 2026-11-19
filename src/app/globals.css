@@ -458,3 +458,28 @@ main:has(.gantt-wrap) { max-width: 1600px; }
 .ln-pct { color: #a7b0bd; }
 .mnav { border-bottom: 0; padding: 0; flex-wrap: nowrap; }
 @media (max-width: 820px) { .mnav { padding: 6px 16px; border-bottom: 1px solid var(--line); } }
+.ar-part { border-left-color: var(--line); padding: 6px 10px; }
+.ar-part .ar-name { font-weight: 500; }
+
+/* One-month view: the statement on the left, the big comparison table on the right. */
+@media (min-width: 1100px) {
+  .pcard-bench .pcard-body { display: grid; grid-template-columns: minmax(380px, 0.85fr) minmax(0, 2.4fr); grid-template-areas: "a c" "b c"; gap: 0 28px; align-items: start; }
+  .pcard-bench .pcard-body > .pcol:nth-child(1) { grid-area: a; }
+  .pcard-bench .pcard-body > .pcol:nth-child(2) { grid-area: b; }
+  .pcard-bench .pcard-body > .bench { grid-area: c; margin-top: 0; border-top: 0; }
+}
+.benchtable { min-width: 1180px; }
+.benchtable th:nth-child(1) { width: 9%; }
+.benchtable th:nth-child(2) { width: 7%; }
+.benchtable th:nth-child(3) { width: 5%; }
+.benchtable th:nth-child(4) { width: 10%; }
+.benchtable th:nth-child(5) { width: 10%; }
+.benchtable th:nth-child(6), .benchtable th:nth-child(7), .benchtable th:nth-child(8) { width: 13%; }
+.benchtable th:nth-child(9) { width: 9%; }
+.benchtable th:nth-child(10) { width: 11%; }
+@media (min-width: 1100px) {
+  .pcard-bench .pcard-body { grid-template-rows: auto 1fr; }
+}
+.benchtable { min-width: 1060px; }
+/* Expand across: the card takes the row and its neighbour steps aside (untick to bring it back). */
+.pgrid:has(> .pcard .wide-toggle input:checked) > :not(:has(.wide-toggle input:checked)) { display: none; }

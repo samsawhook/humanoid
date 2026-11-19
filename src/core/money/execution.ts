@@ -31,6 +31,11 @@ export interface PaymentInfo {
 
 export const PAYMENT_INFO: Record<string, PaymentInfo> = {
   phone: { from: CHECKING, to: 'T-Mobile', how: 'automatic', when: 'AutoPay, 21st', day: 21 },
+  phone_home: { from: CHECKING, to: 'T-Mobile', how: 'automatic', when: 'AutoPay, 21st', day: 21 },
+  phone_nov: { from: CHECKING, to: 'T-Mobile', how: 'automatic', when: 'AutoPay, 21st', day: 21 },
+  tmobile_past_due: { from: CHECKING, to: 'T-Mobile', how: 'manual', when: 'paid 16 Nov' },
+  subscriptions: { from: CHECKING, to: 'Each merchant, by debit card', how: 'automatic', when: 'as each renews' },
+  subscriptions_mid: { from: CHECKING, to: 'Apple, by debit card', how: 'automatic', when: '~25th', day: 25 },
   hvac_plan: { from: CHECKING, to: 'HVAC service plan', how: 'automatic', when: 'monthly, ~12th', day: 12 },
   mortgage_current: {
     from: CHECKING,
@@ -125,7 +130,6 @@ export function scheduledFor(key: string, payday: LocalDate): Scheduled | undefi
 /** What pays each part of "your own spending". */
 export const SPENDING_INFO: Record<string, PaymentInfo> = {
   phone: { from: CHECKING, to: 'T-Mobile', how: 'automatic', when: 'AutoPay, 21st', day: 21 },
-  software: { from: CHECKING, to: 'Subscriptions (Claude, Apple, Hugedomains…)', how: 'automatic', when: 'as they renew' },
   personal_local: { from: CHECKING, to: 'Debit card, Cash App', how: 'automatic', when: 'as you spend' },
   entertainment: { from: CHECKING, to: 'Debit card', how: 'automatic', when: 'as you spend' },
   fuel: { from: CHECKING, to: 'Debit card', how: 'automatic', when: 'as you spend' },
@@ -218,3 +222,4 @@ export const CARD_ACCOUNTS: CardAccount[] = [
 
 /** Citi, Capital One and the Chase plan: closed accounts, shown as one line. */
 export const CLOSED_ACCOUNTS_LABEL = 'Closed accounts — Citi · Capital One · Chase plan'
+
