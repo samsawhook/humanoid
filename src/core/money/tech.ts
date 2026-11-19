@@ -106,6 +106,16 @@ export const SUBSCRIPTIONS: TechItem[] = [
   { key: 'apple_3', name: 'Apple — iCloud+ 200GB', what: 'storage', amount: 2.99, day: 25, payday: 'fifteenth', seen: '25th every month, Jul–Oct' },
 ]
 
+/**
+ * Yearly, not monthly — on the calendar rather than a paycheck: NordVPN ($100, 28 Jan, its own
+ * line on the 1 Feb card) and Monarch Money ($106.39, "Recurring Payment" 8 Oct 2026 on the
+ * statements; next 8 Oct 2027, after the deployment plan ends).
+ */
+export const YEARLY: TechItem[] = [
+  { key: 'nordvpn', name: 'NordVPN', what: 'VPN, yearly', amount: 100, day: 28, note: 'Renews 28 Jan (your note).' },
+  { key: 'monarch', name: 'Monarch Money', what: 'budgeting app, yearly', amount: 106.39, day: 8, seen: '8 Oct 2026', note: 'Renews ~8 Oct 2027.' },
+]
+
 const sumOf = (items: TechItem[]) => Math.round(items.reduce((s, i) => s + i.amount, 0) * 100) / 100
 /** The subscriptions still running on a date (a cancelled one drops off after its `to`). */
 export function subscriptionsOn(date: string): TechItem[] {

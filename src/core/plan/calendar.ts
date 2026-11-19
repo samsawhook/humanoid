@@ -133,6 +133,14 @@ export const PLAN_POINTS: PlanPoint[] = [
   { lane: 'money', label: 'MAcc course — 1st half', date: '2027-03-08' },
   { lane: 'money', label: 'MAcc course — 2nd half', date: '2027-04-08' },
   { lane: 'money', label: 'Student loan payments resume', date: '2027-08-02', note: 'Nelnet deferment pending.' },
+  { lane: 'money', label: 'NordVPN renews — $100/yr', date: '2027-01-28', note: 'Your note, 19 Nov. Cancel before then if you will not need it once home.' },
+  {
+    lane: 'money',
+    label: 'Monarch renews — $106.39/yr',
+    date: '2027-10-08',
+    estimated: true,
+    note: 'On the statements: "Recurring Payment" 8 Oct 2026. The plan runs on the bank now — cancel before it renews?',
+  },
 ]
 
 /** Everything with a date, soonest first, from `today`. */
