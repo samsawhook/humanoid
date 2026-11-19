@@ -526,3 +526,21 @@ main:has(.gantt-wrap) { max-width: 1600px; }
 .ar-more > summary::-webkit-details-marker { display: none; }
 .ar-more > summary::before { content: '▸'; font-size: 11px; transition: transform .12s; display: inline-block; }
 .ar-more[open] > summary::before { transform: rotate(90deg); }
+
+/* Cash walk: start → in → gone → now → still to go → end. */
+.cashwalk { display: grid; grid-template-columns: 1.4fr 1fr; gap: 10px; margin: 8px 0; }
+@media (max-width: 560px) { .cashwalk { grid-template-columns: 1fr; } }
+.cw-box { background: var(--panel-2); border-radius: 10px; padding: 10px 12px; }
+.cw-title { font-size: 11.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.cw-box table { width: 100%; }
+.cw-box td { border: 0; padding: 3px 0; font-size: 13px; white-space: normal; }
+.cw-box td:first-child { text-align: left; color: var(--muted); }
+.cw-box td:last-child { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cw-box td.neg { color: var(--bad); }
+.cw-strong td { color: var(--text) !important; font-weight: 700; border-top: 1px solid var(--line); padding-top: 6px; }
+.cw-end td:last-child { color: var(--good); }
+.cw-bad td:last-child { color: var(--bad); }
+.cw-note { font-size: 11.5px; color: var(--muted); font-weight: 400; }
+.outleft { display: block; font-size: 11.5px; font-weight: 400; color: var(--muted); text-align: right; margin-top: 2px; white-space: nowrap; }
+.outleft b { color: var(--text); font-weight: 650; }
+.outleft b.over { color: #ec835a; }

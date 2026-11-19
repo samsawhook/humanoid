@@ -307,6 +307,16 @@ function lineChip(l: StatementLine, spendable: string): Chip | null {
   return { text: `To do · ${so}${usd(l.amount - spent)}${l.date ? '' : ` from ${nice(spendable)}`}`, cls: 'todo' }
 }
 
+/** Under a budget: what has already gone out, and what is left (or how far over). */
+function OutLeft({ budget, out }: { budget: number; out: number }) {
+  const left = Math.round((budget - out) * 100) / 100
+  return (
+    <span className="outleft">
+      out {usd(out)} · {left >= 0 ? <>left <b>{usd(left)}</b></> : <b className="over">over {usd(-left)}</b>}
+    </span>
+  )
+}
+
 function Line({
   l,
   gross,
@@ -335,6 +345,7 @@ function Line({
         <div className={`ln-amt${l.nonCash ? ' ln-dim' : ''}`}>
           {l.nonCash ? `(${usd(l.amount)})` : usd(l.amount)}
           {!l.nonCash && <span className="ln-pct">{pct(l.amount, gross)}</span>}
+          {showActuals && !l.nonCash && l.spent !== undefined && <OutLeft budget={l.amount} out={l.spent} />}
         </div>
       </div>
       {/* Every line gets its pill: length = its share of gross (the same scale everywhere), fill = paid. */}
@@ -447,9 +458,7 @@ function Section({
             {sign}
             {usd(Math.abs(sec.total))}
             <span className="ln-pct">{pct(sec.total, gross)}</span>
-            {showActuals && spentAll > budget + 0.5 && (
-              <span className="sec-over">{usd(spentAll)} spent — over by {usd(spentAll - budget)}</span>
-            )}
+            {showActuals && budget > 0 && <OutLeft budget={budget} out={spentAll} />}
           </span>
         </div>
         {bar && sec.total > 0 && (
@@ -490,9 +499,12 @@ function PaydayCard({
   savings,
   short,
   spendable,
+  live = false,
   wide = false,
   bench = false,
 }: {
+  /** The paycheck your latest bank update falls in: "now" comes from the bank. */
+  live?: boolean
   /** Always laid out across the full width (the month view). */
   wide?: boolean
   /** Show how the categories compare: typical, advisor rule, your target. */
@@ -570,30 +582,79 @@ function PaydayCard({
       <Section sec={st.netCash} gross={g} spendable={spendable} showActuals={false} sign={st.netCash.total < 0 ? '−' : '+'} bar={false} />
       {(() => {
         const d = (k: string) => st.netCash.lines.find((l) => l.key === k)?.amount ?? 0
-        const tiles = [
-          { name: CHECKING, after: checkingAfter, delta: d('checking') },
-          { name: SAVINGS, after: savings, delta: d('savings') },
-        ]
+        // The cash walk for checking: where it starts, what comes in, what has gone, what is
+        // still to go, and where it ends. On the live paycheck, "now" is the bank's own number.
+        const delta = d('checking')
+        const end = checkingAfter
+        const start = r2(end - delta)
+        const plannedOut = r2(start + st.takeHome - end)
+        const out = [...st.spending.flatMap((x) => x.lines), ...st.investing.lines.filter((l) => l.key !== 'tsp')].filter(
+          (l) => !l.nonCash && l.amount > 0,
+        )
+        const toSavings = Math.max(0, d('savings'))
+        const gone = r2(out.reduce((t, l) => t + (l.spent ?? 0), 0))
+        const remaining = r2(out.reduce((t, l) => t + Math.max(0, l.amount - (l.spent ?? 0)), 0) + toSavings)
+        const bankNow = live ? ACTUALS_AS_OF.availableBalance : null
+        const bankEnd = bankNow != null ? r2(bankNow - remaining) : null
+        const sStart = r2(savings - d('savings'))
         const other = st.netCash.lines.find((l) => l.key === 'other')
+        const Row = ({ k, v, sign, strong, note, cls }: { k: string; v: number; sign?: string; strong?: boolean; note?: string; cls?: string }) => (
+          <tr className={`${strong ? 'cw-strong' : ''} ${cls ?? ''}`}>
+            <td>
+              {k}
+              {note && <div className="cw-note">{note}</div>}
+            </td>
+            <td className={v < 0 ? 'neg' : ''}>
+              {sign}
+              {sign ? usd(Math.abs(v)) : usd(v)}
+            </td>
+          </tr>
+        )
         return (
-          <div className="balances">
-            {tiles.map((t) => (
-              <div key={t.name}>
-                <span>{t.name} · est. after</span>
-                <strong>{usd(t.after)}</strong>
-                <em className={t.delta < 0 ? 'neg' : t.delta > 0 ? 'pos' : ''}>
-                  {t.delta >= 0 ? '+' : '−'}
-                  {usd(Math.abs(t.delta))} · from {usd(t.after - t.delta)}
-                </em>
-              </div>
-            ))}
-            {other && (
-              <div>
-                <span>Your other account</span>
-                <strong>{other.amount < 0 ? '−' : '+'}{usd(Math.abs(other.amount))}</strong>
-                <em className={other.amount < 0 ? 'neg' : 'pos'}>moved into checking</em>
-              </div>
-            )}
+          <div className="cashwalk">
+            <div className="cw-box">
+              <div className="cw-title">{CHECKING}</div>
+              <table>
+                <tbody>
+                  <Row k="Start — before this pay lands" v={start} />
+                  <Row k="Pay in" v={st.takeHome} sign="+ " />
+                  {bankNow != null ? (
+                    <>
+                      <Row k="Gone out so far" v={gone} sign="− " />
+                      <Row
+                        k={`Now — bank, ${nice(ACTUALS_AS_OF.date)} ${ACTUALS_AS_OF.time}`}
+                        v={bankNow}
+                        strong
+                        note={`The plan expected ${usd(r2(start + st.takeHome - gone))} by now.`}
+                      />
+                      <Row k="Still to go out" v={remaining} sign="− " note="Budgeted lines not yet seen, and the savings transfer." />
+                      <Row k="End — est." v={bankEnd!} strong cls={bankEnd! < 0 ? 'cw-bad' : 'cw-end'} />
+                    </>
+                  ) : (
+                    <>
+                      <Row k="Going out" v={plannedOut} sign="− " />
+                      <Row k="End — est." v={end} strong cls={end < 0 ? 'cw-bad' : 'cw-end'} />
+                    </>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="cw-box">
+              <div className="cw-title">{SAVINGS}</div>
+              <table>
+                <tbody>
+                  <Row k="Start" v={sStart} />
+                  <Row k={d('savings') < 0 ? 'Drawn' : 'In'} v={d('savings')} sign={d('savings') < 0 ? '− ' : '+ '} />
+                  <Row k="End — est." v={savings} strong cls="cw-end" />
+                </tbody>
+              </table>
+              {other && (
+                <p className="cw-note" style={{ marginTop: 8 }}>
+                  Your other account: {other.amount < 0 ? '−' : '+'}
+                  {usd(Math.abs(other.amount))}, moved into checking.
+                </p>
+              )}
+            </div>
           </div>
         )
       })()}
@@ -770,6 +831,8 @@ function MonthTable({ st }: { st: PaycheckStatement }) {
   )
 }
 
+const r2 = (n: number) => Math.round(n * 100) / 100
+
 const MONTH_NAME = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
 export function PaydayFocus({
@@ -785,6 +848,7 @@ export function PaydayFocus({
   const [ci] = currentAndNext(allocations, today)
   const asOf = ACTUALS_AS_OF
   const seen = new Set(ACTUALS.map((x) => x.payday))
+  const latestSeen = [...seen].sort().at(-1)
   // Savings balance after each paycheck: what the save lines put in, less emergency draws.
   const saveKeys = (BUCKETS.find((b) => b.key === 'save')?.keys ?? []) as readonly string[]
   const savingsAfter: number[] = []
@@ -814,6 +878,7 @@ export function PaydayFocus({
       title: nice(a.paycheck.scheduledDate),
       subtitle: `Spendable ~${nice(spendableFrom(a.paycheck.payDate))}${a.paycheck.czte ? ' · tax-free' : ' · taxed'}`,
       showActuals: seen.has(a.paycheck.scheduledDate),
+      live: a.paycheck.scheduledDate === latestSeen,
       // The plan starts from $0; the real account came into it with what the 1 Nov paycheck left.
       checkingAfter: (next ? next.openingBuffer : a.remainder) + NOV1.checkingAfter,
       savings: savingsAfter[i] ?? 0,
@@ -847,6 +912,7 @@ export function PaydayFocus({
             title: nice(NOV1.payday),
             subtitle: 'Spendable ~Wed 28 Oct · tax-free',
             showActuals: true,
+            live: false,
             checkingAfter: NOV1.checkingAfter,
             savings: 0,
             short: 0,
