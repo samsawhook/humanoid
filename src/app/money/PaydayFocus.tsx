@@ -307,6 +307,15 @@ function lineChip(l: StatementLine, spendable: string): Chip | null {
   return { text: `To do · ${so}${usd(l.amount - spent)}${l.date ? '' : ` from ${nice(spendable)}`}`, cls: 'todo' }
 }
 
+/** What is still to go out of checking this paycheck: budget not yet seen, plus the savings transfer. */
+function stillToGo(st: PaycheckStatement): number {
+  const out = [...st.spending.flatMap((x) => x.lines), ...st.investing.lines.filter((l) => l.key !== 'tsp')].filter(
+    (l) => !l.nonCash && l.amount > 0,
+  )
+  const toSavings = Math.max(0, st.netCash.lines.find((l) => l.key === 'savings')?.amount ?? 0)
+  return Math.round((out.reduce((t, l) => t + Math.max(0, l.amount - (l.spent ?? 0)), 0) + toSavings) * 100) / 100
+}
+
 /** Under a budget: what has already gone out, and what is left (or how far over). */
 function OutLeft({ budget, out }: { budget: number; out: number }) {
   const left = Math.round((budget - out) * 100) / 100
@@ -496,6 +505,7 @@ function PaydayCard({
   subtitle,
   showActuals,
   checkingAfter,
+  checkingBefore,
   savings,
   short,
   spendable,
@@ -515,6 +525,8 @@ function PaydayCard({
   subtitle: string
   showActuals: boolean
   checkingAfter: number
+  /** Checking at the start of the period: the previous card's end. */
+  checkingBefore: number
   /** Savings (buffer) balance after this paycheck. */
   savings: number
   short: number
@@ -584,16 +596,14 @@ function PaydayCard({
         const d = (k: string) => st.netCash.lines.find((l) => l.key === k)?.amount ?? 0
         // The cash walk for checking: where it starts, what comes in, what has gone, what is
         // still to go, and where it ends. On the live paycheck, "now" is the bank's own number.
-        const delta = d('checking')
         const end = checkingAfter
-        const start = r2(end - delta)
+        const start = checkingBefore
         const plannedOut = r2(start + st.takeHome - end)
         const out = [...st.spending.flatMap((x) => x.lines), ...st.investing.lines.filter((l) => l.key !== 'tsp')].filter(
           (l) => !l.nonCash && l.amount > 0,
         )
-        const toSavings = Math.max(0, d('savings'))
         const gone = r2(out.reduce((t, l) => t + (l.spent ?? 0), 0))
-        const remaining = r2(out.reduce((t, l) => t + Math.max(0, l.amount - (l.spent ?? 0)), 0) + toSavings)
+        const remaining = stillToGo(st)
         const bankNow = live ? ACTUALS_AS_OF.availableBalance : null
         const bankEnd = bankNow != null ? r2(bankNow - remaining) : null
         const sStart = r2(savings - d('savings'))
@@ -867,6 +877,25 @@ export function PaydayFocus({
   }
   const idx = (m: string, day: '01' | '15') => allocations.findIndex((a) => a.paycheck.scheduledDate === `${m}-${day}`)
 
+  // Tie the cards to the bank: the live paycheck ends at (bank now − still to go), and every
+  // later paycheck starts from that, not from the plan's own running figure.
+  const liveIdx = allocations.findIndex((x) => x.paycheck.scheduledDate === latestSeen)
+  const modelAfter = (i: number) => {
+    const next = allocations[i + 1]
+    return (next ? next.openingBuffer : allocations[i]!.remainder) + NOV1.checkingAfter
+  }
+  const bankOffset =
+    liveIdx >= 0
+      ? Math.round(
+          (ACTUALS_AS_OF.availableBalance -
+            stillToGo(paycheckStatement(allocations[liveIdx]!, allocations[liveIdx + 1])) -
+            modelAfter(liveIdx)) *
+            100,
+        ) / 100
+      : 0
+
+  const endOf = (i: number) => Math.round((modelAfter(i) + (liveIdx >= 0 && i >= liveIdx ? bankOffset : 0)) * 100) / 100
+
   const cardFor = (i: number) => {
     const a = allocations[i]!
     const next = allocations[i + 1]
@@ -880,7 +909,8 @@ export function PaydayFocus({
       showActuals: seen.has(a.paycheck.scheduledDate),
       live: a.paycheck.scheduledDate === latestSeen,
       // The plan starts from $0; the real account came into it with what the 1 Nov paycheck left.
-      checkingAfter: (next ? next.openingBuffer : a.remainder) + NOV1.checkingAfter,
+      checkingAfter: endOf(i),
+      checkingBefore: i === 0 ? NOV1.checkingAfter : endOf(i - 1),
       savings: savingsAfter[i] ?? 0,
       short: a.lines.reduce((s, l) => s + l.shortfall, 0),
       spendable: spendableFrom(a.paycheck.payDate),
@@ -914,6 +944,7 @@ export function PaydayFocus({
             showActuals: true,
             live: false,
             checkingAfter: NOV1.checkingAfter,
+            checkingBefore: NOV1.checkingBefore,
             savings: 0,
             short: 0,
             spendable: '2026-10-28',
@@ -956,6 +987,7 @@ export function PaydayFocus({
                   subtitle={present.map((c) => c.title).join(' + ')}
                   showActuals={present.some((c) => c.showActuals)}
                   checkingAfter={last.checkingAfter}
+                  checkingBefore={present[0]!.checkingBefore}
                   savings={last.savings}
                   short={present.reduce((s, c) => s + c.short, 0)}
                   spendable={present[0]!.spendable}
