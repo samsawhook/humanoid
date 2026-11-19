@@ -322,14 +322,22 @@ export interface Maxing {
   ira: number
   /** Part of `yours` estimated (paychecks before the plan's data begins). */
   estimatedPart: number
+  /** Month this is through, and your contribution in it. */
+  month: string
+  monthRate: number
+  /** Where the year ends at this month's rate. */
+  pace: number
+  /** Yours since the orders began (31 Jul 2026) — it doesn't reset in January. */
+  sinceOrders: number
 }
 
 /** Progress toward the year's limits: one bar each, filled = in so far. */
 function MaxingBox({ m }: { m: Maxing }) {
   const L = limitsFor(m.year)
+  const monthsLeft = 12 - Number(m.month.slice(5, 7))
   const rows = [
     {
-      k: 'TSP / 401(k) — your contributions',
+      k: `TSP / 401(k) — your contributions, ${m.year} so far`,
       v: m.yours,
       max: L.elective,
       tip: `The elective limit covers your TSP and any civilian 401(k) together.${m.estimatedPart > 0 ? ` Includes ~${usd(m.estimatedPart)} ESTIMATED before the plan's data — drills, the 4-week AT and Jul 31 – Nov 1 at 5% of base. Your LES shows the real year-to-date.` : ''}`,
@@ -351,6 +359,18 @@ function MaxingBox({ m }: { m: Maxing }) {
     <div className="maxing">
       <div className="maxing-title">
         Progress to the {m.year} max{L.estimated ? ' (limits are estimates until the IRS posts them)' : ''}
+      </div>
+      <div className="mx-facts">
+        <span title="Your contributions in this month's two paychecks.">
+          This month <b>{usd(m.monthRate)}</b>
+        </span>
+        <span title="Year so far plus this month's rate for the months left. After you are home the civilian 401(k) takes over.">
+          On pace for <b>{usd(m.pace)}</b> by Dec {m.year}
+          {monthsLeft > 0 ? ` (${((m.pace / L.elective) * 100).toFixed(0)}% of the limit)` : ''}
+        </span>
+        <span title="Your own contributions since the orders began on 31 Jul 2026. The yearly limits start over each January; this doesn't.">
+          Since 31 Jul 2026 <b>{usd(m.sinceOrders)}</b> yours · <b>{usd(m.sinceOrders * 2)}</b> with the match
+        </span>
       </div>
       {rows.map((r) => {
         const p = Math.min(100, (r.v / r.max) * 100)
@@ -903,6 +923,10 @@ export function PaydayFocus({
     PRE_PLAN_2026.reduce((t, d) => t + (projectPaycheck(d).deductions.find((x) => x.key === 'tsp')?.amount ?? 0), 0) +
       0.05 * base30 * (6 * 4 /* drills */ + 28 /* annual training */ + 1 /* 31 Jul */),
   )
+  // From 31 Jul on orders, before the plan's data: the Aug 15 – Nov 1 paychecks and 31 Jul.
+  const sinceOrdersBeforePlan = r2(
+    PRE_PLAN_2026.reduce((t, d) => t + (projectPaycheck(d).deductions.find((x) => x.key === 'tsp')?.amount ?? 0), 0) + 0.05 * base30,
+  )
   const maxingThrough = (month: string): Maxing => {
     const year = Number(month.slice(0, 4))
     const plan = allocations
@@ -910,7 +934,13 @@ export function PaydayFocus({
       .reduce((t, a) => t + tspOf(a), 0)
     const est = year === 2026 ? prePlan : 0
     const yours = r2(plan + est)
-    return { year, yours, match: yours, ira: 0, estimatedPart: est }
+    const monthRate = r2(
+      allocations.filter((a) => a.paycheck.scheduledDate.slice(0, 7) === month).reduce((t, a) => t + tspOf(a), 0) +
+        PRE_PLAN_2026.filter((d) => d.slice(0, 7) === month).reduce((t, d) => t + (projectPaycheck(d).deductions.find((x) => x.key === 'tsp')?.amount ?? 0), 0),
+    )
+    const pace = r2(yours + monthRate * (12 - Number(month.slice(5, 7))))
+    const sinceOrders = r2(sinceOrdersBeforePlan + allocations.filter((a) => a.paycheck.scheduledDate.slice(0, 7) <= month).reduce((t, a) => t + tspOf(a), 0))
+    return { year, yours, match: yours, ira: 0, estimatedPart: est, month, monthRate, pace, sinceOrders }
   }
   // Savings balance after each paycheck: what the save lines put in, less emergency draws.
   const saveKeys = (BUCKETS.find((b) => b.key === 'save')?.keys ?? []) as readonly string[]

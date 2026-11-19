@@ -62,6 +62,22 @@ export interface LedgerPoint {
   pay: Record<string, number>
   /** Interest charged in that period. */
   int: Record<string, number>
+  /** P&L for the period: income, and costs by group (investing included as an outflow). */
+  income: number
+  out: Record<string, number>
+}
+
+/** Cost lines into the groups the cards use. */
+export const PNL_GROUPS = ['Home', 'Wife & Kids', 'Personal', 'Tech', 'Debt', 'Taxes', 'Investing', 'School & moves', 'Other'] as const
+function pnlGroup(k: string): (typeof PNL_GROUPS)[number] {
+  if (/Taxes|Self-employment/.test(k)) return 'Taxes'
+  if (/Mortgage|New home|Rent in|Corpus house|cost premium|Rural extras|countryside|Home upgrade/.test(k)) return 'Home'
+  if (/Wife & Kids|Family support|Children|New baby/.test(k)) return 'Wife & Kids'
+  if (/Your spending|Tricare|VA waived|Practice costs/.test(k)) return 'Personal'
+  if (/Debt payments|UT loan/.test(k)) return 'Debt'
+  if (/401\(k\)|Nth/.test(k)) return 'Investing'
+  if (/Moving|Bar exam|CPA review|Spouse income/.test(k)) return 'School & moves'
+  return 'Other'
 }
 
 export interface Ledger {
@@ -337,7 +353,15 @@ export function buildLedger(path: PathKey | 'country' | Scenario): Ledger {
     const mortgageTotal = pm ? pm.mortgage : bal.chamberlain!
     bal.new_home = r2(Math.max(0, mortgageTotal - bal.chamberlain!))
 
+    const out: Record<string, number> = {}
+    if (pm) {
+      for (const [k, v] of Object.entries(pm.costs)) out[pnlGroup(k)] = r2((out[pnlGroup(k)] ?? 0) + v)
+      // While deployed, what was saved or invested is not in the path's costs: show it.
+      if (pm.phase === 'Deployed' && pm.invested) out.Investing = r2((out.Investing ?? 0) + pm.invested)
+    }
     monthly.push({
+      income: pm ? pm.totalIncome : 0,
+      out,
       month: m,
       phase: pm?.phase ?? 'Deployed',
       bal: {
@@ -362,8 +386,10 @@ export function buildLedger(path: PathKey | 'country' | Scenario): Ledger {
       points.push(p)
       return
     }
-    if (!acc) acc = { month: p.month, phase: p.phase, bal: p.bal, pay: { ...p.pay }, int: { ...p.int } }
+    if (!acc) acc = { month: p.month, phase: p.phase, bal: p.bal, pay: { ...p.pay }, int: { ...p.int }, income: p.income, out: { ...p.out } }
     else {
+      acc.income = r2(acc.income + p.income)
+      for (const [k, v] of Object.entries(p.out)) acc.out[k] = r2((acc.out[k] ?? 0) + v)
       for (const [k, v] of Object.entries(p.pay)) acc.pay[k] = r2((acc.pay[k] ?? 0) + v)
       for (const [k, v] of Object.entries(p.int)) acc.int[k] = r2((acc.int[k] ?? 0) + v)
       acc.bal = p.bal

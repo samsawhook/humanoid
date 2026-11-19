@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from 'react'
 import { TrendChart, type TrendSeries } from '@/components/TrendChart'
-import type { AccountDef, GroupKey, Ledger, PathSummary, Side } from '@/core/money/ledger'
+import type { AccountDef, GroupKey, Ledger, LedgerPoint, PathSummary, Side } from '@/core/money/ledger'
 import {
   ARRANGEMENT_LABEL,
   BASE_SELECTION,
@@ -255,6 +255,115 @@ function AccountDetail({ ledger, account, side, onClose }: { ledger: Ledger; acc
   )
 }
 
+const PNL_COLOR: Record<string, string> = {
+  Home: '#3987e5',
+  'Wife & Kids': '#199e70',
+  Personal: '#c98500',
+  Tech: '#2fb5c9',
+  Debt: '#d55181',
+  Taxes: '#6b7280',
+  Investing: '#9085e9',
+  'School & moves': '#d95926',
+  Other: '#7d848f',
+}
+
+/**
+ * P&L over the timeline: income up, costs down (stacked by category), net as a dot.
+ * Monthly for a year or eighteen months, quarterly for three to five years, yearly beyond.
+ */
+function PnlChart({ points, months }: { points: LedgerPoint[]; months: number }) {
+  const unit: 'month' | 'quarter' | 'year' = months <= 18 ? 'month' : months <= 60 ? 'quarter' : 'year'
+  type Period = { label: string; income: number; out: Record<string, number> }
+  const periods: Period[] = []
+  const keyOf = (m: string) => {
+    const y = m.slice(0, 4)
+    const mo = Number(m.slice(5, 7))
+    return unit === 'month' ? m : unit === 'quarter' ? `${y} Q${Math.ceil(mo / 3)}` : y
+  }
+  for (const p of points.filter((x) => x.income > 0 || Object.keys(x.out).length)) {
+    const k = keyOf(p.month)
+    let per = periods.at(-1)
+    if (!per || per.label !== k) {
+      per = { label: k, income: 0, out: {} }
+      periods.push(per)
+    }
+    per.income += p.income
+    for (const [g, v] of Object.entries(p.out)) per.out[g] = (per.out[g] ?? 0) + v
+  }
+  if (!periods.length) return null
+  const outTotal = (p: Period) => Object.values(p.out).reduce((t, v) => t + v, 0)
+  const max = Math.max(1, ...periods.map((p) => Math.max(p.income, outTotal(p))))
+  const W = 1000
+  const H = 300
+  const top = 16
+  const mid = top + (H - 40) / 2
+  const half = (H - 40) / 2
+  const y = (v: number) => (v / max) * half
+  const bw = (W - 60) / periods.length
+  const groupsOrder = ['Home', 'Wife & Kids', 'Personal', 'Tech', 'Debt', 'Taxes', 'Investing', 'School & moves', 'Other']
+  const present = groupsOrder.filter((g) => periods.some((p) => (p.out[g] ?? 0) > 0))
+  const fmt = (n: number) => (Math.abs(n) >= 100000 ? `$${Math.round(n / 1000)}k` : usd0(n))
+  const label = (k: string) => (unit === 'month' ? monLabel(k).replace(' 20', ' ’') : k)
+  const step = Math.ceil(periods.length / 12)
+  return (
+    <figure className="pnl">
+      <figcaption className="fig-title">
+        Profit & loss — {unit === 'month' ? 'monthly' : unit === 'quarter' ? 'quarterly' : 'yearly'} · income up, costs down, net ●
+      </figcaption>
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Profit and loss by period">
+        <line x1={50} x2={W - 6} y1={mid} y2={mid} stroke="var(--muted)" strokeWidth={1} />
+        {[-1, -0.5, 0.5, 1].map((f) => (
+          <g key={f}>
+            <line x1={50} x2={W - 6} y1={mid - f * half} y2={mid - f * half} stroke="var(--grid)" strokeWidth={0.6} />
+            <text x={46} y={mid - f * half + 4} textAnchor="end" className="pnl-axis">
+              {f < 0 ? '−' : ''}
+              {fmt(Math.abs(f * max))}
+            </text>
+          </g>
+        ))}
+        {periods.map((p, i) => {
+          const x = 52 + i * bw + bw * 0.15
+          const w = bw * 0.7
+          let down = mid
+          const net = p.income - outTotal(p)
+          return (
+            <g key={p.label}>
+              <title>
+                {`${label(p.label)}\nIncome ${usd0(p.income)}\n` +
+                  present.map((g) => `${g} −${usd0(p.out[g] ?? 0)}`).join('\n') +
+                  `\nNet ${net < 0 ? '−' : '+'}${usd0(Math.abs(net))}`}
+              </title>
+              <rect x={x} y={mid - y(p.income)} width={w} height={Math.max(0.5, y(p.income))} rx={2} fill="#c9d3df" opacity={0.9} />
+              {present.map((g) => {
+                const h = y(p.out[g] ?? 0)
+                const r = <rect key={g} x={x} y={down} width={w} height={Math.max(0, h - 0.6)} fill={PNL_COLOR[g]} />
+                down += h
+                return r
+              })}
+              <circle cx={x + w / 2} cy={mid - y(net)} r={Math.max(2.5, Math.min(5, bw / 6))} fill={net >= 0 ? '#3fc56b' : '#e66767'} stroke="var(--panel)" strokeWidth={1.5} />
+              {i % step === 0 && (
+                <text x={x + w / 2} y={H - 6} textAnchor="middle" className="pnl-axis">
+                  {label(p.label)}
+                </text>
+              )}
+            </g>
+          )
+        })}
+      </svg>
+      <div className="split-legend">
+        <span><i className="swatch-dot" style={{ background: '#c9d3df' }} />Income</span>
+        {present.map((g) => (
+          <span key={g}>
+            <i className="swatch-dot" style={{ background: PNL_COLOR[g] }} />
+            {g}
+          </span>
+        ))}
+        <span><i className="swatch-dot" style={{ background: '#3fc56b', borderRadius: '50%' }} />Net (red below zero)</span>
+      </div>
+    </figure>
+  )
+}
+
 function Balances({ ledger, groups }: { ledger: Ledger; groups: Group[] }) {
   const [span, setSpan] = useState('1y')
   const [open, setOpen] = useState<string | null>(null)
@@ -319,6 +428,7 @@ function Balances({ ledger, groups }: { ledger: Ledger; groups: Group[] }) {
         <div><span>Change</span><b className={nw1 >= nw0 ? 'ok' : 'bad'}>{nw1 >= nw0 ? '+' : '−'}{usd0(Math.abs(nw1 - nw0))}</b></div>
         <div><span>Debt {monLabel(end.month)}</span><b>{usd0(sideTotal(end, 'debt'))}</b><small>from {usd0(sideTotal(opening, 'debt'))}</small></div>
       </div>
+      <PnlChart points={pts} months={months} />
       <div className="bal-charts">
         <figure>
           <figcaption className="fig-title">Debts</figcaption>

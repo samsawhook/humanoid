@@ -653,3 +653,9 @@ body:has(nav.rail) main { margin-left: 60px; }
 .br-base, .br-total { font-weight: 700; border-bottom: 0; background: var(--panel-2); border-radius: 8px; padding: 8px 10px; }
 .br-total { margin-top: 8px; }
 @media (max-width: 640px) { .br-row { grid-template-columns: minmax(0, 1fr) 90px; } .br-bar { display: none; } }
+.pnl { margin: 6px 0 14px; }
+.pnl svg { width: 100%; height: auto; display: block; }
+.pnl-axis { fill: var(--muted); font-size: 11px; }
+.mx-facts { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; color: var(--muted); margin: 2px 0 6px; }
+.mx-facts span { cursor: help; }
+.mx-facts b { color: var(--text); font-variant-numeric: tabular-nums; }
