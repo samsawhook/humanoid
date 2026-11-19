@@ -521,3 +521,8 @@ main:has(.gantt-wrap) { max-width: 1600px; }
 .bbar { display: flex; gap: 3px; height: 8px; margin-top: 6px; align-items: stretch; }
 .bpill { display: block; height: 100%; border: 1.5px solid; border-radius: 4px; box-sizing: border-box; overflow: hidden; flex: none; min-width: 10px; }
 .bpill i { display: block; height: 100%; }
+.ar-more { margin-top: 6px; }
+.ar-more > summary { list-style: none; cursor: pointer; font-size: 12.5px; color: var(--accent); display: inline-flex; align-items: center; gap: 6px; }
+.ar-more > summary::-webkit-details-marker { display: none; }
+.ar-more > summary::before { content: '▸'; font-size: 11px; transition: transform .12s; display: inline-block; }
+.ar-more[open] > summary::before { transform: rotate(90deg); }

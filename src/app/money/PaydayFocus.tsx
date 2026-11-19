@@ -320,7 +320,7 @@ function Line({
   spendable: string
   showActuals: boolean
   color: string
-  /** What the line's bar is a share of: its category's total. */
+  /** What every bar is a share of: gross pay, one scale for categories, lines and items. */
   base: number
 }) {
   const chip = showActuals || l.scheduled || l.todo || l.info ? lineChip(l, spendable) : null
@@ -337,7 +337,7 @@ function Line({
           {!l.nonCash && <span className="ln-pct">{pct(l.amount, gross)}</span>}
         </div>
       </div>
-      {/* Every line gets its pill: length = its share of the category, fill = paid. */}
+      {/* Every line gets its pill: length = its share of gross (the same scale everywhere), fill = paid. */}
       {!l.nonCash && l.amount > 0 && (
         <BudgetBar amount={l.amount} gross={base} spent={l.spent} showPaid={showActuals} color={color} />
       )}
@@ -353,7 +353,11 @@ function Line({
         </div>
       )}
       {chip && <span className={`chip chip-${chip.cls}`}>{chip.text}</span>}
-      {l.accounts && (
+      {l.accounts && (() => {
+        // Card minimums are to-dos, so they stay open. Bill parts and subscription items are
+        // detail: folded behind a caret until you want them.
+        const detail = l.accounts.every((r) => r.status === 'part' || r.status === 'auto')
+        const list = (
         <ul className="accts">
           {l.accounts.map((r) => (
             <li key={r.key} className={`ar ar-${r.status}`}>
@@ -364,12 +368,30 @@ function Line({
                 </span>
                 <span className="ar-amt">{r.paid > 0 ? usd(r.paid) : r.status === 'auto' || r.status === 'part' ? usd(r.minimum) : `~${usd(r.minimum)}`}</span>
               </div>
+              <BudgetBar
+                amount={r.minimum}
+                gross={base}
+                spent={r.paid}
+                showPaid={showActuals || r.status === 'paid'}
+                color={color}
+              />
               <div className="ar-text">{r.text}</div>
               {r.payAt && r.status !== 'paid' && r.status !== 'auto' && r.status !== 'part' && <div className="ar-where">→ {r.payAt}</div>}
             </li>
           ))}
         </ul>
-      )}
+        )
+        if (!detail) return list
+        const parts = l.accounts.every((r) => r.status === 'part')
+        return (
+          <details className="ar-more">
+            <summary>
+              {l.accounts.length} {parts ? 'parts of the bill' : l.accounts.length === 1 ? 'item' : 'items'}
+            </summary>
+            {list}
+          </details>
+        )
+      })()}
       {(l.short ?? 0) > 0 && <span className="chip chip-over">Short {usd(l.short!)}</span>}
       {(l.unfunded ?? 0) > 0 && <span className="chip chip-over">⚠ {usd(l.unfunded!)} over budget — not covered</span>}
       {l.txns.length > 0 && (
@@ -436,7 +458,7 @@ function Section({
       </summary>
       <div className="sec-body">
         {sec.lines.map((l) => (
-          <Line key={l.key} l={l} gross={gross} spendable={spendable} showActuals={showActuals} color={color} base={Math.max(budget, sec.total, ...sec.lines.map((x) => x.amount))} />
+          <Line key={l.key} l={l} gross={gross} spendable={spendable} showActuals={showActuals} color={color} base={gross} />
         ))}
       </div>
     </details>
@@ -810,7 +832,7 @@ export function PaydayFocus({
         <strong className="todo-label">Highlighted</strong> lines are yours to do.
       </p>
       <div className="legend-row">
-        <span><i className="lg lg-outline" /> Category bar = share of gross; line bar = share of its category (outline = budget)</span>
+        <span><i className="lg lg-outline" /> Bar length = share of gross pay, the same scale everywhere (outline = budget)</span>
         <span><i className="lg lg-solid" /> Filled = already gone out</span>
         <span><i className="lg lg-over" /> Orange = spent over budget</span>
       </div>
