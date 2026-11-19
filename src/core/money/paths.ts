@@ -30,6 +30,8 @@ export type PathKey = 'law' | 'macc' | 'night'
 type Anchor = [month: string, annual: number]
 
 export const PATH_ASSUMPTIONS = {
+  /** A scenario's own name (scenarios.ts); otherwise the path's. */
+  label: undefined as string | undefined,
   startMonth: '2026-12',
   months: 240,
 
@@ -52,7 +54,7 @@ export const PATH_ASSUMPTIONS = {
    */
   family: {
     births: ['2025-11', '2028-06', '2030-08'],
-    childcare: { corpus: 900, lubbock: 850, austin: 1400, houston: 1200, country: 700 } as Record<string, number>,
+    childcare: { corpus: 900, lubbock: 850, austin: 1400, houston: 1200, dallas: 1250, 'fort worth': 1150, country: 700 } as Record<string, number>,
     under5Other: 250,
     schoolAge: 500,
     birthCost: 1500,
@@ -74,9 +76,9 @@ export const PATH_ASSUMPTIONS = {
    * entitlement limit and no down payment. The new home must be your primary residence.
    */
   upgrade: {
-    price: { corpus: 375000, austin: 550000, houston: 450000 } as Record<string, number>,
+    price: { corpus: 375000, austin: 550000, houston: 450000, dallas: 475000, 'fort worth': 425000 } as Record<string, number>,
     rate: 0.0625,
-    taxRate: { corpus: 0.021, austin: 0.019, houston: 0.022 } as Record<string, number>,
+    taxRate: { corpus: 0.021, austin: 0.019, houston: 0.022, dallas: 0.022, 'fort worth': 0.023 } as Record<string, number>,
     insuranceMonthly: 250,
     closingRate: 0.03,
     moveAndFurnish: 8000,
@@ -112,7 +114,8 @@ export const PATH_ASSUMPTIONS = {
    */
   vaWaivedDaysPerYear: 39,
 
-  nthMonthly: 530,
+  /** $500 by ACH from 1 Dec — the $30 wire fee is gone (your OK, 18 Nov). */
+  nthMonthly: 500,
   nthPrincipal: 500,
   /** Nominal return on invested money (Nth, TSP, 401k). */
   investReturn: 0.06,
@@ -254,6 +257,10 @@ export const PATH_ASSUMPTIONS = {
      * verification (your word, 14 Nov), so the experience year is already met.
      */
     licensed: '2028-09',
+    /** Sole-proprietor variant: no employer match, self-employment tax, practice costs. */
+    selfEmployed: false as boolean,
+    /** Monthly practice costs when self-employed, 2027 dollars. */
+    practiceCosts: 0,
     /**
      * A FORK of the Corpus CPA path, off by default (your framing, 14 Nov: "a fork from
      * Corpus CPA"). Remote work, and out to the countryside as soon as possible. The
@@ -529,8 +536,8 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
             income['Summer law job'] = summer / 3
             summerTax = (summer / 3) * 0.22
           }
-          costs['Rent in Lubbock'] = law.school.monthlyFamilyRent * infl
-          if (m === law.schoolStart) costs['Moving to Lubbock'] = law.movingCost
+          costs[`Rent in ${law.school.city}`] = law.school.monthlyFamilyRent * infl
+          if (m === law.schoolStart) costs[`Moving to ${law.school.city}`] = law.movingCost
           if (law.spouseIncomeLostMonthly > 0)
             costs['Spouse income lost by the move'] = law.spouseIncomeLostMonthly
         } else {
@@ -575,7 +582,7 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
         if (monthIndex(m) >= monthIndex(nt.lawyerStart)) {
           // The law path's salary ladder, a year later.
           salary = salaryAt(a.law.salary, addMonths(m, -12)) / 12
-          phase = 'Attorney \u2014 Houston'
+          phase = `Attorney \u2014 ${nt.school.city}`
         } else if (monthIndex(m) >= monthIndex(macc.jobStart)) {
           salary = (salaryAt(macc.salary, m) * nt.dayJobScale) / 12
           phase = inSchool ? 'Day job + night law' : 'Day job, bar'
@@ -584,10 +591,10 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
         }
         if (macc.cpaMonths.includes(m)) costs['CPA review & exam fees'] = macc.cpaCost / macc.cpaMonths.length
         if (m === '2031-06') costs['Bar exam & prep course'] = nt.barCost
-        if (m === nt.move) costs['Moving to Houston'] = nt.movingCost
+        if (m === nt.move) costs[`Moving to ${nt.school.city}`] = nt.movingCost
         if (monthIndex(m) >= monthIndex(nt.move)) {
-          if (!upgraded) costs['Rent in Houston'] = nt.rent * infl
-          costs['Houston cost premium (general)'] = nt.costPremium * infl
+          if (!upgraded) costs[`Rent in ${nt.school.city}`] = nt.rent * infl
+          costs[`${nt.school.city} cost premium (general)`] = nt.costPremium * infl
           income['Corpus house \u2014 rent'] = HOUSE.monthlyMarketRent * infl
           costs['Corpus house \u2014 management & vacancy'] =
             HOUSE.monthlyMarketRent * infl * (HOUSE.managementRate + HOUSE.vacancyMaintenanceRate)
@@ -613,13 +620,18 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
         if (macc.cpaMonths.includes(m)) costs['CPA review & exam fees'] = macc.cpaCost / macc.cpaMonths.length
       }
 
+      const selfEmployed = key === 'macc' && !!macc.selfEmployed
       if (salary > 0) {
-        income['Salary'] = salary
+        income[selfEmployed ? 'Practice profit (sole proprietor)' : 'Salary'] = salary
         taxableWages += salary
         const k401 = salary * a.employee401k
-        retirement += k401 + salary * a.employer401k
-        costs['401(k) — your 5%'] = k401
+        // A sole proprietor has no employer match: the solo 401(k) is all yours.
+        retirement += k401 + (selfEmployed ? 0 : salary * a.employer401k)
+        costs[selfEmployed ? 'Solo 401(k) — your 5%' : '401(k) — your 5%'] = k401
         invested += k401
+        // Self-employment tax: both halves of FICA, so another 7.65% on top of the employee half.
+        if (selfEmployed) costs['Self-employment tax (the employer half of FICA)'] = salary * 0.0765
+        if (selfEmployed && macc.practiceCosts) costs['Practice costs (software, insurance, CPE, office)'] = macc.practiceCosts * infl
       }
       // Tax: federal on annualised wages (less the pre-tax 401k), FICA, and the flat
       // withholding on the summer job. No state income tax in Texas.
@@ -631,13 +643,13 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
       const loc =
         key === 'night'
           ? monthIndex(m) >= monthIndex(a.night.move)
-            ? 'houston'
+            ? a.night.school.city.toLowerCase()
             : 'corpus'
           : key === 'law'
           ? monthIndex(m) >= monthIndex(law.moveToMarket)
             ? 'austin'
             : monthIndex(m) >= monthIndex(law.schoolStart)
-              ? 'lubbock'
+              ? law.school.city.toLowerCase()
               : 'corpus'
           : inCountry || (upgraded && newLoc === 'country')
             ? 'country'
@@ -767,14 +779,14 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
 
   return {
     key,
-    label:
-      key === 'law'
+    label: a.label ??
+      (key === 'law'
         ? 'Law school — Texas Tech, then Austin'
         : key === 'night'
           ? 'Night law — UH part-time, working in Houston'
           : a.macc.countryside.enabled
             ? 'MAcc → CPA — remote, countryside'
-            : 'MAcc → CPA — Corpus',
+            : 'MAcc → CPA — Corpus'),
     months,
   }
 }

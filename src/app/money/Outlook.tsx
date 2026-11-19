@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from 'react'
 import { TrendChart, type TrendSeries } from '@/components/TrendChart'
-import type { AccountDef, GroupKey, Ledger, Side } from '@/core/money/ledger'
+import type { AccountDef, GroupKey, Ledger, PathSummary, Side } from '@/core/money/ledger'
 
 const usd0 = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -411,6 +411,90 @@ function Balances({ ledger, groups }: { ledger: Ledger; groups: Group[] }) {
   )
 }
 
+export interface ScenarioMeta {
+  id: string
+  group: 'law' | 'evening' | 'cpa'
+  short: string
+  label: string
+  dependsOn: string[]
+}
+export interface PlanGap {
+  date: string
+  label: string
+  amount: number
+}
+
+const LIGHT_LABEL: Record<string, string> = { green: 'No missing funds', yellow: 'Some missing funds', red: 'Large missing funds' }
+
+/** The quick review: lights, the numbers that decide it, then the months. */
+function ReviewHeader({ meta, summary, planGaps }: { meta: ScenarioMeta; summary: PathSummary; planGaps: PlanGap[] }) {
+  const gapTotal = planGaps.reduce((t, g) => t + g.amount, 0)
+  const nw = (k: string) => summary.netWorth.find((n) => n.label === k)!
+  return (
+    <>
+      <div className="lights">
+        <span className={`lightchip lc-${summary.funds}`} title={summary.fundsNote}>
+          <i />
+          {LIGHT_LABEL[summary.funds]} after you&rsquo;re home
+        </span>
+        <span className={`lightchip lc-${planGaps.length ? 'yellow' : 'green'}`} title={planGaps.map((g) => `${g.label} ${usd0(g.amount)} (${g.date})`).join(' · ')}>
+          <i />
+          {planGaps.length ? `${usd0(gapTotal)} not covered in the deployment plan (${planGaps.length})` : 'Deployment plan fully covered'}
+        </span>
+        <span className="lightchip lc-yellow" title={meta.dependsOn.join(' · ')}>
+          <i />
+          Depends on {meta.dependsOn.length} things — hover
+        </span>
+      </div>
+      <div className="nw-tiles review-tiles">
+        <div title="Income less costs, the first twelve months home">
+          <span>First year home</span>
+          <b className={summary.firstYearCashFlow >= 0 ? 'ok' : 'bad'}>{summary.firstYearCashFlow >= 0 ? '+' : '−'}{usd0(Math.abs(summary.firstYearCashFlow))}</b>
+          <small>{usd0(summary.firstYearIncome)} in · {usd0(summary.firstYearCosts)} out</small>
+        </div>
+        <div title="Checking + savings, less anything borrowed, at its lowest in the first five years">
+          <span>Lowest cash</span>
+          <b className={summary.lowCash.value < 0 ? 'bad' : 'ok'}>{usd0(summary.lowCash.value)}</b>
+          <small>{monLabel(summary.lowCash.month)}</small>
+        </div>
+        <div title="The most borrowed at once to cover a gap">
+          <span>Most borrowed</span>
+          <b className={summary.peakGap > 0 ? 'bad' : 'ok'}>{usd0(summary.peakGap)}</b>
+          <small>{summary.monthsShort} of 60 months short</small>
+        </div>
+        <div title="Cards, Avant, Chase, student loans, the collection — all paid">
+          <span>Debt-free</span>
+          <b>{summary.debtFree ? monLabel(summary.debtFree) : 'not in 20 yrs'}</b>
+          <small>mortgage aside</small>
+        </div>
+        <div>
+          <span>Net worth, 5 yr</span>
+          <b className={nw('5 yr').value >= 0 ? 'ok' : 'bad'}>{usd0(nw('5 yr').value)}</b>
+          <small>10 yr {usd0(nw('10 yr').value)}</small>
+        </div>
+        <div>
+          <span>Net worth, 20 yr</span>
+          <b className="ok">{usd0(nw('20 yr').value)}</b>
+          <small>{monLabel(nw('20 yr').month)}</small>
+        </div>
+      </div>
+      <details className="depends">
+        <summary>What this depends on</summary>
+        <ul>
+          {meta.dependsOn.map((d) => (
+            <li key={d}>{d}</li>
+          ))}
+          {planGaps.map((g) => (
+            <li key={g.label + g.date}>
+              Before you&rsquo;re home: {g.label} — {usd0(g.amount)} not covered ({g.date})
+            </li>
+          ))}
+        </ul>
+      </details>
+    </>
+  )
+}
+
 function Scenarios({ ledger, groups }: { ledger: Ledger; groups: Group[] }) {
   const accs = ledger.accounts
   const side = (p: Bal, sd: Side) => groups.filter((g) => g.side === sd).reduce((t, g) => t + groupTotal(p, accs, g.key), 0)
@@ -468,12 +552,9 @@ function Scenarios({ ledger, groups }: { ledger: Ledger; groups: Group[] }) {
   const totOut = sum((r) => r.m.totalCosts)
   return (
     <>
-      <div className="nw-tiles">
-        <div><span>Income, first 12 months</span><b>{usd0(totIn)}</b></div>
-        <div><span>Costs</span><b>{usd0(totOut)}</b><small>incl. {usd0(sum((r) => r.m.invested))} invested</small></div>
-        <div><span>Net cash flow</span><b className={totIn - totOut >= 0 ? 'ok' : 'bad'}>{signed(totIn - totOut)}</b></div>
-        <div><span>Net worth change</span><b className={sum((r) => r.dNw) >= 0 ? 'ok' : 'bad'}>{signed(sum((r) => r.dNw))}</b></div>
-      </div>
+      <h3 className="fig-title" style={{ marginTop: 14 }}>The first twelve months home — tap a heading to open it</h3>
+      <YearAhead ledger={ledger} />
+      <h3 className="fig-title" style={{ marginTop: 6 }}>Cash, debt and net worth</h3>
       <TrendChart series={series} height={260} ariaLabel="Cash, debt and net worth, first year home" monthly tipTitle="" />
       <div className="tablewrap" style={{ marginTop: 10 }}>
         <table className="baltable cf">
@@ -525,9 +606,187 @@ function Scenarios({ ledger, groups }: { ledger: Ledger; groups: Group[] }) {
         Cash flow is income less costs (costs include the 401(k) and Nth). Cash is checking + savings, less anything borrowed to
         cover a gap (below zero = borrowed). Debt leaves out the mortgage and that borrowing, and includes Goldman and PSECU, held flat. Δ NW also counts TSP growth, mortgage principal and house value.
       </p>
-      <h3 className="fig-title" style={{ marginTop: 6 }}>Month by month — tap a heading to open it</h3>
-      <YearAhead ledger={ledger} />
     </>
+  )
+}
+
+/** Every scenario side by side — the comparison the PDF made, kept current. */
+function AllView({ ledgers, summaries, metas }: { ledgers: Ledger[]; summaries: Record<string, PathSummary>; metas: ScenarioMeta[] }) {
+  const [group, setGroup] = useState<'law' | 'evening' | 'cpa' | 'all'>('all')
+  const COLORS = ['var(--series-1)', 'var(--series-2)', 'var(--series-4)', 'var(--series-5)', 'var(--series-7)', 'var(--series-3)']
+  const shown = metas.filter((m) => group === 'all' || m.group === group)
+  // Net worth over twenty years, one line per scenario (≤ 6 at a time keeps it readable).
+  const chartSet = (group === 'all' ? ['law_ttu', 'night_uh', 'cpa_fed', 'cpa_mid', 'cpa_sole', 'cpa_country'].map((id) => metas.find((m) => m.id === id)!).filter(Boolean) : shown).slice(0, 6)
+  const series: TrendSeries[] = chartSet.map((m, i) => {
+    const l = ledgers.find((x) => x.path === m.id)!
+    return {
+      key: m.id,
+      label: m.short,
+      color: COLORS[i % COLORS.length]!,
+      points: l.points.filter((_, k) => k % 6 === 0 || k > 60).map((p) => ({ date: `${p.month}-28`, value: p.bal ? netWorthOf(p, l) : 0 })),
+    }
+  })
+  const GROUPS_ORDER: ('law' | 'evening' | 'cpa')[] = ['law', 'evening', 'cpa']
+  const GL: Record<string, string> = { law: 'Law school, full-time', evening: 'Law at night, with a day job', cpa: 'MAcc → CPA' }
+  return (
+    <>
+      <div className="seg" role="group" aria-label="Which scenarios" style={{ marginBottom: 10 }}>
+        {(['all', 'law', 'evening', 'cpa'] as const).map((g) => (
+          <button key={g} className={g === group ? 'on' : ''} onClick={() => setGroup(g)}>
+            {g === 'all' ? 'All' : GL[g]}
+          </button>
+        ))}
+      </div>
+      <h3 className="fig-title">Net worth, next twenty years{group === 'all' ? ' — one of each kind' : ''}</h3>
+      <TrendChart series={series} height={300} ariaLabel="Net worth by scenario" monthly tipTitle="" />
+      <div className="tablewrap" style={{ marginTop: 12 }}>
+        <table className="baltable alltable">
+          <thead>
+            <tr>
+              <th>Scenario</th>
+              <th title="Missing funds after you are home">Funds</th>
+              <th>First year</th>
+              <th>Lowest cash</th>
+              <th>Most borrowed</th>
+              <th>Debt-free</th>
+              <th>NW 1 yr</th>
+              <th>NW 3 yr</th>
+              <th>NW 5 yr</th>
+              <th>NW 10 yr</th>
+              <th>NW 20 yr</th>
+            </tr>
+          </thead>
+          {GROUPS_ORDER.filter((g) => group === 'all' || g === group).map((g) => (
+            <tbody key={g}>
+              <tr className="side">
+                <td colSpan={11}>{GL[g]}</td>
+              </tr>
+              {metas
+                .filter((m) => m.group === g)
+                .map((m) => {
+                  const sm = summaries[m.id]!
+                  const nv = (k: string) => sm.netWorth.find((n) => n.label === k)!.value
+                  return (
+                    <tr key={m.id} className="acc-static" title={m.dependsOn.join(' · ')}>
+                      <td>{m.short}</td>
+                      <td>
+                        <span className={`lightchip lc-${sm.funds} mini`} title={sm.fundsNote}>
+                          <i />
+                        </span>
+                      </td>
+                      <td className={sm.firstYearCashFlow < 0 ? 'neg' : 'ok'}>{usd0(sm.firstYearCashFlow)}</td>
+                      <td className={sm.lowCash.value < 0 ? 'neg' : ''}>{usd0(sm.lowCash.value)}</td>
+                      <td className={sm.peakGap > 0 ? 'neg' : ''}>{usd0(sm.peakGap)}</td>
+                      <td>{sm.debtFree ? monLabel(sm.debtFree) : '—'}</td>
+                      {['1 yr', '3 yr', '5 yr', '10 yr', '20 yr'].map((k) => (
+                        <td key={k} className={nv(k) < 0 ? 'neg' : ''}>
+                          {Math.abs(nv(k)) >= 100000 ? `${nv(k) < 0 ? '−' : ''}$${Math.round(Math.abs(nv(k)) / 1000)}k` : usd0(nv(k))}
+                        </td>
+                      ))}
+                    </tr>
+                  )
+                })}
+            </tbody>
+          ))}
+        </table>
+      </div>
+      <p className="sub" style={{ marginTop: 8, fontSize: 12.5 }}>
+        Each scenario starts from where the deployment plan leaves you (the same in all of them) and runs the 20-year model:
+        family of five, the house upgrade when cash allows, VA at 50%. Funds light: green never short, yellow short but under
+        $25k at worst, red more. Hover a row for what it depends on. Pay ladders and city costs are estimates.
+      </p>
+    </>
+  )
+}
+
+function netWorthOf(p: { bal: Record<string, number> }, l: Ledger) {
+  const debtGroups: GroupKey[] = ['cards', 'mortgage', 'student', 'other']
+  const accs = l.accounts
+  const side = (debt: boolean) =>
+    accs.filter((a) => debtGroups.includes(a.group) === debt).reduce((t, a) => t + (p.bal[a.key] ?? 0), 0)
+  return Math.round(side(false) - side(true))
+}
+
+/**
+ * A monthly budget for after you're home, to play with. It starts from a typical month
+ * in the scenario you pick (the seventh month home — past the move and the first summer),
+ * every line editable; your edits are kept on this device, per scenario.
+ */
+function ReturnBudget({ ledgers, metas }: { ledgers: Ledger[]; metas: ScenarioMeta[] }) {
+  const [id, setId] = useState('cpa_fed')
+  const ledger = ledgers.find((l) => l.path === id) ?? ledgers[0]!
+  const base = ledger.yearAhead[Math.min(6, ledger.yearAhead.length - 1)]!
+  const key = `return-budget:${id}`
+  const [edits, setEdits] = useState<Record<string, number>>({})
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(key)
+      setEdits(raw ? JSON.parse(raw) : {})
+    } catch {
+      setEdits({})
+    }
+  }, [key])
+  const save = (next: Record<string, number>) => {
+    setEdits(next)
+    try {
+      window.localStorage.setItem(key, JSON.stringify(next))
+    } catch {}
+  }
+  const val = (k: string, d: number) => (edits[k] ?? Math.round(d))
+  const incomes = Object.entries(base.income)
+  const costs = Object.entries(base.costs)
+  const inTotal = incomes.reduce((t, [k, v]) => t + val(`in:${k}`, v), 0)
+  const outTotal = costs.reduce((t, [k, v]) => t + val(`out:${k}`, v), 0)
+  const left = inTotal - outTotal
+  const row = (prefix: 'in' | 'out', k: string, v: number) => (
+    <label key={prefix + k} className={`rb-row${edits[`${prefix}:${k}`] !== undefined ? ' edited' : ''}`}>
+      <span>{k}</span>
+      <input
+        type="number"
+        inputMode="decimal"
+        value={val(`${prefix}:${k}`, v)}
+        onChange={(e) => save({ ...edits, [`${prefix}:${k}`]: Number(e.target.value) || 0 })}
+      />
+    </label>
+  )
+  return (
+    <section className="rbudget">
+      <h2>After you&rsquo;re home — a monthly budget to play with</h2>
+      <p className="sub" style={{ marginBottom: 8 }}>
+        Starts from {monLabel(base.month)} in the scenario you pick ({base.phase}). Change any number; it is kept on this device.
+      </p>
+      <div className="rb-head">
+        <select value={id} onChange={(e) => setId(e.target.value)}>
+          {metas.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.label}
+            </option>
+          ))}
+        </select>
+        <button className="btn-ghost" onClick={() => save({})} disabled={Object.keys(edits).length === 0}>
+          Reset to the scenario
+        </button>
+      </div>
+      <div className="rb-grid">
+        <div className="rb-col">
+          <div className="rb-title">Coming in</div>
+          {incomes.map(([k, v]) => row('in', k, v))}
+          <div className="rb-total"><span>Total in</span><b>{usd0(inTotal)}</b></div>
+        </div>
+        <div className="rb-col">
+          <div className="rb-title">Going out</div>
+          {costs.map(([k, v]) => row('out', k, v))}
+          <div className="rb-total"><span>Total out</span><b>{usd0(outTotal)}</b></div>
+        </div>
+      </div>
+      <div className={`rb-result ${left >= 0 ? 'ok' : 'bad'}`}>
+        <span>{left >= 0 ? 'Left over each month' : 'Short each month'}</span>
+        <b>{usd0(Math.abs(left))}</b>
+        <small>
+          {usd0(Math.abs(left) * 12)} a year{base.net !== left ? ` · the scenario has ${base.net >= 0 ? '+' : '−'}${usd0(Math.abs(base.net))}` : ''}
+        </small>
+      </div>
+    </section>
   )
 }
 
@@ -582,14 +841,20 @@ export function MoneyShell({
   groups,
   paychecks,
   briefing,
+  metas,
+  summaries,
+  planGaps,
 }: {
   ledgers: Ledger[]
   groups: Group[]
+  metas: ScenarioMeta[]
+  summaries: Record<string, PathSummary>
+  planGaps: PlanGap[]
   paychecks: React.ReactNode
   briefing: React.ReactNode
 }) {
   const [view, setViewState] = useState<View>('paychecks')
-  const [path, setPath] = useState<string>('law')
+  const [path, setPath] = useState<string>('law_ttu')
   // The side rail (layout) switches views by the address's #hash.
   useEffect(() => {
     const read = () => {
@@ -609,34 +874,60 @@ export function MoneyShell({
     window.scrollTo({ top: 0 })
   }
   const ledger = ledgers.find((l) => l.path === path) ?? ledgers[0]!
-  const pathPicker = (
-    <div className="seg seg-wide" role="group" aria-label="Path">
-      {ledgers.map((l) => (
-        <button key={l.path} className={l.path === path ? 'on' : ''} onClick={() => setPath(l.path)}>
-          {PATH_SHORT[l.path] ?? l.label}
-        </button>
+  const meta = metas.find((m) => m.id === ledger.path) ?? metas[0]!
+  const GL: Record<string, string> = { law: 'Law, full-time', evening: 'Law at night', cpa: 'MAcc → CPA' }
+  const pathPicker = (withAll: boolean) => (
+    <div className="picker" role="group" aria-label="Scenario">
+      {withAll && (
+        <div className="picker-row">
+          <span className="picker-label" />
+          <button className={path === 'all' ? 'on' : ''} onClick={() => setPath('all')}>
+            All — compare
+          </button>
+        </div>
+      )}
+      {(['law', 'evening', 'cpa'] as const).map((g) => (
+        <div className="picker-row" key={g}>
+          <span className="picker-label">{GL[g]}</span>
+          {metas
+            .filter((m) => m.group === g)
+            .map((m) => (
+              <button key={m.id} className={m.id === path ? 'on' : ''} onClick={() => setPath(m.id)}>
+                {m.short}
+              </button>
+            ))}
+        </div>
       ))}
     </div>
   )
   return (
     <div className="mlayout">
       <div className="mview">
-        <div hidden={view !== 'paychecks'}>{paychecks}</div>
+        <div hidden={view !== 'paychecks'}>
+          {paychecks}
+          <ReturnBudget ledgers={ledgers} metas={metas} />
+        </div>
         {view === 'scenarios' && (
           <section className="outlook viz">
-            <h2 style={{ marginTop: 0 }}>Return scenarios — first year home</h2>
-            {pathPicker}
-            <p className="sub" style={{ margin: '8px 0 10px' }}>
-              <strong>{ledger.label}.</strong> {monLabel(ledger.homeMonth)} to {monLabel(ledger.yearAhead.at(-1)?.month ?? ledger.homeMonth)}, from the
-              20-year model, starting from where the deployment plan leaves you.
-            </p>
-            <Scenarios ledger={ledger} groups={groups} />
+            <h2 style={{ marginTop: 0 }}>Return scenarios</h2>
+            {pathPicker(true)}
+            {path === 'all' ? (
+              <AllView ledgers={ledgers} summaries={summaries} metas={metas} />
+            ) : (
+              <>
+                <p className="sub" style={{ margin: '10px 0 8px' }}>
+                  <strong>{ledger.label}.</strong> From {monLabel(ledger.homeMonth)}, starting from where the deployment plan leaves you.
+                </p>
+                <ReviewHeader meta={meta} summary={summaries[ledger.path]!} planGaps={planGaps} />
+                <Scenarios ledger={ledger} groups={groups} />
+              </>
+            )}
           </section>
         )}
         {view === 'balances' && (
           <section className="outlook viz">
             <h2 style={{ marginTop: 0 }}>Balance sheet progression</h2>
-            {pathPicker}
+            {pathPicker(false)}
             <div style={{ height: 10 }} />
             <Balances ledger={ledger} groups={groups} />
           </section>

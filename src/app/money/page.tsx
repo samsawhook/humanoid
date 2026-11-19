@@ -32,7 +32,10 @@ import { projectSdp, SDP_CAP } from '@/core/money/sdp'
 import { Briefing } from './Briefing'
 import { PaydayFocus } from './PaydayFocus'
 import { MoneyShell } from './Outlook'
-import { buildLedger, GROUPS } from '@/core/money/ledger'
+import { buildLedger, GROUPS, summarize as summarizePath } from '@/core/money/ledger'
+import { SCENARIOS } from '@/core/money/scenarios'
+import { runPlan } from '@/core/money/briefing'
+import { paycheckStatement } from '@/core/money/statement'
 import { RETIREMENT_ACCOUNTS } from '@/core/money/lawschool'
 import { ENTITLEMENTS, TAX, TIMELINE } from '@/core/money/rates'
 import { SCRA_INTEREST_CAP, SCRA_TARGETS, SCRA_EXCLUDED } from '@/core/money/debts'
@@ -190,11 +193,38 @@ export default function MoneyPage() {
     return { rows, assigned }
   })()
 
+  const scenarioLedgers = SCENARIOS.map((sc) => buildLedger(sc))
+  // What the deployment plan leaves uncovered: shortfalls, and subscriptions over budget.
+  const planRun = runPlan()
+  const planGaps = [
+    ...planRun.allocations.flatMap((a) =>
+      a.lines
+        .filter((l) => l.shortfall > 0.005)
+        .map((l) => ({ date: a.paycheck.scheduledDate, label: `${l.label.split(' — ')[0]} short`, amount: Math.round(l.shortfall * 100) / 100 })),
+    ),
+    ...planRun.allocations.flatMap((a, i) =>
+      paycheckStatement(a, planRun.allocations[i + 1])
+        .spending.flatMap((x) => x.lines)
+        .filter((l) => (l.unfunded ?? 0) > 0)
+        .map((l) => ({ date: a.paycheck.scheduledDate, label: 'Subscriptions over budget', amount: l.unfunded! })),
+    ),
+  ].reduce<{ date: string; label: string; amount: number }[]>((acc, g) => {
+    // One entry per kind: the subscription overage repeats every 1st, so sum it.
+    const same = acc.find((x) => x.label === g.label)
+    if (same && g.label === 'Subscriptions over budget') {
+      same.amount = Math.round((same.amount + g.amount) * 100) / 100
+      same.date = `${same.date.split(' – ')[0]} – ${g.date}`
+    } else acc.push({ ...g })
+    return acc
+  }, [])
   return (
     <>
       <h1>Money</h1>
       <MoneyShell
-        ledgers={(['law', 'night', 'macc', 'country'] as const).map((p) => buildLedger(p))}
+        ledgers={scenarioLedgers}
+        metas={SCENARIOS.map(({ id, group, short, label, dependsOn }) => ({ id, group, short, label, dependsOn }))}
+        summaries={Object.fromEntries(scenarioLedgers.map((l) => [l.path, summarizePath(l)]))}
+        planGaps={planGaps}
         groups={GROUPS}
         paychecks={<PaydayFocus allocations={allocations} count={allocations.length} />}
         briefing={

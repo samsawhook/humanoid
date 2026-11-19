@@ -22,7 +22,7 @@ describe('law vs MAcc paths', () => {
 
   it('pays Nth every month after homecoming in both paths', () => {
     for (const p of [law, macc])
-      for (const m of p.months.filter((x) => x.phase !== 'Deployed')) expect(m.costs['Nth Venture (your business)']).toBe(530)
+      for (const m of p.months.filter((x) => x.phase !== 'Deployed')) expect(m.costs['Nth Venture (your business)']).toBe(500)
   })
 
   it('interpolates salary and taxes nothing under the standard deduction', () => {

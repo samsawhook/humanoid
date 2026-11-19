@@ -20,6 +20,7 @@ import { CAR_LOAN_BALANCE, LATE_PAYMENTS_BALANCE, MORTGAGE_ARREARS_BALANCE, MORT
 import { PATH_ASSUMPTIONS, projectPath, type PathKey, type PathMonth } from './paths'
 import { NOV1 } from './reconstruct'
 import { PAYMENT_INFO } from './execution'
+import type { Scenario } from './scenarios'
 
 export type Side = 'debt' | 'asset'
 export type GroupKey = 'cards' | 'mortgage' | 'student' | 'other' | 'tsp' | 'savings' | 'cash' | 'nth' | 'house'
@@ -64,7 +65,7 @@ export interface LedgerPoint {
 }
 
 export interface Ledger {
-  path: PathKey | 'country'
+  path: string
   label: string
   accounts: AccountDef[]
   /** Today, before the 15 Nov paycheck's payments. */
@@ -210,12 +211,15 @@ const CLOSED = ['citi', 'capital_one']
 /** Payable debt after you are home, in the order the extra goes. */
 const PAYABLE = ['caine', 'credit_one', 'brightway', 'platinum', 'avant', 'citi', 'capital_one', 'chase', 'student_loan']
 
-export function buildLedger(path: PathKey | 'country'): Ledger {
-  const a =
-    path === 'country'
+export function buildLedger(path: PathKey | 'country' | Scenario): Ledger {
+  const sc = typeof path === 'object' ? path : null
+  const a = sc
+    ? sc.a
+    : path === 'country'
       ? { ...PATH_ASSUMPTIONS, macc: { ...PATH_ASSUMPTIONS.macc, countryside: { ...PATH_ASSUMPTIONS.macc.countryside, enabled: true } } }
       : PATH_ASSUMPTIONS
-  const proj = projectPath(path === 'country' ? 'macc' : path, a)
+  const pathKey: PathKey = sc ? sc.path : path === 'country' ? 'macc' : (path as PathKey)
+  const proj = projectPath(pathKey, a)
   const outcome = runPlan()
   const traj = trajectory(outcome)
   const homeIdx = proj.months.findIndex((m) => m.phase !== 'Deployed')
@@ -266,7 +270,7 @@ export function buildLedger(path: PathKey | 'country'): Ledger {
     // The Chamberlain mortgage, as the path model amortises it (from December).
     if (m !== '2026-11') {
       const i = r2(bal.chamberlain! * (a.mortgageRate / 12))
-      const sold = path === 'law' && a.law.house === 'sell' && m >= a.law.schoolStart
+      const sold = pathKey === 'law' && a.law.house === 'sell' && m >= a.law.schoolStart
       if (sold) {
         bal.chamberlain = 0
       } else if (bal.chamberlain! > 0) {
@@ -373,7 +377,7 @@ export function buildLedger(path: PathKey | 'country'): Ledger {
   })
 
   const yearAhead = proj.months.filter((m) => m.month >= homeMonth && m.month <= addMonths(homeMonth, 11))
-  return { path, label: proj.label, accounts: ACCOUNTS, opening, points, homeMonth, yearAhead }
+  return { path: sc ? sc.id : (path as string), label: proj.label, accounts: ACCOUNTS, opening, points, homeMonth, yearAhead }
 }
 
 export function groupTotal(p: { bal: Record<string, number> }, g: GroupKey): number {
@@ -408,4 +412,66 @@ export function payoffOf(l: Ledger, key: string): Payoff {
     }
   }
   return { month, totalPaid: r2(paid), totalInterest: r2(interest) }
+}
+
+export type Light = 'green' | 'yellow' | 'red'
+
+/** A path at a glance: the numbers and flags for a quick review, and for comparing paths. */
+export interface PathSummary {
+  /** First twelve months home: income less costs. */
+  firstYearCashFlow: number
+  firstYearIncome: number
+  firstYearCosts: number
+  /** Lowest cash (checking + savings − borrowed) over the first five years, and when. */
+  lowCash: { value: number; month: string }
+  /** Months in the first five years where cash is below zero — money the plan doesn't have. */
+  monthsShort: number
+  /** The most borrowed at once to cover gaps. */
+  peakGap: number
+  /** First month payable debt (cards, Avant, Chase, student loans, collection) is all paid. */
+  debtFree: string | null
+  netWorth: { label: string; month: string; value: number }[]
+  /** Missing funds: none, a little and brief, or real money. */
+  funds: Light
+  fundsNote: string
+}
+
+const PAYABLE_KEYS = ['platinum', 'brightway', 'credit_one', 'citi', 'capital_one', 'avant', 'chase', 'student_loan', 'ut_loan', 'caine', 'car', 'arrears']
+
+export function summarize(l: Ledger): PathSummary {
+  const cashOf = (p: { bal: Record<string, number> }) => (p.bal.checking ?? 0) + (p.bal.savings ?? 0) - (p.bal.gap ?? 0)
+  const five = l.points.filter((p) => p.month <= addMonths('2026-11', 60))
+  let low = { value: Infinity, month: '' }
+  for (const p of five.filter((p) => p.month >= l.homeMonth)) {
+    const c = cashOf(p)
+    if (c < low.value) low = { value: r2(c), month: p.month }
+  }
+  const monthsShort = five.filter((p) => cashOf(p) < -0.5).length
+  const peakGap = r2(Math.max(0, ...l.points.map((p) => p.bal.gap ?? 0)))
+  const debtFree = l.points.find((p) => PAYABLE_KEYS.every((k) => (p.bal[k] ?? 0) <= 0.5))?.month ?? null
+  const nwAt = (label: string, n: number) => {
+    const target = addMonths('2026-11', n)
+    const p = l.points.find((x) => x.month >= target) ?? l.points.at(-1)!
+    return { label, month: p.month, value: netWorth(p) }
+  }
+  const fy = l.yearAhead
+  const firstYearIncome = r2(fy.reduce((t, m) => t + m.totalIncome, 0))
+  const firstYearCosts = r2(fy.reduce((t, m) => t + m.totalCosts, 0))
+  const funds: Light = peakGap > 25000 ? 'red' : peakGap > 0 || monthsShort > 0 ? 'yellow' : 'green'
+  const fundsNote =
+    funds === 'green'
+      ? 'Cash never goes below zero in the first five years.'
+      : `Cash is short in ${monthsShort} of the first 60 months; the most borrowed at once is $${Math.round(peakGap).toLocaleString()}.`
+  return {
+    firstYearCashFlow: r2(firstYearIncome - firstYearCosts),
+    firstYearIncome,
+    firstYearCosts,
+    lowCash: low.value === Infinity ? { value: 0, month: l.homeMonth } : low,
+    monthsShort,
+    peakGap,
+    debtFree,
+    netWorth: [nwAt('1 yr', 12), nwAt('3 yr', 36), nwAt('5 yr', 60), nwAt('10 yr', 120), nwAt('20 yr', 240)],
+    funds,
+    fundsNote,
+  }
 }
