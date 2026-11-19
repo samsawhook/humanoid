@@ -66,7 +66,7 @@ export const NOV1_TXNS: Txn[] = [
   T('2026-11-05', 7.08, 'Local purchase', 'personal', 'Personal local (food, shopping)'),
   T('2026-11-09', 5.72, 'Starbucks', 'personal', 'Personal local (food, shopping)'),
   T('2026-11-09', 8.17, 'Outlet store', 'personal', 'Personal local (food, shopping)'),
-  T('2026-11-09', 10.62, 'Museum', 'tech', 'Entertainment'),
+  T('2026-11-09', 10.62, 'Museum', 'personal', 'Entertainment & outings'),
   T('2026-11-05', 30.0, 'Wells Fargo wire fee (Nth)', 'personal', 'Bank fees'),
   T('2026-11-09', 25.0, 'Brightway (Mastercard ending 28)', 'debt', 'Card minimums — open accounts'),
   T('2026-11-10', 47.0, 'Online transfer to WF Platinum card', 'debt', 'Card minimums — open accounts'),
