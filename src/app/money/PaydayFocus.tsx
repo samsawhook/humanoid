@@ -240,14 +240,15 @@ function BudgetBar({
   const sp = showPaid ? (spent ?? 0) : 0
   const paid = Math.min(sp, amount)
   const over = Math.max(0, sp - amount)
-  const pctOf = (n: number) => (n / gross) * 100
+  // ONE pill per budget: its outline is the budget (length = share of the base), filled from
+  // the left as it is paid. Anything over budget is a hatched stub after it.
+  const w = Math.max(2.5, (amount / gross) * 100)
   return (
     <div className="bbar" aria-hidden>
-      {paid > 0 && <span className="bbar-paid" style={{ width: `max(${pctOf(paid)}%, 3px)`, background: color }} />}
-      {amount - paid > 0.005 && (
-        <span className="bbar-left" style={{ width: `max(${pctOf(amount - paid)}%, 3px)`, borderColor: color }} />
-      )}
-      {over > 0 && <span className="bbar-over" style={{ width: `max(${pctOf(over)}%, 3px)` }} />}
+      <span className="bpill" style={{ width: `${Math.min(100, w)}%`, borderColor: color }}>
+        {paid > 0 && <i style={{ width: `${(paid / amount) * 100}%`, background: color }} />}
+      </span>
+      {over > 0 && <span className="bbar-over" style={{ width: `max(${(over / gross) * 100}%, 4px)` }} />}
     </div>
   )
 }
@@ -312,12 +313,15 @@ function Line({
   spendable,
   showActuals,
   color,
+  base,
 }: {
   l: StatementLine
   gross: number
   spendable: string
   showActuals: boolean
   color: string
+  /** What the line's bar is a share of: its category's total. */
+  base: number
 }) {
   const chip = showActuals || l.scheduled || l.todo || l.info ? lineChip(l, spendable) : null
   const todo = chip?.cls === 'todo'
@@ -333,9 +337,9 @@ function Line({
           {!l.nonCash && <span className="ln-pct">{pct(l.amount, gross)}</span>}
         </div>
       </div>
-      {/* Under ~4% of gross the bar is a sliver that reads as a checkbox: leave it out. */}
-      {!l.nonCash && !l.accounts && l.amount / gross >= 0.04 && (
-        <BudgetBar amount={l.amount} gross={gross} spent={l.spent} showPaid={showActuals} color={color} />
+      {/* Every line gets its pill: length = its share of the category, fill = paid. */}
+      {!l.nonCash && l.amount > 0 && (
+        <BudgetBar amount={l.amount} gross={base} spent={l.spent} showPaid={showActuals} color={color} />
       )}
       {(l.info || l.note) && (
         <div className="ln-meta">
@@ -432,7 +436,7 @@ function Section({
       </summary>
       <div className="sec-body">
         {sec.lines.map((l) => (
-          <Line key={l.key} l={l} gross={gross} spendable={spendable} showActuals={showActuals} color={color} />
+          <Line key={l.key} l={l} gross={gross} spendable={spendable} showActuals={showActuals} color={color} base={Math.max(budget, sec.total, ...sec.lines.map((x) => x.amount))} />
         ))}
       </div>
     </details>
@@ -806,8 +810,8 @@ export function PaydayFocus({
         <strong className="todo-label">Highlighted</strong> lines are yours to do.
       </p>
       <div className="legend-row">
-        <span><i className="lg lg-outline" /> Bar length = share of gross pay (outline = budget)</span>
-        <span><i className="lg lg-solid" /> Solid = already gone out</span>
+        <span><i className="lg lg-outline" /> Category bar = share of gross; line bar = share of its category (outline = budget)</span>
+        <span><i className="lg lg-solid" /> Filled = already gone out</span>
         <span><i className="lg lg-over" /> Orange = spent over budget</span>
       </div>
       {months.map((m) => {

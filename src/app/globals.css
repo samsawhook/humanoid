@@ -517,3 +517,7 @@ main:has(.gantt-wrap) { max-width: 1600px; }
 .monthtable td, .monthtable th { white-space: normal; text-align: left; }
 .monthtable td.num, .monthtable th.num { white-space: nowrap; text-align: right; }
 .monthtable .v-why, .monthtable .b-verdict { white-space: normal; }
+/* One pill per budget: outline = budget, fill from the left = paid. */
+.bbar { display: flex; gap: 3px; height: 8px; margin-top: 6px; align-items: stretch; }
+.bpill { display: block; height: 100%; border: 1.5px solid; border-radius: 4px; box-sizing: border-box; overflow: hidden; flex: none; min-width: 10px; }
+.bpill i { display: block; height: 100%; }
