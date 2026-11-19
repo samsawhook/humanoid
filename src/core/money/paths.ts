@@ -105,15 +105,19 @@ export const PATH_ASSUMPTIONS = {
   drillMonthly: 634.6,
   /**
    * VA disability after this deployment. You are at 10% now; your range for the new
-   * rating is 30–80% (14 Nov). The planning case takes 50%, near the middle; the bands
-   * run 30% to 80%. Monthly amounts are for a veteran with a spouse and one child, roughly
-   * 2027 rates, plus ~5% for each further child — MY ESTIMATE of the tables; check them
-   * against the VA's.
-   * Modelled from the first month home; in practice the claim takes months and the
-   * back pay arrives as a lump.
+   * rating is 30–80% (14 Nov). The planning case is 30% (your call, 19 Nov), the bottom of
+   * the range. Monthly amounts are for a veteran with a spouse and one child, roughly 2028
+   * rates, plus ~5% for each further child — MY ESTIMATE of the tables; check them against
+   * the VA's.
+   * The claim takes a few months: until it is decided you are paid at your current 10%,
+   * and the decision brings the difference back to the month after release as a lump.
    */
-  vaRating: 50,
-  vaMonthly: 1300,
+  vaRating: 30,
+  vaMonthly: 645,
+  /** Your current rating's pay (10%: no extra for dependents), drawn until the new one lands. */
+  vaCurrentMonthly: 186,
+  /** Months home before the new rating is decided and paid. */
+  vaDecisionMonths: 4,
   vaPerChildShare: 0.05,
   /**
    * VA pay cannot be drawn for days you are paid for drill or annual training, so it is
@@ -514,8 +518,13 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
       const drill = a.drillMonthly * infl
       income['Reserve drill pay'] = drill
       const kids = a.family.births.filter((b) => monthIndex(b) <= monthIndex(m)).length
-      const va = a.vaMonthly * (1 + a.vaPerChildShare * Math.max(0, kids - 1)) * infl
-      income[`VA disability (${a.vaRating}%)`] = va
+      const newRate = a.vaMonthly * (1 + a.vaPerChildShare * Math.max(0, kids - 1)) * infl
+      const monthsHome = monthIndex(m) - monthIndex(homeMonth)
+      const decided = monthsHome >= a.vaDecisionMonths
+      const va = decided ? newRate : a.vaCurrentMonthly * infl
+      income[decided ? `VA disability (${a.vaRating}%)` : 'VA disability (10%, until the new rating)'] = va
+      if (monthsHome === a.vaDecisionMonths)
+        income['VA back pay (new rating, to the month after release)'] = (newRate - a.vaCurrentMonthly * infl) * a.vaDecisionMonths
       costs['VA waived for drill & AT days'] = ((va * 12) / 365) * a.vaWaivedDaysPerYear / 12
       let taxableWages = drill
       let salary = 0

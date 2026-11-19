@@ -75,7 +75,7 @@ const LADDER: Record<'fed' | 'mid' | 'small', { name: string; salary: Anchor[]; 
   },
 }
 const base = PATH_ASSUMPTIONS
-const COMMON = ['VA rating 50% (your range 30–80%)', 'Off orders 31 Jul 2027']
+const COMMON = ['VA 30% from ~4 months home (10% until then; your range 30–80%)', 'Off orders 31 Jul 2027']
 
 function law(k: string, short: string, city: string, extra: string[] = []): Scenario {
   return {

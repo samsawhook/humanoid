@@ -43,7 +43,7 @@ export const VA_MONTHLY: Record<number, number> = {
 /** VA is not paid for drill and AT days: ~39 a year. */
 export const VA_DRILL_WAIVER = 39 / 365
 export const vaNet = (rating: number) => Math.round((VA_MONTHLY[rating] ?? 0) * (1 - VA_DRILL_WAIVER))
-export const DEFAULT_RATING = 50
+export const DEFAULT_RATING = 30
 
 /** Income that is not salary. */
 export const OTHER_INCOME: BudgetLine[] = [

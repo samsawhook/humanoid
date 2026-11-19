@@ -817,7 +817,7 @@ function AllView({ ledgers, summaries, metas }: { ledgers: Ledger[]; summaries: 
       </div>
       <p className="sub" style={{ marginTop: 8, fontSize: 12.5 }}>
         Each scenario starts from where the deployment plan leaves you (the same in all of them) and runs the 20-year model:
-        family of five, the house upgrade when cash allows, VA at 50%. Funds light: green never short, yellow short but under
+        family of five, the house upgrade when cash allows, VA 10% until the claim is decided ~4 months home, then 30%. Funds light: green never short, yellow short but under
         $25k at worst, red more. Hover a row for what it depends on. Pay ladders and city costs are estimates.
       </p>
     </>
