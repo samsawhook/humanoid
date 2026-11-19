@@ -138,12 +138,11 @@ const LINE_HOME: Record<string, string> = {
 /** "Your own spending (deployed)" broken into the categories you think in. */
 const LIVING_SPLIT: { sub: string; label: string; section: string; keys: string[] }[] = [
   { sub: 'fuel', label: 'Fuel', section: 'car', keys: ['gas'] },
-  { sub: 'entertainment', label: 'Entertainment & outings', section: 'personal', keys: ['entertainment'] },
   {
     sub: 'personal_local',
-    label: 'Personal local (PX, food, shopping)',
+    label: 'Personal local (PX, food, shopping, outings)',
     section: 'personal',
-    keys: ['personal', 'restaurants', 'clothing', 'business', 'financial_fees'],
+    keys: ['personal', 'restaurants', 'clothing', 'business', 'financial_fees', 'entertainment'],
   },
 ]
 
