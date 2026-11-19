@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react'
 import { TrendChart, type TrendSeries } from '@/components/TrendChart'
 import type { AccountDef, GroupKey, Ledger, PathSummary, Side } from '@/core/money/ledger'
+import { OTHER_INCOME, RETURN_BUDGET, monthlyCash, salaryNeeded } from '@/core/money/returnBudget'
 
 const usd0 = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 const usd = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -708,84 +709,169 @@ function netWorthOf(p: { bal: Record<string, number> }, l: Ledger) {
 }
 
 /**
- * A monthly budget for after you're home, to play with. It starts from a typical month
- * in the scenario you pick (the seventh month home — past the move and the first summer),
- * every line editable; your edits are kept on this device, per scenario.
+ * After you're home: a normal month as a card like the paycheck cards — my best estimates,
+ * every line editable — worked backwards to the salary it takes. Edits stay on this device.
  */
-function ReturnBudget({ ledgers, metas }: { ledgers: Ledger[]; metas: ScenarioMeta[] }) {
-  const [id, setId] = useState('cpa_fed')
-  const ledger = ledgers.find((l) => l.path === id) ?? ledgers[0]!
-  const base = ledger.yearAhead[Math.min(6, ledger.yearAhead.length - 1)]!
-  const key = `return-budget:${id}`
+const CAT_COLORS: Record<string, string> = {
+  home: '#3987e5',
+  car: '#d95926',
+  sent: '#199e70',
+  personal: '#c98500',
+  tech: '#2fb5c9',
+  debt: '#d55181',
+  invest: '#9085e9',
+  tax: '#6b7280',
+}
+const STORE = 'return-budget-v2'
+
+function ReturnBudget() {
   const [edits, setEdits] = useState<Record<string, number>>({})
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem(key)
-      setEdits(raw ? JSON.parse(raw) : {})
-    } catch {
-      setEdits({})
-    }
-  }, [key])
+      const raw = window.localStorage.getItem(STORE)
+      if (raw) setEdits(JSON.parse(raw))
+    } catch {}
+  }, [])
   const save = (next: Record<string, number>) => {
     setEdits(next)
     try {
-      window.localStorage.setItem(key, JSON.stringify(next))
+      window.localStorage.setItem(STORE, JSON.stringify(next))
     } catch {}
   }
-  const val = (k: string, d: number) => (edits[k] ?? Math.round(d))
-  const incomes = Object.entries(base.income)
-  const costs = Object.entries(base.costs)
-  const inTotal = incomes.reduce((t, [k, v]) => t + val(`in:${k}`, v), 0)
-  const outTotal = costs.reduce((t, [k, v]) => t + val(`out:${k}`, v), 0)
-  const left = inTotal - outTotal
-  const row = (prefix: 'in' | 'out', k: string, v: number) => (
-    <label key={prefix + k} className={`rb-row${edits[`${prefix}:${k}`] !== undefined ? ' edited' : ''}`}>
-      <span>{k}</span>
-      <input
-        type="number"
-        inputMode="decimal"
-        value={val(`${prefix}:${k}`, v)}
-        onChange={(e) => save({ ...edits, [`${prefix}:${k}`]: Number(e.target.value) || 0 })}
-      />
-    </label>
+  const v = (k: string, d: number) => edits[k] ?? d
+  const other = { va: v('in:va', OTHER_INCOME[0]!.amount), drill: v('in:drill', OTHER_INCOME[1]!.amount) }
+  const cats = RETURN_BUDGET.map((c) => ({
+    ...c,
+    total: c.lines.reduce((t, l) => t + v(`${c.key}:${l.key}`, l.amount), 0),
+  }))
+  const spend = cats.reduce((t, c) => t + c.total, 0)
+  const need = salaryNeeded(spend, other)
+  const gross = need.grossMonthly
+  const pct = (n: number) => (gross > 0 ? `${((n / gross) * 100).toFixed(1)}%` : '')
+  const offers = [
+    { label: 'Federal / contractor', salary: 85000 },
+    { label: 'Mid-size firm', salary: 78000 },
+    { label: 'Small firm', salary: 65000 },
+  ].map((o) => ({ ...o, left: Math.round(monthlyCash(o.salary, other).cash - spend) }))
+  const input = (k: string, d: number) => (
+    <input
+      type="number"
+      inputMode="decimal"
+      className={edits[k] !== undefined ? 'edited' : ''}
+      value={Math.round(v(k, d) * 100) / 100}
+      onChange={(e) => save({ ...edits, [k]: Number(e.target.value) || 0 })}
+    />
+  )
+  const pill = (amount: number, color: string) => (
+    <div className="bbar" aria-hidden>
+      <span className="bpill" style={{ width: `${Math.min(100, Math.max(2.5, (amount / gross) * 100))}%`, borderColor: color }}>
+        <i style={{ width: '100%', background: color, opacity: 0.35 }} />
+      </span>
+    </div>
   )
   return (
     <section className="rbudget">
-      <h2>After you&rsquo;re home — a monthly budget to play with</h2>
-      <p className="sub" style={{ marginBottom: 8 }}>
-        Starts from {monLabel(base.month)} in the scenario you pick ({base.phase}). Change any number; it is kept on this device.
-      </p>
-      <div className="rb-head">
-        <select value={id} onChange={(e) => setId(e.target.value)}>
-          {metas.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.label}
-            </option>
+      <article className="pcard pcard-wide">
+        <header className="pcard-head">
+          <div>
+            <div className="pcard-tag">After you&rsquo;re home · a normal month · yours to edit</div>
+            <div className="pcard-title">Salary needed: {usd0(need.salary)} a year</div>
+            <div className="pcard-sub">
+              Gross {usd0(gross)} a month with VA and drill · taxes {usd0(need.taxes)} · 401(k) 5% {usd0(need.k401)} · spending {usd0(spend)}
+            </div>
+          </div>
+          <div className="pcard-gross">
+            <div className="pcard-big">{usd0(gross)}</div>
+            <div className="pcard-sub">gross a month</div>
+            <button className="btn-ghost" style={{ marginTop: 6 }} onClick={() => save({})} disabled={Object.keys(edits).length === 0}>
+              Reset to my estimates
+            </button>
+          </div>
+        </header>
+        <div className="rb-offers">
+          {offers.map((o) => (
+            <span key={o.label} className={`lightchip lc-${o.left >= 0 ? 'green' : o.left > -500 ? 'yellow' : 'red'}`} title="First-year salary on that route, against this budget">
+              <i />
+              {o.label} {usd0(o.salary)}: {o.left >= 0 ? `+${usd0(o.left)}` : `−${usd0(-o.left)}`}/mo
+            </span>
           ))}
-        </select>
-        <button className="btn-ghost" onClick={() => save({})} disabled={Object.keys(edits).length === 0}>
-          Reset to the scenario
-        </button>
-      </div>
-      <div className="rb-grid">
-        <div className="rb-col">
-          <div className="rb-title">Coming in</div>
-          {incomes.map(([k, v]) => row('in', k, v))}
-          <div className="rb-total"><span>Total in</span><b>{usd0(inTotal)}</b></div>
         </div>
-        <div className="rb-col">
-          <div className="rb-title">Going out</div>
-          {costs.map(([k, v]) => row('out', k, v))}
-          <div className="rb-total"><span>Total out</span><b>{usd0(outTotal)}</b></div>
+        <div className="pcard-body">
+          <div className="pcol">
+            <details className="sec" open>
+              <summary>
+                <div className="sec-top">
+                  <span className="sec-name">
+                    <i className="swatch-dot" style={{ background: '#a3aab6' }} />
+                    Gross income
+                  </span>
+                  <span className="sec-amt">{usd0(gross)}</span>
+                </div>
+              </summary>
+              <div className="sec-body">
+                <div className="ln rb-line">
+                  <div className="ln-top">
+                    <div className="ln-name">Salary (needed)</div>
+                    <div className="ln-amt">{usd0(need.salary / 12)}<span className="ln-pct">{pct(need.salary / 12)}</span></div>
+                  </div>
+                </div>
+                {OTHER_INCOME.map((l) => (
+                  <div className="ln rb-line" key={l.key} title={l.basis}>
+                    <div className="ln-top">
+                      <div className="ln-name">{l.label}</div>
+                      <div className="ln-amt">{input(`in:${l.key}`, l.amount)}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </details>
+            <details className="sec">
+              <summary>
+                <div className="sec-top">
+                  <span className="sec-name">
+                    <i className="swatch-dot" style={{ background: CAT_COLORS.tax }} />
+                    Taxes & 401(k)
+                  </span>
+                  <span className="sec-amt">−{usd0(need.taxes + need.k401)}<span className="ln-pct">{pct(need.taxes + need.k401)}</span></span>
+                </div>
+                {pill(need.taxes + need.k401, CAT_COLORS.tax!)}
+              </summary>
+              <div className="sec-body">
+                <div className="ln"><div className="ln-top"><div className="ln-name">Federal income tax + FICA (Texas has none)</div><div className="ln-amt">{usd0(need.taxes)}</div></div></div>
+                <div className="ln"><div className="ln-top"><div className="ln-name">401(k) — your 5%</div><div className="ln-amt">{usd0(need.k401)}</div></div></div>
+              </div>
+            </details>
+          </div>
+          <div className="pcol">
+            {cats.map((c) => (
+              <details className="sec" key={c.key}>
+                <summary>
+                  <div className="sec-top">
+                    <span className="sec-name">
+                      <i className="swatch-dot" style={{ background: CAT_COLORS[c.key] }} />
+                      {c.label}
+                    </span>
+                    <span className="sec-amt">−{usd0(c.total)}<span className="ln-pct">{pct(c.total)}</span></span>
+                  </div>
+                  {pill(c.total, CAT_COLORS[c.key]!)}
+                </summary>
+                <div className="sec-body">
+                  {c.lines.map((l) => (
+                    <div className="ln rb-line" key={l.key} title={l.basis}>
+                      <div className="ln-top">
+                        <div className="ln-name">{l.label}</div>
+                        <div className="ln-amt">{input(`${c.key}:${l.key}`, l.amount)}</div>
+                      </div>
+                      {pill(v(`${c.key}:${l.key}`, l.amount), CAT_COLORS[c.key]!)}
+                      <div className="ln-meta"><span>{l.basis}</span></div>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            ))}
+          </div>
         </div>
-      </div>
-      <div className={`rb-result ${left >= 0 ? 'ok' : 'bad'}`}>
-        <span>{left >= 0 ? 'Left over each month' : 'Short each month'}</span>
-        <b>{usd0(Math.abs(left))}</b>
-        <small>
-          {usd0(Math.abs(left) * 12)} a year{base.net !== left ? ` · the scenario has ${base.net >= 0 ? '+' : '−'}${usd0(Math.abs(base.net))}` : ''}
-        </small>
-      </div>
+      </article>
     </section>
   )
 }
@@ -905,7 +991,7 @@ export function MoneyShell({
       <div className="mview">
         <div hidden={view !== 'paychecks'}>
           {paychecks}
-          <ReturnBudget ledgers={ledgers} metas={metas} />
+          <ReturnBudget />
         </div>
         {view === 'scenarios' && (
           <section className="outlook viz">

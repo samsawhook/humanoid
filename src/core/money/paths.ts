@@ -380,25 +380,8 @@ export function salaryAt(anchors: Anchor[], m: string): number {
 }
 
 /** Federal income tax, married filing jointly on YOUR income alone, 2026 brackets indexed. */
-export function federalTax(annualTaxable: number, year: number): number {
-  const idx = Math.pow(1.025, Math.max(0, year - 2026))
-  const income = Math.max(0, annualTaxable - 32200 * idx)
-  const brackets: [number, number][] = [
-    [24800, 0.1],
-    [100800, 0.12],
-    [211400, 0.22],
-    [403550, 0.24],
-    [Infinity, 0.32],
-  ]
-  let tax = 0
-  let prev = 0
-  for (const [top, rate] of brackets) {
-    const t = top * idx
-    if (income > prev) tax += (Math.min(income, t) - prev) * rate
-    prev = t
-  }
-  return tax
-}
+export { federalTax } from './tax'
+import { federalTax } from './tax'
 
 const r2 = (n: number) => Math.round(n * 100) / 100
 
