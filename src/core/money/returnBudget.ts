@@ -48,7 +48,12 @@ export const DEFAULT_RATING = 50
 /** Income that is not salary. */
 export const OTHER_INCOME: BudgetLine[] = [
   { key: 'va', label: 'VA disability (net of drill days)', amount: vaNet(DEFAULT_RATING), basis: 'From the rating slider. Your range is 30–80%.' },
-  { key: 'drill', label: 'Reserve drill pay', amount: 475, basis: 'One weekend a month plus AT, averaged. Taxable.' },
+  {
+    key: 'drill',
+    label: 'Reserve drill pay (weekends only)',
+    amount: 634.6,
+    basis: 'One drill weekend a month: 4 drill periods at 1/30 of E-6 base ($4,759.50) = $634.60. Taxable. Annual training is not counted (your call, 19 Nov).',
+  },
 ]
 
 export const RETURN_BUDGET: BudgetCategory[] = [

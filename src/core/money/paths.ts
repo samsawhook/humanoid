@@ -101,7 +101,8 @@ export const PATH_ASSUMPTIONS = {
   inflation: 0.025,
 
   /** Reserve drill pay, both paths. My estimate, as in lawschool.ts. */
-  drillMonthly: 475,
+  /** Drill weekends only — 4 periods a month at 1/30 of E-6 base; annual training not counted (your call, 19 Nov). */
+  drillMonthly: 634.6,
   /**
    * VA disability after this deployment. You are at 10% now; your range for the new
    * rating is 30–80% (14 Nov). The planning case takes 50%, near the middle; the bands
