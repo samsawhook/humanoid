@@ -486,7 +486,9 @@ function Section({
   bar = true,
   bench,
   lineBench,
+  children,
 }: {
+  children?: React.ReactNode
   sec: StatementSection
   gross: number
   spendable: string
@@ -535,6 +537,7 @@ function Section({
         {sec.lines.map((l) => (
           <Line key={l.key} l={l} gross={gross} spendable={spendable} showActuals={showActuals} color={color} base={gross} bench={lineBench?.[l.key]} />
         ))}
+        {children}
       </div>
     </details>
   )
@@ -656,7 +659,7 @@ function PaydayCard({
         bench={bx('invest')}
         lineBench={benchRows ? { nth_investments: bx('business')! } : undefined}
       />
-      <Section sec={st.netCash} gross={g} spendable={spendable} showActuals={false} sign={st.netCash.total < 0 ? '−' : '+'} bar={false} bench={bx('cash')} />
+      <Section sec={st.netCash} gross={g} spendable={spendable} showActuals={false} sign={st.netCash.total < 0 ? '−' : '+'} bar={false} bench={bx('cash')}>
       {(() => {
         const d = (k: string) => st.netCash.lines.find((l) => l.key === k)?.amount ?? 0
         // The cash walk for checking: where it starts, what comes in, what has gone, what is
@@ -733,6 +736,7 @@ function PaydayCard({
           </div>
         )
       })()}
+      </Section>
       <Section sec={st.balanceSheet} gross={g} spendable={spendable} showActuals={false} sign="+" bar={false} />
       <Total label="Net worth change (approx.)" amount={st.balanceSheet.total} gross={g} strong />
       {short > 0 && <div className="chip chip-over" style={{ marginTop: 8 }}>{usd(short)} of bills can&rsquo;t be covered by this paycheck</div>}
