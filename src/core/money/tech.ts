@@ -75,12 +75,14 @@ export const SUBSCRIPTIONS: TechItem[] = [
   },
   {
     key: 'apple_14',
-    name: 'Apple — $14.06',
-    what: '$12.99 + tax, "Recurring Payment" on the statements — app unknown (Family Sharing?)',
+    name: 'Apple — $14.06 (Monarch, monthly)',
+    what: '$12.99 + tax through the App Store — replaced by Monarch yearly on 8 Oct',
     amount: 14.06,
     day: 6,
     payday: 'first',
-    seen: '6 Jul, 12 Aug, 6 Sep',
+    seen: '6 Jul, 12 Aug, 6 Sep — none since',
+    to: '2026-10-07',
+    note: 'Stopped: you went to the yearly plan — $106.39 on 8 Oct (your note, 19 Nov).',
   },
   {
     key: 'apple_16',
