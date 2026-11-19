@@ -20,6 +20,8 @@ import {
   RETURN_BUDGET,
   WORK_LABEL,
   buildBridge,
+  SCENARIO_PRESETS,
+  sameSelection,
   monthlyCash,
   salaryNeeded,
   vaNet,
@@ -542,6 +544,8 @@ export interface ScenarioMeta {
   short: string
   label: string
   dependsOn: string[]
+  /** The job's pay, a year after it starts (0 for full-time law school). Sole proprietor: profit. */
+  pay: number
 }
 export interface PlanGap {
   date: string
@@ -854,11 +858,13 @@ function BudgetBridge({
   other,
   rating,
   loans,
+  metas,
 }: {
   spend: number
   other: { va: number; drill: number }
   rating: number
   loans: { student: number; ut: number }
+  metas: ScenarioMeta[]
 }) {
   const [sel, setSel] = useState<Selection>(BASE_SELECTION)
   useEffect(() => {
@@ -892,15 +898,46 @@ function BudgetBridge({
     </div>
   )
   const groups = ['Location', 'Remote / office', 'Type of work', 'School', 'Children'] as const
+  // The scenario these choices match, if any: picking one sets every modification below.
+  const scenario = metas.find((m) => SCENARIO_PRESETS[m.id] && sameSelection(SCENARIO_PRESETS[m.id]!, sel))
+  const GL: Record<string, string> = { law: 'Law, full-time', evening: 'Law at night', cpa: 'MAcc → CPA' }
+  // What that scenario's job leaves a month against the modified spend.
+  // A sole proprietor also pays the employer half of FICA (self-employment tax).
+  const seTax = scenario?.id === 'cpa_sole' ? (scenario.pay * 0.0765) / 12 : 0
+  const margin = scenario && !b.noSalary ? Math.round(monthlyCash(scenario.pay, other).cash - seTax + extraIncome - total) : null
   return (
     <section className="bridge">
       <h3 className="fig-title">Modifications — your base, then my estimates for each change</h3>
+      <div className="picker" role="group" aria-label="Scenario">
+        <div className="picker-row">
+          <span className="picker-label">Scenario</span>
+          <button className={!scenario && sameSelection(sel, BASE_SELECTION) ? 'on' : ''} onClick={() => pick(BASE_SELECTION)}>
+            Base — Corpus
+          </button>
+          {!scenario && !sameSelection(sel, BASE_SELECTION) && <button className="on">Custom</button>}
+        </div>
+        {(['law', 'evening', 'cpa'] as const).map((g) => (
+          <div className="picker-row" key={g}>
+            <span className="picker-label">{GL[g]}</span>
+            {metas
+              .filter((m) => m.group === g && SCENARIO_PRESETS[m.id])
+              .map((m) => (
+                <button key={m.id} className={scenario?.id === m.id ? 'on' : ''} onClick={() => pick(SCENARIO_PRESETS[m.id]!)}>
+                  {m.short}
+                </button>
+              ))}
+          </div>
+        ))}
+      </div>
       <div className="mods">
         <div className="mod"><span>Location</span>{seg('location', LOCATION_LABEL, (x) => x as Selection['location'])}</div>
         <div className="mod"><span>Remote / office</span>{seg('arrangement', ARRANGEMENT_LABEL, (x) => x as Selection['arrangement'])}</div>
         <div className="mod"><span>Type of work</span>{seg('work', WORK_LABEL, (x) => x as Selection['work'])}</div>
         <div className="mod"><span>Children</span>{seg('children', { 1: 'One (base)', 2: 'Two', 3: 'Three' }, (x) => Number(x) as Selection['children'])}</div>
         <div className="mod"><span>School</span>{seg('macc', { false: 'Done (base)', true: 'Finishing the MAcc' }, (x) => (x === 'true') as Selection['macc'])}</div>
+        {sel.work === 'nightlaw' && (
+          <div className="mod"><span>Day job</span>{seg('dayJob', { fed: 'Federal / contractor', mid: 'Mid-size public firm', small: 'Small firm' }, (x) => x as Selection['dayJob'])}</div>
+        )}
       </div>
       <div className="bridge-table">
         <div className="br-row br-base">
@@ -971,6 +1008,18 @@ function BudgetBridge({
             </small>
           </div>
         )}
+        {scenario && (
+          <div title="The scenario's pay a year into the job (its pay ladder), after tax, 5% 401(k), drill and VA, against the modified month.">
+            <span>{scenario.short} pays</span>
+            <b>{scenario.pay > 0 ? usd0(scenario.pay) : 'No salary'}</b>
+            <small>
+              {margin == null
+                ? 'full-time school — see the gap'
+                : `${margin >= 0 ? '+' : '−'}${usd0(Math.abs(margin))} a month ${margin >= 0 ? 'left over' : 'short'} on this budget`}
+              {scenario.id === 'cpa_sole' ? ' · profit; fees ≈ profit ÷ 0.65' : ''}
+            </small>
+          </div>
+        )}
         <div>
           <span>Offers here</span>
           <b>{usd0(85000 * b.payScale)}</b>
@@ -989,7 +1038,7 @@ function BudgetBridge({
   )
 }
 
-function ReturnBudget() {
+function ReturnBudget({ metas }: { metas: ScenarioMeta[] }) {
   const [edits, setEdits] = useState<Record<string, number>>({})
   useEffect(() => {
     try {
@@ -1216,7 +1265,7 @@ function ReturnBudget() {
           </div>
         </div>
       </article>
-      <BudgetBridge spend={spend} other={other} rating={rating} loans={{ student: v('debt:student', 75.83), ut: v('debt:ut', 129) }} />
+      <BudgetBridge spend={spend} other={other} rating={rating} loans={{ student: v('debt:student', 75.83), ut: v('debt:ut', 129) }} metas={metas} />
     </section>
   )
 }
@@ -1303,7 +1352,7 @@ export function MoneyShell({
         {view === 'home' && (
           <section>
             <h2 style={{ marginTop: 0 }}>Back-home budget</h2>
-            <ReturnBudget />
+            <ReturnBudget metas={metas} />
           </section>
         )}
         {view === 'scenarios' && (

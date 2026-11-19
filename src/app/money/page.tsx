@@ -32,6 +32,7 @@ import { projectSdp, SDP_CAP } from '@/core/money/sdp'
 import { Briefing } from './Briefing'
 import { PaydayFocus } from './PaydayFocus'
 import { MoneyShell } from './Outlook'
+import { salaryAt } from '@/core/money/paths'
 import { buildLedger, GROUPS, summarize as summarizePath } from '@/core/money/ledger'
 import { SCENARIOS } from '@/core/money/scenarios'
 import { runPlan } from '@/core/money/briefing'
@@ -222,7 +223,15 @@ export default function MoneyPage() {
       <h1>Money</h1>
       <MoneyShell
         ledgers={scenarioLedgers}
-        metas={SCENARIOS.map(({ id, group, short, label, dependsOn }) => ({ id, group, short, label, dependsOn }))}
+        metas={SCENARIOS.map(({ id, group, short, label, dependsOn, path, a }) => ({
+          id,
+          group,
+          short,
+          label,
+          dependsOn,
+          // A year into the job, from the scenario's own pay ladder.
+          pay: path === 'law' ? 0 : Math.round(salaryAt(a.macc.salary, '2028-11') * (path === 'night' ? a.night.dayJobScale : 1)),
+        }))}
         summaries={Object.fromEntries(scenarioLedgers.map((l) => [l.path, summarizePath(l)]))}
         planGaps={planGaps}
         groups={GROUPS}

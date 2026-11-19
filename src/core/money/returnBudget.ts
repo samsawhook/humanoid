@@ -173,7 +173,8 @@ export const PRINCIPLES = [
 
 export type LocationKey = 'corpus' | 'houston' | 'dallas' | 'fortworth' | 'austin' | 'lubbock' | 'country'
 export type ArrangementKey = 'hybrid' | 'remote' | 'office'
-export type WorkKey = 'federal' | 'public' | 'practice' | 'nightlaw' | 'lawschool'
+export type WorkKey = 'federal' | 'public' | 'small' | 'practice' | 'nightlaw' | 'lawschool'
+export type DayJob = 'fed' | 'mid' | 'small'
 
 export interface Selection {
   location: LocationKey
@@ -182,7 +183,32 @@ export interface Selection {
   children: 1 | 2 | 3
   /** Still finishing the MAcc (through Dec 2027) while working. */
   macc: boolean
+  /** Night law only: the day job. */
+  dayJob?: DayJob
 }
+
+/** Each return scenario as a set of modifications to your base month. */
+export const SCENARIO_PRESETS: Record<string, Selection> = {
+  law_ttu: { location: 'lubbock', arrangement: 'office', work: 'lawschool', children: 1, macc: false },
+  law_uh: { location: 'houston', arrangement: 'office', work: 'lawschool', children: 1, macc: false },
+  law_unt: { location: 'dallas', arrangement: 'office', work: 'lawschool', children: 1, macc: false },
+  law_tamu: { location: 'fortworth', arrangement: 'office', work: 'lawschool', children: 1, macc: false },
+  ...Object.fromEntries(
+    (['uh', 'unt'] as const).flatMap((k) =>
+      (['fed', 'mid', 'small'] as const).map((j) => [
+        `night_${k}_${j}`,
+        { location: k === 'uh' ? 'houston' : 'dallas', arrangement: j === 'fed' ? 'hybrid' : 'office', work: 'nightlaw', children: 1, macc: false, dayJob: j } as Selection,
+      ]),
+    ),
+  ),
+  cpa_fed: { location: 'corpus', arrangement: 'hybrid', work: 'federal', children: 1, macc: false },
+  cpa_mid: { location: 'corpus', arrangement: 'office', work: 'public', children: 1, macc: false },
+  cpa_small: { location: 'corpus', arrangement: 'office', work: 'small', children: 1, macc: false },
+  cpa_sole: { location: 'corpus', arrangement: 'remote', work: 'practice', children: 1, macc: false },
+  cpa_country: { location: 'country', arrangement: 'remote', work: 'federal', children: 1, macc: false },
+}
+export const sameSelection = (a: Selection, b: Selection) =>
+  a.location === b.location && a.arrangement === b.arrangement && a.work === b.work && a.children === b.children && a.macc === b.macc && (a.dayJob ?? null) === (b.dayJob ?? null)
 export const BASE_SELECTION: Selection = { location: 'corpus', arrangement: 'hybrid', work: 'federal', children: 1, macc: false }
 
 export const LOCATION_LABEL: Record<LocationKey, string> = {
@@ -197,7 +223,8 @@ export const LOCATION_LABEL: Record<LocationKey, string> = {
 export const ARRANGEMENT_LABEL: Record<ArrangementKey, string> = { hybrid: 'Hybrid (base)', remote: 'Remote', office: 'Office, 5 days' }
 export const WORK_LABEL: Record<WorkKey, string> = {
   federal: 'Federal / contractor, 40 hrs (base)',
-  public: 'Public accounting (busy season)',
+  public: 'Mid-size public firm (busy season)',
+  small: 'Small local firm',
   practice: 'Your own practice',
   nightlaw: 'Day job + night law',
   lawschool: 'Full-time law school',
@@ -263,13 +290,19 @@ export function buildBridge(sel: Selection, loans: { student: number; ut: number
     add('Type of work', 'Evening & Saturday sitter in busy season', 330, '~$1,000 a month January to April, averaged over the year — the nanny can’t cover 60-hour weeks.')
     add('Type of work', 'Meals out in busy season', 50, 'Averaged.')
   }
+  if (sel.work === 'small') {
+    add('Type of work', 'Extra sitter hours in tax season', 150, 'Longer weeks February to April, averaged — lighter than a public firm’s busy season.')
+  }
   if (sel.work === 'practice') {
+    // The practice's own costs (≈35% of fees) are the business's, not the household's:
+    // the salary needed here is the practice's PROFIT.
     add('Type of work', 'Childcare — part-time', -300, 'Your own hours: part-time care instead of full-time.')
-    add('Type of work', 'Practice costs', 400, 'Software, E&O insurance, CPE, a small office share.')
   }
   if (sel.work === 'nightlaw') {
     add('Type of work', 'Evening sitter, class nights', 500, 'Three or four nights a week while Sommer works or needs a break.')
     add('Type of work', 'Books & fees', 50, 'Hazlewood covers tuition.')
+    if (sel.dayJob === 'mid') add('Type of work', 'Busy-season sitter on top of class nights', 330, 'A public firm’s January–April hours, averaged over the year.')
+    if (sel.dayJob === 'small') add('Type of work', 'Extra sitter hours in tax season', 150, 'Averaged over the year.')
     income.push({ group: 'Type of work', label: 'GI Bill housing, part-time (averaged)', amount: Math.round(c.mha * 0.8 * 0.8 * 0.75), why: 'MHA at the 80% tier and part-time rate, paid September–May.' })
   }
   if (sel.work === 'lawschool') {
