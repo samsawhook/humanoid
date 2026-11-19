@@ -31,6 +31,7 @@ export interface PaymentInfo {
 
 export const PAYMENT_INFO: Record<string, PaymentInfo> = {
   phone: { from: CHECKING, to: 'T-Mobile', how: 'automatic', when: 'AutoPay, 21st', day: 21 },
+  hvac_plan: { from: CHECKING, to: 'HVAC service plan', how: 'automatic', when: 'monthly, ~12th', day: 12 },
   mortgage_current: {
     from: CHECKING,
     to: 'Navy Federal (mortgage)',
@@ -127,7 +128,6 @@ export const SPENDING_INFO: Record<string, PaymentInfo> = {
   software: { from: CHECKING, to: 'Subscriptions (Claude, Apple, Hugedomains…)', how: 'automatic', when: 'as they renew' },
   personal_local: { from: CHECKING, to: 'Debit card, Cash App', how: 'automatic', when: 'as you spend' },
   entertainment: { from: CHECKING, to: 'Debit card', how: 'automatic', when: 'as you spend' },
-  home_services: { from: CHECKING, to: 'HVAC plan', how: 'automatic', when: 'as billed' },
   fuel: { from: CHECKING, to: 'Debit card', how: 'automatic', when: 'as you spend' },
 }
 

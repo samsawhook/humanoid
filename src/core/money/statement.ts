@@ -95,6 +95,7 @@ const sum = (ls: StatementLine[]) => r2(ls.filter((l) => !l.nonCash).reduce((s, 
 /** Where each plan line belongs. Lines not listed fall into "Other". */
 const LINE_HOME: Record<string, string> = {
   phone: 'tech',
+  hvac_plan: 'home',
   mortgage_current: 'home',
   arrears_catchup_payment: 'home',
   mortgage_arrears: 'home',
@@ -125,7 +126,6 @@ const LINE_HOME: Record<string, string> = {
 
 /** "Your own spending (deployed)" broken into the categories you think in. */
 const LIVING_SPLIT: { sub: string; label: string; section: string; keys: string[] }[] = [
-  { sub: 'home_services', label: 'Home services (HVAC plan)', section: 'home', keys: ['home_improvement'] },
   { sub: 'fuel', label: 'Fuel', section: 'car', keys: ['gas'] },
   { sub: 'software', label: 'Subscriptions — AI, email & domains, Apple', section: 'tech', keys: ['subscriptions'] },
   { sub: 'entertainment', label: 'Entertainment', section: 'tech', keys: ['entertainment'] },
@@ -310,7 +310,7 @@ export function paycheckStatement(a: Allocation, next: Allocation | undefined, a
       continue
     }
     if (l.key === 'living_deployed') {
-      const monthly = DEPLOYED_ACTUALS.filter((d) => d.key !== 'phone').reduce((s, d) => s + d.monthly, 0)
+      const monthly = DEPLOYED_ACTUALS.filter((d) => d.key !== 'phone' && d.key !== 'home_improvement').reduce((s, d) => s + d.monthly, 0)
       for (const part of LIVING_SPLIT) {
         const share = DEPLOYED_ACTUALS.filter((d) => part.keys.includes(d.key)).reduce((s, d) => s + d.monthly, 0) / monthly
         let amt = l.allocated * share

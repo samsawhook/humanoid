@@ -433,7 +433,7 @@ export const BACK_PAY_CLAIMS: WindfallClaim[] = [
  * 15 Aug, 23 Sep, 12 Nov — about every 6 weeks in the cool months; from March, every ~3.
  */
 export const LAWN_CUTS: { payday: LocalDate; amount: number; note: string }[] = [
-  { payday: '2026-11-15', amount: 80, note: 'paid 12 Nov' },
+  { payday: '2026-11-15', amount: 80, note: '$70 + $10 for paying late, paid 12 Nov' },
   { payday: '2026-12-15', amount: 70, note: '~23 Dec' },
   { payday: '2027-02-01', amount: 70, note: '~3 Feb' },
   { payday: '2027-03-01', amount: 70, note: '~3 Mar' },
@@ -447,6 +447,8 @@ export const LAWN_KEYS = LAWN_CUTS.map((c) => lawnKey(c.payday))
 
 /** T-Mobile, one AutoPay a month on the 21st: plan $147 + the $75 pass. */
 export const PHONE_MONTHLY = DEPLOYED_ACTUALS.find((d) => d.key === 'phone')!.monthly
+/** The HVAC service plan: $19.95 a month, drafted on the 12th. */
+export const HVAC_MONTHLY = 19.95
 
 export const OBLIGATIONS: Obligation[] = [
   {
@@ -558,7 +560,7 @@ export const OBLIGATIONS: Obligation[] = [
      * roughly $1,000 actual — and most of what it was estimating (groceries, utilities,
      * pets) is now paid at home out of the money you send.
      */
-    amountPerPaycheck: (deployedActualsTotal() - PHONE_MONTHLY) / 2,
+    amountPerPaycheck: (deployedActualsTotal() - PHONE_MONTHLY - HVAC_MONTHLY) / 2,
     payDays: 'both',
     activeFrom: TIMELINE.premobStart,
     activeTo: null,
@@ -568,6 +570,18 @@ export const OBLIGATIONS: Obligation[] = [
     note:
       'Observed Sep–Nov 2026 — subscriptions, PX, food, the odd trip (the phone is its own ' +
       'line). Two months of data, so re-read it after a third.',
+  },
+  {
+    key: 'hvac_plan',
+    label: 'HVAC service plan',
+    /** One charge a month, on the 12th (Nov statement) — the 15th paycheck's window. */
+    amountPerPaycheck: HVAC_MONTHLY,
+    payDays: 'fifteenth',
+    activeFrom: TIMELINE.premobStart,
+    activeTo: null,
+    priority: 30,
+    kind: 'living',
+    execution: 'automatic',
   },
   {
     key: 'phone',

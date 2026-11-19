@@ -28,7 +28,7 @@ export interface Actual {
   lineKey?: string
   /** …the one-off it is (a ONE_OFFS key). */
   oneOffKey?: string
-  /** For "your own spending": phone, software, entertainment, personal_local, home_services, fuel. */
+  /** For "your own spending": software, entertainment, personal_local, fuel. */
   sub?: string
   /** scheduledDate of the paycheck whose money it came out of. */
   payday: LocalDate
@@ -73,8 +73,7 @@ export const ACTUALS: Actual[] = [
     date: '2026-11-12',
     amount: 19.95,
     description: 'HVAC service plan',
-    lineKey: 'living_deployed',
-    sub: 'home_services',
+    lineKey: 'hvac_plan',
     payday: '2026-11-15',
     status: 'posted',
   },
