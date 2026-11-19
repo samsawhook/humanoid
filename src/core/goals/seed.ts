@@ -146,7 +146,8 @@ const BASE_NODES: GoalNode[] = [
     level: 'campaign',
     kind: 'achievement',
     outcomeDefinition: 'A scored LSAT on an official administration, at or above target.',
-    targetDate: '2027-01-16',
+    /** Taken remotely 13 Nov 2026 (your note, 19 Nov); this is when the score is expected. */
+    targetDate: '2026-12-02',
     dateBasis: 'estimated',
     dateConfidence: 'low',
     windowOpen: '2026-08-05',
@@ -468,7 +469,8 @@ export const MILESTONES: Milestone[] = [
     sequence: 2,
     amount: null,
     unitLabel: null,
-    targetDate: '2027-01-16',
+    /** Sat remotely 13 Nov 2026; achieved when the score is released (~2 Dec). */
+    targetDate: '2026-12-02',
     dateBasis: 'estimated',
     windowOpen: null,
     windowClose: '2027-02-28',

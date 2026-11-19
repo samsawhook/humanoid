@@ -91,6 +91,18 @@ export const LSAT_DATES: LsatAdministration[] = [
 ]
 
 /**
+ * The sitting you actually took: remotely, 13 Nov 2026 (your note, 19 Nov). The score date
+ * is my estimate — LSAC has released about three weeks after a sitting; your LSAC account
+ * shows the real one.
+ */
+export const LSAT_TAKEN = {
+  date: '2026-11-13' as LocalDate,
+  remote: true,
+  scoreExpected: '2026-12-02' as LocalDate,
+  scoreEstimated: true,
+}
+
+/**
  * Rolling admissions, expressed as what it actually is: a cost ramp, not a deadline.
  *
  * Schools read as applications arrive and award seats and scholarship money as they

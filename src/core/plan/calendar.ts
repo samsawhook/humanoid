@@ -9,7 +9,7 @@
 
 import type { LocalDate } from '../types'
 import { TIMELINE } from '../money/rates'
-import { LSAT_DATES } from '../goals/education'
+import { LSAT_DATES, LSAT_TAKEN } from '../goals/education'
 import { COLLECTION_PAY_DATE, MORTGAGE_CATCHUP_LAST } from '../money/obligations'
 
 export type LaneKey = 'service' | 'macc' | 'law' | 'law28' | 'jobs' | 'money'
@@ -17,8 +17,8 @@ export type LaneKey = 'service' | 'macc' | 'law' | 'law28' | 'jobs' | 'money'
 export const LANES: { key: LaneKey; label: string; color: string; note?: string }[] = [
   { key: 'service', label: 'Service', color: 'var(--series-1)' },
   { key: 'macc', label: 'MAcc — TAMUCC minimesters', color: 'var(--series-7)', note: '7-week terms; 6 of 30 hours done' },
-  { key: 'law', label: 'Law school — fall 2027 entry (the plan’s law path)', color: 'var(--series-2)' },
-  { key: 'law28', label: 'Law school — fall 2028 entry (if the LSAT slips)', color: 'var(--series-2)', note: 'the fallback cycle' },
+  { key: 'law', label: 'Law school — fall 2027 entry (the plan’s law path)', color: 'var(--series-2)', note: 'LSAT taken 13 Nov' },
+  { key: 'law28', label: 'Law school — fall 2028 entry', color: 'var(--series-2)', note: 'the next cycle, applying early' },
   { key: 'jobs', label: 'Job hunt', color: 'var(--series-4)' },
   { key: 'money', label: 'Money', color: 'var(--series-5)' },
 ]
@@ -60,14 +60,20 @@ export const PLAN_BARS: PlanBar[] = [
   { lane: 'macc', label: 'Fall II — 2 courses, last block', start: '2027-10-18', end: '2027-12-10', estimated: true, note: '24 hours left = 8 courses = four minimesters at 2 each.' },
   { lane: 'macc', label: 'CPA exams', start: '2028-01-01', end: '2028-06-30', estimated: true, note: 'The CPA path’s exam months.' },
 
-  // ── Law, fall 2027 entry: the 2026–27 cycle, applying late. ──
-  { lane: 'law', label: 'LSAT — study for the January sitting', start: '2026-11-19', end: lsat('jan_2027').testDate, note: 'In person at Prometric; the active-duty-abroad exception has to be approved.' },
-  { lane: 'law', label: 'Apply — late in the cycle (“real cost”)', start: lsat('jan_2027').scoreRelease!, end: '2027-03-31', note: 'Seats and scholarship money are largely committed by February.' },
-  { lane: 'law', label: 'Decisions come back', start: '2027-03-01', end: '2027-05-01', estimated: true },
+  // ── Law, fall 2027 entry: the 2026–27 cycle. LSAT taken remotely 13 Nov; apply as soon
+  //    as the score is in — December and January are still workable, February costs. ──
+  {
+    lane: 'law',
+    label: 'Apply — Dec–Jan (late but workable)',
+    start: LSAT_TAKEN.scoreExpected,
+    end: '2027-01-31',
+    note: 'Fine with above-median numbers; scholarship money thins as the weeks go. Have the essays, résumé and letters ready before the score lands.',
+  },
+  { lane: 'law', label: 'Decisions come back', start: '2027-01-15', end: '2027-04-15', estimated: true },
   { lane: 'law', label: '1L — Texas Tech', start: '2027-08-16', end: '2028-05-15', estimated: true },
 
   // ── Law, fall 2028 entry: the 2027–28 cycle, applying early. ──
-  { lane: 'law28', label: 'LSAT — any 2027 sitting', start: lsat('apr_2027').testDate, end: '2027-08-31', estimated: true },
+  { lane: 'law28', label: 'Retake, only if you want a higher score', start: lsat('apr_2027').testDate, end: '2027-08-31', estimated: true },
   { lane: 'law28', label: 'Apply — the strong months', start: '2027-09-01', end: '2027-11-30', note: 'September–October is the best time in the cycle; November still strong.' },
   { lane: 'law28', label: 'Decisions come back', start: '2027-12-15', end: '2028-04-15', estimated: true },
 
@@ -85,9 +91,14 @@ export const PLAN_POINTS: PlanPoint[] = [
   // MAcc
   { lane: 'macc', label: 'MAcc done', date: '2027-12-10', estimated: true },
   // Law 2027
-  { lane: 'law', label: 'Register for the January LSAT', date: lsat('jan_2027').registrationDeadline! },
-  { lane: 'law', label: 'LSAT', date: lsat('jan_2027').testDate },
-  { lane: 'law', label: 'Score', date: lsat('jan_2027').scoreRelease! },
+  { lane: 'law', label: 'LSAT taken (remote)', date: LSAT_TAKEN.date },
+  { lane: 'law', label: 'Score', date: LSAT_TAKEN.scoreExpected, estimated: true, note: 'About three weeks after the sitting — your LSAC account has the real date.' },
+  {
+    lane: 'law',
+    label: 'Retake? Register for the February LSAT',
+    date: lsat('feb_2027').registrationDeadline!,
+    note: `Only if the score is under target. Sitting ${lsat('feb_2027').testDate}, score ${lsat('feb_2027').scoreRelease} — which pushes applications into the costly weeks.`,
+  },
   { lane: 'law', label: 'Decision: law, or MAcc + job', date: '2027-05-01', decision: true, estimated: true, note: 'Admissions and scholarship offers in hand; seat deposits due around now. Weigh against job offers.' },
   { lane: 'law', label: '1L starts', date: '2027-08-16', estimated: true },
   // Law 2028
