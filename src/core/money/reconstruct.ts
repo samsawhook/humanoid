@@ -55,6 +55,12 @@ export const NOV1_TXNS: Txn[] = [
   T('2026-11-09', 16.23, 'Apple', 'tech', 'Subscriptions — AI, email & domains, Apple'),
   T('2026-11-02', 113.91, "Levi's", 'personal', 'Personal local (food, shopping)'),
   T('2026-11-02', 130.72, 'Adidas', 'personal', 'Personal local (food, shopping)'),
+  /**
+   * Money back from friends counts against personal spending, not as income (your rule,
+   * 19 Nov). This posts as "Money Transfer … From Samuel Sawhook" — a cash-out from your own
+   * Cash App balance — two days after the Adidas order you were repaid for.
+   */
+  T('2026-11-04', -152.66, 'Repaid — Cash App cash-out (the Adidas order, +$21.94 more)', 'personal', 'Personal local (food, shopping)'),
   T('2026-10-29', 53.88, 'Restaurant', 'personal', 'Personal local (food, shopping)'),
   T('2026-10-29', 8.71, 'Restaurant', 'personal', 'Personal local (food, shopping)'),
   T('2026-10-30', 50.0, 'Venmo to a friend ($25 + $25)', 'personal', 'Personal local (food, shopping)'),
@@ -76,7 +82,6 @@ export const NOV1_TXNS: Txn[] = [
 /** Money in that is not this paycheck's pay. */
 export const NOV1_OTHER_IN = {
   dfas: { date: '2026-11-04' as LocalDate, amount: 26, description: 'DFAS — small adjustment' },
-  transfer: { date: '2026-11-05' as LocalDate, amount: 152.66, description: 'Transfer in from your other account' },
 }
 
 const r2 = (n: number) => Math.round(n * 100) / 100
@@ -169,25 +174,18 @@ export function nov1Statement(): PaycheckStatement {
     total: r2(tsp + nth.total),
   }
   const checkingChange = r2(NOV1.checkingAfter - NOV1.checkingBefore)
-  const otherChange = r2(-NOV1_OTHER_IN.transfer.amount)
   const netCash: StatementSection = {
     key: 'cash',
     label: 'Net cash',
     lines: [
       { key: 'checking', label: `Change to checking ($${NOV1.checkingBefore} → $${NOV1.checkingAfter})`, amount: checkingChange, txns: [] },
-      {
-        key: 'other',
-        label: 'Change to your other account (moved into checking)',
-        amount: otherChange,
-        txns: [{ ...NOV1_OTHER_IN.transfer, payday: NOV1.payday, status: 'posted' }],
-      },
     ],
-    total: r2(checkingChange + otherChange),
+    total: r2(checkingChange),
   }
   const debt = spending.find((s) => s.key === 'debt')?.total ?? 0
   const car = spending.find((s) => s.key === 'car')?.total ?? 0
   const bsLines: StatementLine[] = [
-    { key: 'bs_cash', label: 'Cash (checking + other account)', amount: netCash.total, txns: [] },
+    { key: 'bs_cash', label: 'Cash (checking)', amount: netCash.total, txns: [] },
     { key: 'bs_tsp', label: 'TSP (your 5% + the match)', amount: r2(tsp * 2), txns: [] },
     { key: 'bs_nth', label: 'Nth Venture', amount: nth.total, txns: [] },
     { key: 'bs_debt', label: 'Debt paid down (incl. some interest — approx.)', amount: r2(debt + car), txns: [] },

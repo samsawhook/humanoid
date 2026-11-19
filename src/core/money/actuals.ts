@@ -20,6 +20,12 @@ export const ACTUALS_AS_OF = {
   availableBalance: 845.14,
 }
 
+/**
+ * Money back from friends — a Venmo or Cash App payment in, or a cash-out from your own
+ * Cash App balance — is entered as a NEGATIVE amount on the personal line it pays back
+ * (your rule, 19 Nov): it counts against personal spending, not as income, and gets no
+ * category of its own.
+ */
 export interface Actual {
   date: LocalDate
   amount: number
