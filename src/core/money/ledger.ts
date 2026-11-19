@@ -33,7 +33,7 @@ export const GROUPS: { key: GroupKey; label: string; side: Side }[] = [
   { key: 'tsp', label: 'TSP / 401(k)', side: 'asset' },
   { key: 'savings', label: 'Savings', side: 'asset' },
   { key: 'cash', label: 'Cash (checking)', side: 'asset' },
-  { key: 'nth', label: 'Nth Venture (your business)', side: 'asset' },
+  { key: 'nth', label: 'Your businesses', side: 'asset' },
   { key: 'house', label: 'House value', side: 'asset' },
 ]
 
@@ -73,7 +73,7 @@ function pnlGroup(k: string): (typeof PNL_GROUPS)[number] {
   if (/Taxes|Self-employment/.test(k)) return 'Taxes'
   if (/Mortgage|New home|Rent in|Corpus house|cost premium|Rural extras|countryside|Home upgrade/.test(k)) return 'Home'
   if (/Wife & Kids|Family support|Children|New baby/.test(k)) return 'Wife & Kids'
-  if (/Your spending|Tricare|VA waived|Practice costs/.test(k)) return 'Personal'
+  if (/Your spending|Tricare|VA waived/.test(k)) return 'Personal'
   if (/Debt payments|UT loan/.test(k)) return 'Debt'
   if (/401\(k\)|Nth/.test(k)) return 'Investing'
   if (/Moving|Bar exam|CPA review|Spouse income/.test(k)) return 'School & moves'
@@ -180,6 +180,12 @@ export const ACCOUNTS: AccountDef[] = [
   { key: 'savings', label: 'Savings', group: 'savings', note: 'Emergency fund, SDP and future fund while deployed; after you are home, all cash above the checking float.' },
   { key: 'checking', label: 'WF Joint Checking', group: 'cash', note: `What each paycheck leaves behind; after you are home, a ${'$'}${CHECKING_FLOAT.toLocaleString()} float.` },
   {
+    key: 'practice',
+    label: 'Accounting practice — 1× revenue',
+    group: 'nth',
+    note: 'Only on the sole-proprietor route: your practice, valued at its last twelve months of fees billed — what small accounting practices sell for.',
+  },
+  {
     key: 'nth',
     label: 'Nth Venture — at cost',
     group: 'nth',
@@ -256,6 +262,7 @@ export function buildLedger(path: PathKey | 'country' | Scenario): Ledger {
     savings: 0,
     checking: 845.14,
     nth: 0,
+    practice: 0,
     house_chamberlain: a.houseValue,
     house_new: 0,
   }
@@ -373,6 +380,7 @@ export function buildLedger(path: PathKey | 'country' | Scenario): Ledger {
         savings,
         checking,
         nth: r2(pm ? pm.investments : 0),
+        practice: r2(pm ? pm.businessValue : 0),
         house_chamberlain: r2(chamberlainValue),
         house_new: r2(Math.max(0, homeTotal - chamberlainValue)),
       },

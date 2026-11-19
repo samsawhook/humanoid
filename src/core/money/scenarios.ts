@@ -173,8 +173,8 @@ export const SCENARIOS: Scenario[] = [
       ['2041-09', 200000],
       ['2046-12', 240000],
     ],
-    { selfEmployed: true, practiceCosts: 400 },
-    ['Clients: the practice ramps from ~$25k of bookkeeping', 'Self-employment tax; no employer match; $400/mo practice costs'],
+    { selfEmployed: true },
+    ['Clients: the practice ramps from ~$25k of bookkeeping', 'Self-employment tax; no employer match; practice costs ~35% of revenue', 'The practice counted at 1× revenue (what small practices sell for)'],
   ),
   {
     id: 'cpa_country',

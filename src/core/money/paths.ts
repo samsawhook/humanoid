@@ -266,8 +266,8 @@ export const PATH_ASSUMPTIONS = {
     licensed: '2028-09',
     /** Sole-proprietor variant: no employer match, self-employment tax, practice costs. */
     selfEmployed: false as boolean,
-    /** Monthly practice costs when self-employed, 2027 dollars. */
-    practiceCosts: 0,
+    /** Sole proprietor: the share of revenue the practice spends (profit is the rest). */
+    practiceCostShare: 0.35,
     /**
      * A FORK of the Corpus CPA path, off by default (your framing, 14 Nov: "a fork from
      * Corpus CPA"). Remote work, and out to the countryside as soon as possible. The
@@ -351,6 +351,8 @@ export interface PathMonth {
   netWorth: number
   /** Enrolled this month — student loans deferred. */
   inSchool: boolean
+  /** Your own practice, valued at 1× trailing-12-month revenue (0 unless sole proprietor). */
+  businessValue: number
 }
 
 export interface PathProjection {
@@ -457,6 +459,8 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
   let newPI = 0
   let newLoc = ''
   let jobMonths = 0
+  /** The practice's revenue, month by month — its value is the last twelve. */
+  const revenueLog: number[] = []
   let inCountry = false
   const priceIdx = (m: string) => Math.pow(1 + a.homeAppreciation, (monthIndex(m) - monthIndex('2027-01')) / 12)
 
@@ -618,8 +622,15 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
       }
 
       const selfEmployed = key === 'macc' && !!macc.selfEmployed
+      // A sole proprietor's 'salary' is the practice's profit. Revenue runs higher: the
+      // practice keeps ~65¢ of each dollar billed, the rest is its costs.
+      const revenue = selfEmployed && salary > 0 ? salary / (1 - macc.practiceCostShare) : 0
+      if (selfEmployed) revenueLog.push(revenue)
       if (salary > 0) {
-        income[selfEmployed ? 'Practice profit (sole proprietor)' : 'Salary'] = salary
+        if (selfEmployed) {
+          income['Practice revenue (fees billed)'] = revenue
+          costs[`Practice costs (≈${Math.round(macc.practiceCostShare * 100)}% of revenue: software, insurance, CPE, staff)`] = revenue - salary
+        } else income['Salary'] = salary
         taxableWages += salary
         const k401 = salary * a.employee401k
         // A sole proprietor has no employer match: the solo 401(k) is all yours.
@@ -628,7 +639,6 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
         invested += k401
         // Self-employment tax: both halves of FICA, so another 7.65% on top of the employee half.
         if (selfEmployed) costs['Self-employment tax (the employer half of FICA)'] = salary * 0.0765
-        if (selfEmployed && macc.practiceCosts) costs['Practice costs (software, insurance, CPE, office)'] = macc.practiceCosts * infl
       }
       // Tax: federal on annualised wages (less the pre-tax 401k), FICA, and the flat
       // withholding on the summer job. No state income tax in Texas.
@@ -756,6 +766,8 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
     if (!dep) cash += net
 
     const liabilities = mortgage + newMortgage + debt + ut + chargeOffs
+    // The practice is an asset: small accounting practices sell for about 1× a year's revenue.
+    const businessValue = revenueLog.slice(-12).reduce((s, v) => s + v, 0)
     months.push({
       month: m,
       phase,
@@ -771,8 +783,9 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
       homeValue: r2(homeValue + newValue),
       mortgage: r2(mortgage + newMortgage),
       debt: r2(debt + ut + chargeOffs),
-      netWorth: r2(cash + investments + retirement + homeValue + newValue - liabilities),
+      netWorth: r2(cash + investments + retirement + homeValue + newValue + businessValue - liabilities),
       inSchool: schoolNow,
+      businessValue: r2(businessValue),
     })
   }
 
