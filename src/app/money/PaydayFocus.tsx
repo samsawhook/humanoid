@@ -453,7 +453,11 @@ function Section({
   const budget = out.reduce((s, l) => s + l.amount, 0)
   const spentAll = out.reduce((s, l) => s + (l.spent ?? 0), 0)
   const color = CAT_COLOR[sec.key] ?? CAT_COLOR.other!
-  const todos = sec.lines.filter((l) => lineChip(l, spendable)?.cls === 'todo').length
+  // Count the to-dos themselves: a line with two cards to pay is two, not one.
+  const todos = sec.lines.reduce(
+    (t, l) => t + (l.accounts ? l.accounts.filter((r) => r.status === 'todo').length : lineChip(l, spendable)?.cls === 'todo' ? 1 : 0),
+    0,
+  )
   return (
     <details className="sec" open={open}>
       <summary>
