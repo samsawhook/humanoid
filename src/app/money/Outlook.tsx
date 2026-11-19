@@ -615,12 +615,12 @@ export function MoneyShell({
     <div className="mlayout">
       <nav className="mnav" aria-label="Money views">
         {NAV.map((n) => (
-          <button key={n.key} className={n.key === view ? 'on' : ''} onClick={() => setView(n.key)} aria-current={n.key === view} title={n.hint}>
+          <button key={n.key} className={n.key === view ? 'on' : ''} onClick={() => setView(n.key)} aria-current={n.key === view} aria-label={n.label} title={`${n.label} — ${n.hint}`}>
             <span className="mnav-row">
               <svg className="mnav-ic" viewBox="0 0 24 24" aria-hidden fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
                 {ICON[n.key]}
               </svg>
-              {n.label}
+              <span className="mnav-label">{n.label}</span>
             </span>
             <small>{n.hint}</small>
           </button>
