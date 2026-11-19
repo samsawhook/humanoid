@@ -300,7 +300,7 @@ export function paycheckStatement(a: Allocation, next: Allocation | undefined, a
           sp.setUTCDate(sp.getUTCDate() - 4)
           const d = new Date(Date.UTC(sp.getUTCFullYear(), sp.getUTCMonth() + (sp.getUTCDate() > c.autopay.day ? 1 : 0), c.autopay.day, 12))
           status = 'auto'
-          text = `Autopay $${c.autopay.amount} on ${niceDate(d.toISOString().slice(0, 10))} — nothing to do.${live && c.last ? ` Last paid ${c.last}.` : ''}`
+          text = `Autopay $${c.autopay.amount} on ${niceDate(d.toISOString().slice(0, 10))} — nothing to do.${live && c.last ? ` Last payment: ${c.last}.` : ''}`
         } else if (c.unseen) {
           status = 'check'
           text =
@@ -309,7 +309,7 @@ export function paycheckStatement(a: Allocation, next: Allocation | undefined, a
               : `${c.unseen} Open the app — if a minimum is due, pay it (~$${minimum} est.) from WF Joint Checking.`
         } else if (live) {
           status = 'todo'
-          text = `Not paid yet this month. Pay ${est}.${c.last ? ` Last paid ${c.last}.` : ''}`
+          text = `Not paid yet this month. Pay ${est}.${c.last ? ` Last payment: ${c.last}.` : ''}`
         } else {
           status = 'later'
           text = `Pay ${est} — ${c.when}.`
