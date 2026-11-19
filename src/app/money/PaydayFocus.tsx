@@ -6,7 +6,8 @@ import { PAYMENT_INFO, scheduledFor, CHECKING, SAVINGS, type PaymentInfo, type S
 import { nov1Statement, NOV1 } from '@/core/money/reconstruct'
 import { combineStatements, paycheckStatement, type PaycheckStatement, type StatementLine, type StatementSection } from '@/core/money/statement'
 import { benchmarkRows, type BenchRow, type BenchStatus } from '@/core/money/benchmarks'
-import { limitsFor } from '@/core/money/limits'
+import { PATH_ASSUMPTIONS } from '@/core/money/paths'
+import { limitsFor, tspYear } from '@/core/money/limits'
 import { projectPaycheck } from '@/core/money/paychecks'
 import { monthlyBasicPay } from '@/core/money/drillPay'
 
@@ -315,79 +316,91 @@ const ESTIMATED_MINIMUMS = ['platinum', 'brightway', 'credit_one', 'citi', 'capi
 
 export interface Maxing {
   year: number
-  /** Your own TSP / 401(k) contributions so far this year (through this month). */
-  yours: number
-  /** The match so far. */
-  match: number
-  ira: number
-  /** Part of `yours` estimated (paychecks before the plan's data begins). */
-  estimatedPart: number
-  /** Month this is through, and your contribution in it. */
+  /** Month this card is through. */
   month: string
-  monthRate: number
-  /** Where the year ends at this month's rate. */
-  pace: number
+  /** Your rate: 5% of base pay, a month. The match is the same. */
+  ratePct: number
+  rateMonthly: number
+  /** Your own TSP so far this year, by pay date (paychecks through this month). */
+  yours: number
+  /** Part of `yours` estimated (2026, before the plan's data). */
+  estimatedPart: number
+  /** The whole year as planned: deployed paychecks, then drill pay once you are home. */
+  yearEnd: number
+  /** Deployed paychecks left this year after this month. */
+  checksLeft: number
+  /** What each of those would need, to reach the elective limit. */
+  perCheckToMax: number
+  /** Half-month base pay, to turn that into a rate. */
+  basePerCheck: number
+  /** True once the plan has you home this year (the civilian 401(k) is path-dependent). */
+  homeThisYear: boolean
   /** Yours since the orders began (31 Jul 2026) — it doesn't reset in January. */
   sinceOrders: number
 }
 
-/** Progress toward the year's limits: one bar each, filled = in so far. */
+/** Your rate, then the year's progress to each IRS limit, in dollars first. */
 function MaxingBox({ m }: { m: Maxing }) {
   const L = limitsFor(m.year)
-  const monthsLeft = 12 - Number(m.month.slice(5, 7))
-  const rows = [
-    {
-      k: `TSP / 401(k) — your contributions, ${m.year} so far`,
-      v: m.yours,
-      max: L.elective,
-      tip: `The elective limit covers your TSP and any civilian 401(k) together.${m.estimatedPart > 0 ? ` Includes ~${usd(m.estimatedPart)} ESTIMATED before the plan's data — drills, the 4-week AT and Jul 31 – Nov 1 at 5% of base. Your LES shows the real year-to-date.` : ''}`,
-    },
-    {
-      k: 'TSP all-in, with the match (tax-free pay can go this high)',
-      v: m.yours + m.match,
-      max: L.additions,
-      tip: 'The annual-additions limit: everything into the TSP. Combat-zone tax-free pay can be contributed up to this, not just the elective limit.',
-    },
-    {
-      k: 'IRA (Roth or traditional)',
-      v: m.ira,
-      max: L.ira,
-      tip: `Contributions for ${m.year} count until 15 Apr ${m.year + 1}. Tax-free combat pay counts as compensation.`,
-    },
-  ]
+  const pct = (v: number, max: number) => (v / max) * 100
+  const bar = (k: string, v: number, end: number, max: number, tip: string) => {
+    const p = Math.min(100, pct(v, max))
+    const pe = Math.min(100, pct(end, max))
+    return (
+      <div className="mx-row" key={k} title={tip}>
+        <div className="mx-top">
+          <span>{k}</span>
+          <span className="mx-amt">
+            {usd(v)} <span className="ln-dim">of {usd(max)} limit</span>
+          </span>
+        </div>
+        <div className="mx-bar">
+          <i className="mx-end" style={{ width: `${pe}%` }} />
+          <i style={{ width: `${Math.max(p, v > 0 ? 0.6 : 0)}%` }} />
+        </div>
+        <div className="mx-sub ln-dim">
+          {p.toFixed(1)}% of the limit used so far · {usd(end)} ({pe.toFixed(0)}%) by Dec as planned
+        </div>
+      </div>
+    )
+  }
   return (
     <div className="maxing">
       <div className="maxing-title">
-        Progress to the {m.year} max{L.estimated ? ' (limits are estimates until the IRS posts them)' : ''}
+        Retirement — {m.year}, through {m.month.slice(5) === '12' ? 'December' : new Date(`${m.month}-15`).toLocaleString('en-US', { month: 'long' })}
+        {L.estimated ? ' (limits estimated until the IRS posts them)' : ''}
       </div>
       <div className="mx-facts">
-        <span title="Your contributions in this month's two paychecks.">
-          This month <b>{usd(m.monthRate)}</b>
+        <span title="Your election. 5% is the most that earns the full BRS match (1% automatic + 4% matching).">
+          Your rate <b>{m.ratePct}% of base pay</b> · {usd(m.rateMonthly)}/mo
         </span>
-        <span title="Year so far plus this month's rate for the months left. After you are home the civilian 401(k) takes over.">
-          On pace for <b>{usd(m.pace)}</b> by Dec {m.year}
-          {monthsLeft > 0 ? ` (${((m.pace / L.elective) * 100).toFixed(0)}% of the limit)` : ''}
+        <span title="The Army's BRS contributions: 1% automatic + 4% matching on your 5%. Traditional by default; they count toward the all-in limit, not yours.">
+          Army match <b>{m.ratePct}%</b> · {usd(m.rateMonthly)}/mo
         </span>
         <span title="Your own contributions since the orders began on 31 Jul 2026. The yearly limits start over each January; this doesn't.">
-          Since 31 Jul 2026 <b>{usd(m.sinceOrders)}</b> yours · <b>{usd(m.sinceOrders * 2)}</b> with the match
+          Since 31 Jul 2026 <b>{usd(m.sinceOrders)}</b> yours · {usd(m.sinceOrders * 2)} with the match
         </span>
       </div>
-      {rows.map((r) => {
-        const p = Math.min(100, (r.v / r.max) * 100)
-        return (
-          <div className="mx-row" key={r.k} title={r.tip}>
-            <div className="mx-top">
-              <span>{r.k}</span>
-              <span className="mx-amt">
-                {usd(r.v)} <span className="ln-dim">of {usd(r.max)} · {p.toFixed(1)}%</span>
-              </span>
-            </div>
-            <div className="mx-bar">
-              <i style={{ width: `${Math.max(p, r.v > 0 ? 0.6 : 0)}%` }} />
-            </div>
-          </div>
-        )
-      })}
+      {bar(
+        'TSP / 401(k) — yours',
+        m.yours,
+        m.yearEnd,
+        L.elective,
+        `The elective limit: your TSP and any civilian 401(k) together, Roth or traditional, counted by the date paid (the 1 Jan paycheck is paid 31 Dec, so it counts in the year before).${m.estimatedPart > 0 ? ` Includes ~${usd(m.estimatedPart)} ESTIMATED before the plan's data — drills, the 4-week AT and 31 Jul – 1 Nov at 5% of base. Your LES shows the real year-to-date.` : ''}${m.homeThisYear ? ' After you are home: drill pay at 5%; a civilian 401(k) depends on the path and is not in this.' : ''}`,
+      )}
+      {bar(
+        'TSP all-in — yours + the match',
+        m.yours * 2,
+        m.yearEnd * 2,
+        L.additions,
+        'The annual-additions limit: everything into the TSP. Traditional contributions from combat-zone tax-free pay can go above the elective limit, up to this. Roth contributions count against the elective limit.',
+      )}
+      {bar('IRA (Roth or traditional)', 0, 0, L.ira, `Contributions for ${m.year} count until 15 Apr ${m.year + 1}. Tax-free combat pay counts as compensation.`)}
+      {m.checksLeft > 0 && (
+        <div className="mx-note">
+          To max the {usd(L.elective)} this year you would need {usd(m.perCheckToMax)} a paycheck for the {m.checksLeft} left — your 5% is {usd(m.rateMonthly / 2)}. Not in the plan; shown for scale.
+        </div>
+      )}
     </div>
   )
 }
@@ -929,18 +942,37 @@ export function PaydayFocus({
   )
   const maxingThrough = (month: string): Maxing => {
     const year = Number(month.slice(0, 4))
-    const plan = allocations
-      .filter((a) => a.paycheck.scheduledDate.slice(0, 4) === String(year) && a.paycheck.scheduledDate.slice(0, 7) <= month)
-      .reduce((t, a) => t + tspOf(a), 0)
+    const inYear = allocations.filter((a) => tspYear(a.paycheck.scheduledDate) === year)
+    const sumOf = (xs: Allocation[]) => xs.reduce((t, a) => t + tspOf(a), 0)
     const est = year === 2026 ? prePlan : 0
-    const yours = r2(plan + est)
-    const monthRate = r2(
-      allocations.filter((a) => a.paycheck.scheduledDate.slice(0, 7) === month).reduce((t, a) => t + tspOf(a), 0) +
-        PRE_PLAN_2026.filter((d) => d.slice(0, 7) === month).reduce((t, d) => t + (projectPaycheck(d).deductions.find((x) => x.key === 'tsp')?.amount ?? 0), 0),
-    )
-    const pace = r2(yours + monthRate * (12 - Number(month.slice(5, 7))))
+    // Through this month: paychecks dated in it or before. A 1 Jan check paid 31 Dec counts
+    // in December's card.
+    const through = inYear.filter((a) => a.paycheck.scheduledDate.slice(0, 7) <= month || tspYear(a.paycheck.scheduledDate) < Number(a.paycheck.scheduledDate.slice(0, 4)) && month.endsWith('-12'))
+    const yours = r2(sumOf(through) + est)
+    // After the plan's last paycheck: drill weekends at 5% of drill pay.
+    const lastPay = allocations.at(-1)!.paycheck.scheduledDate
+    const lastMonth = Number(lastPay.slice(5, 7))
+    const homeThisYear = Number(lastPay.slice(0, 4)) === year
+    const drillTsp = homeThisYear ? 0.05 * PATH_ASSUMPTIONS.drillMonthly * (12 - lastMonth) : 0
+    const yearEnd = r2(sumOf(inYear) + est + drillTsp)
+    const left = inYear.filter((a) => !through.includes(a))
+    const L = limitsFor(year)
+    const basePerCheck = r2(monthlyBasicPay() / 2)
     const sinceOrders = r2(sinceOrdersBeforePlan + allocations.filter((a) => a.paycheck.scheduledDate.slice(0, 7) <= month).reduce((t, a) => t + tspOf(a), 0))
-    return { year, yours, match: yours, ira: 0, estimatedPart: est, month, monthRate, pace, sinceOrders }
+    return {
+      year,
+      month,
+      ratePct: 5,
+      rateMonthly: r2(monthlyBasicPay() * 0.05),
+      yours,
+      estimatedPart: est,
+      yearEnd,
+      checksLeft: left.length,
+      perCheckToMax: left.length ? r2(Math.max(0, L.elective - yours) / left.length) : 0,
+      basePerCheck,
+      homeThisYear,
+      sinceOrders,
+    }
   }
   // Savings balance after each paycheck: what the save lines put in, less emergency draws.
   const saveKeys = (BUCKETS.find((b) => b.key === 'save')?.keys ?? []) as readonly string[]
