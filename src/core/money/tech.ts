@@ -1,6 +1,6 @@
 /**
- * Tech, item by item — from the Wells Fargo statements (Jul–Nov 2026) and the T-Mobile
- * bill issued 7 Nov 2026. Everything drafts from WF Joint Checking by debit card.
+ * Tech, item by item — from the Wells Fargo statements (Jul–Nov 2026), your bank-app
+ * screenshots and the T-Mobile bill issued 7 Nov 2026. Nothing from Monarch. Everything drafts from WF Joint Checking by debit card.
  *
  * Each item sits on the paycheck whose spending window holds its draft day: the 1st's money
  * is spendable from ~the 27th, the 15th's from ~the 11th. So almost every subscription
@@ -76,11 +76,11 @@ export const SUBSCRIPTIONS: TechItem[] = [
   {
     key: 'apple_14',
     name: 'Apple — $14.06',
-    what: '$12.99 + 8.25% Texas sales tax — which app?',
+    what: '$12.99 + tax, "Recurring Payment" on the statements — app unknown (Family Sharing?)',
     amount: 14.06,
     day: 6,
     payday: 'first',
-    seen: '6 Jul, 12 Aug, 6 Sep, 9 Nov',
+    seen: '6 Jul, 12 Aug, 6 Sep',
   },
   {
     key: 'apple_16',
