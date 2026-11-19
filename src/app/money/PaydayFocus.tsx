@@ -307,6 +307,45 @@ function lineChip(l: StatementLine, spendable: string): Chip | null {
   return { text: `To do · ${so}${usd(l.amount - spent)}${l.date ? '' : ` from ${nice(spendable)}`}`, cls: 'todo' }
 }
 
+const LIGHT_TEXT: Record<string, string> = { green: 'on track', yellow: 'close', red: 'off', none: '' }
+
+/** The month view's comparison strip: you, then six benchmarks — a number, a light, a hover. */
+function BenchStrip({ b }: { b?: BenchRow }) {
+  if (!b) return <div className="bstrip" aria-hidden />
+  return (
+    <div className="bstrip">
+      <span className="bcell you" title={b.key === 'invest' ? 'Your share of gross, with the Army’s match' : 'Your share of gross'}>
+        {b.you.toFixed(1)}%
+      </span>
+      {b.cells.map((c) => (
+        <span
+          key={c.key}
+          className={`bcell light-${c.light}`}
+          title={`${c.tip}${c.light !== 'none' ? ` — you are ${LIGHT_TEXT[c.light]}` : ''}`}
+        >
+          {c.light !== 'none' && <i className="bdot" />}
+          {c.text}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function BenchHeader() {
+  return (
+    <div className="bench-head">
+      <span />
+      <div className="bstrip">
+        {['You', 'Typical', 'Advisor', 'Robo', 'Ramsey', 'Kiyosaki', 'Plan'].map((h) => (
+          <span key={h} className="bcell">
+            {h}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /** What is still to go out of checking this paycheck: budget not yet seen, plus the savings transfer. */
 function stillToGo(st: PaycheckStatement): number {
   const out = [...st.spending.flatMap((x) => x.lines), ...st.investing.lines.filter((l) => l.key !== 'tsp')].filter(
@@ -333,6 +372,7 @@ function Line({
   showActuals,
   color,
   base,
+  bench,
 }: {
   l: StatementLine
   gross: number
@@ -341,11 +381,13 @@ function Line({
   color: string
   /** What every bar is a share of: gross pay, one scale for categories, lines and items. */
   base: number
+  bench?: BenchRow
 }) {
   const chip = showActuals || l.scheduled || l.todo || l.info ? lineChip(l, spendable) : null
   const todo = chip?.cls === 'todo'
   return (
     <div className={`ln${todo ? ' ln-todo' : ''}`}>
+      <div className={bench ? 'bench-row' : undefined}>
       <div className="ln-top">
         <div className="ln-name">
           {l.label}
@@ -356,6 +398,8 @@ function Line({
           {!l.nonCash && <span className="ln-pct">{pct(l.amount, gross)}</span>}
           {showActuals && !l.nonCash && l.spent !== undefined && <OutLeft budget={l.amount} out={l.spent} />}
         </div>
+      </div>
+      {bench && <BenchStrip b={bench} />}
       </div>
       {/* Every line gets its pill: length = its share of gross (the same scale everywhere), fill = paid. */}
       {!l.nonCash && l.amount > 0 && (
@@ -440,6 +484,8 @@ function Section({
   sign = '−',
   open = false,
   bar = true,
+  bench,
+  lineBench,
 }: {
   sec: StatementSection
   gross: number
@@ -448,6 +494,10 @@ function Section({
   sign?: string
   open?: boolean
   bar?: boolean
+  /** Month view: the comparison strip for this category. */
+  bench?: BenchRow
+  /** Month view: a strip for a single line (Nth, inside Investing). */
+  lineBench?: Record<string, BenchRow>
 }) {
   const out = sec.lines.filter((l) => !l.nonCash && l.amount > 0 && l.spent !== undefined)
   const budget = out.reduce((s, l) => s + l.amount, 0)
@@ -461,6 +511,7 @@ function Section({
   return (
     <details className="sec" open={open}>
       <summary>
+        <div className={bench !== undefined || lineBench ? 'bench-row' : undefined}>
         <div className="sec-top">
           <span className="sec-name">
             <i className="swatch-dot" style={{ background: color }} />
@@ -474,13 +525,15 @@ function Section({
             {showActuals && budget > 0 && <OutLeft budget={budget} out={spentAll} />}
           </span>
         </div>
+        {(bench !== undefined || lineBench) && <BenchStrip b={bench} />}
+        </div>
         {bar && sec.total > 0 && (
           <BudgetBar amount={budget || sec.total} gross={gross} spent={spentAll} showPaid={showActuals} color={color} />
         )}
       </summary>
       <div className="sec-body">
         {sec.lines.map((l) => (
-          <Line key={l.key} l={l} gross={gross} spendable={spendable} showActuals={showActuals} color={color} base={gross} />
+          <Line key={l.key} l={l} gross={gross} spendable={spendable} showActuals={showActuals} color={color} base={gross} bench={lineBench?.[l.key]} />
         ))}
       </div>
     </details>
@@ -537,6 +590,8 @@ function PaydayCard({
   spendable: string
 }) {
   const g = st.gross.total
+  const benchRows = bench ? benchmarkRows(st) : null
+  const bx = (k: string) => (benchRows ? (benchRows.find((r) => r.key === k) ?? undefined) : undefined)
   return (
     <article className={`pcard${wide ? ' pcard-wide' : ''}${bench ? ' pcard-bench' : ''}`}>
       <header className="pcard-head">
@@ -581,21 +636,27 @@ function PaydayCard({
           </div>
         )
       })()}
-      {bench && <MonthTable st={st} />}
-      {!bench && (
       <div className="pcard-body">
       <div className="pcol">
+      {bench && <BenchHeader />}
       <Section sec={st.gross} gross={g} spendable={spendable} showActuals={false} sign="" bar={false} />
-      <Section sec={st.deductions} gross={g} spendable={spendable} showActuals={false} bar={false} />
+      <Section sec={st.deductions} gross={g} spendable={spendable} showActuals={false} bar={false} bench={bx('deductions')} />
       <Total label="Net income" amount={st.netIncome} gross={g} strong />
       {st.spending.map((sec) => (
-        <Section key={sec.key} sec={sec} gross={g} spendable={spendable} showActuals={showActuals} />
+        <Section key={sec.key} sec={sec} gross={g} spendable={spendable} showActuals={showActuals} bench={bx(sec.key)} />
       ))}
       <Total label="Free cash flow" amount={st.freeCashFlow} gross={g} note="After home, car, Wife & Kids, personal and debt" strong />
       </div>
       <div className="pcol">
-      <Section sec={st.investing} gross={g} spendable={spendable} showActuals={showActuals} />
-      <Section sec={st.netCash} gross={g} spendable={spendable} showActuals={false} sign={st.netCash.total < 0 ? '−' : '+'} bar={false} />
+      <Section
+        sec={st.investing}
+        gross={g}
+        spendable={spendable}
+        showActuals={showActuals}
+        bench={bx('invest')}
+        lineBench={benchRows ? { nth_investments: bx('business')! } : undefined}
+      />
+      <Section sec={st.netCash} gross={g} spendable={spendable} showActuals={false} sign={st.netCash.total < 0 ? '−' : '+'} bar={false} bench={bx('cash')} />
       {(() => {
         const d = (k: string) => st.netCash.lines.find((l) => l.key === k)?.amount ?? 0
         // The cash walk for checking: where it starts, what comes in, what has gone, what is
@@ -677,7 +738,6 @@ function PaydayCard({
       {short > 0 && <div className="chip chip-over" style={{ marginTop: 8 }}>{usd(short)} of bills can&rsquo;t be covered by this paycheck</div>}
       </div>
       </div>
-      )}
     </article>
   )
 }
@@ -690,160 +750,6 @@ const BENCH_CHIP: Record<BenchStatus, { cls: string; text: string }> = {
   info: { cls: 'auto', text: '—' },
 }
 
-/**
- * The one-month view: ONE table. Each category is a row across the full width — your
- * dollars and share on the left, then typical, the advisor rule, the robo, Ramsey,
- * Kiyosaki, the plan target and status. Tap a category to open its lines beneath it.
- */
-function MonthTable({ st }: { st: PaycheckStatement }) {
-  const g = st.gross.total
-  const bench = benchmarkRows(st)
-  const b = (k: string) => bench.find((r) => r.key === k)
-  const sec = (k: string) => st.spending.find((x) => x.key === k)
-  const isNth = (l: StatementLine) => l.key === 'nth_investments' || /Nth/.test(l.label)
-  const tsp = st.investing.lines.filter((l) => !isNth(l))
-  const nth = st.investing.lines.filter(isNth)
-  const cash = (ls: StatementLine[]) => ls.filter((l) => !l.nonCash).reduce((t, l) => t + l.amount, 0)
-
-  type Row =
-    | { kind: 'group'; key: string; label: string; amount: number; sign: string; lines: StatementLine[]; bench?: BenchRow }
-    | { kind: 'total'; label: string; amount: number }
-  const rows: Row[] = [
-    { kind: 'group', key: 'gross', label: 'Gross income', amount: g, sign: '', lines: st.gross.lines },
-    { kind: 'group', key: 'deductions', label: 'Deduction expenses', amount: st.deductions.total, sign: '−', lines: st.deductions.lines, bench: b('deductions') },
-    { kind: 'total', label: 'Net income', amount: st.netIncome },
-    ...st.spending.map(
-      (x): Row => ({ kind: 'group', key: x.key, label: x.label, amount: x.total, sign: '−', lines: x.lines, bench: b(x.key) }),
-    ),
-    { kind: 'total', label: 'Free cash flow', amount: st.freeCashFlow },
-    { kind: 'group', key: 'invest', label: 'Investing (TSP)', amount: cash(tsp), sign: '−', lines: tsp, bench: b('invest') },
-    ...(nth.length ? [{ kind: 'group' as const, key: 'business', label: 'Nth — your business', amount: cash(nth), sign: '−', lines: nth, bench: b('business') }] : []),
-    { kind: 'group', key: 'cash', label: 'Net cash', amount: st.netCash.total, sign: st.netCash.total < 0 ? '−' : '+', lines: st.netCash.lines, bench: b('cash') },
-    { kind: 'group', key: 'bs', label: 'Balance sheet impact', amount: st.balanceSheet.total, sign: '+', lines: st.balanceSheet.lines },
-    { kind: 'total', label: 'Net worth change (approx.)', amount: st.balanceSheet.total },
-  ]
-  const pctOf = (n: number) => `${((n / g) * 100).toFixed(1)}%`
-  const voice = (v?: { pct: number; why: string }, status?: BenchStatus) =>
-    v ? (
-      <>
-        <div className="v-pct">
-          {v.pct}%
-          {status && status !== 'info' && <span className={`chip chip-${BENCH_CHIP[status].cls} v-chip`}>{BENCH_CHIP[status].text}</span>}
-        </div>
-        <div className="v-why">{v.why}</div>
-      </>
-    ) : null
-
-  return (
-    <div className="tablewrap mt-wrap">
-      <table className="monthtable">
-        <thead>
-          <tr>
-            <th>Category</th>
-            <th className="num">This month</th>
-            <th className="num">% gross</th>
-            <th>Typical, age 25–34</th>
-            <th>Advisor rule</th>
-            <th>Robo, tuned to you</th>
-            <th>Dave Ramsey</th>
-            <th>Robert Kiyosaki</th>
-            <th>Plan target</th>
-            <th>Status vs plan</th>
-          </tr>
-        </thead>
-        {rows.map((r, i) => {
-          if (r.kind === 'total') {
-            return (
-              <tbody key={`t${i}`} className="mt-total">
-                <tr>
-                  <td>{r.label}</td>
-                  <td className={`num${r.amount < 0 ? ' neg' : ''}`}>{usd(r.amount)}</td>
-                  <td className="num">{pctOf(r.amount)}</td>
-                  <td colSpan={7} />
-                </tr>
-              </tbody>
-            )
-          }
-          const bx = r.bench
-          return (
-            <tbody key={r.key} className="mt-grp">
-              <tr className="mt-head">
-                <td>
-                  <label className="mt-name">
-                    <input type="checkbox" className="mt-tog" />
-                    <i className="swatch-dot" style={{ background: CAT_COLOR[r.key] ?? CAT_COLOR.other }} />
-                    {r.label}
-                  </label>
-                </td>
-                <td className="num b-you">
-                  {r.sign}
-                  {usd(Math.abs(r.amount))}
-                </td>
-                <td className="num b-you">
-                  {bx ? `${bx.you.toFixed(1)}%` : pctOf(r.amount)}
-                  {bx?.key === 'invest' && <div className="v-why">incl. match</div>}
-                </td>
-                <td>{bx?.typical}</td>
-                <td>{bx?.advisor}</td>
-                <td>{voice(bx?.robo, bx?.robo.status)}</td>
-                <td>{voice(bx?.ramsey)}</td>
-                <td>{voice(bx?.kiyosaki)}</td>
-                <td>{bx?.target}</td>
-                <td>
-                  {bx && (
-                    <>
-                      <span className={`chip chip-${BENCH_CHIP[bx.status].cls}`} style={{ marginTop: 0 }}>
-                        {BENCH_CHIP[bx.status].text}
-                      </span>
-                      {bx.verdict && <div className="b-verdict">{bx.verdict}</div>}
-                    </>
-                  )}
-                </td>
-              </tr>
-              {r.lines.map((l) => (
-                <tr key={l.key} className="mt-line">
-                  <td>
-                    {l.label}
-                    {l.date && <span className="ln-dim"> · {nice(l.date)}</span>}
-                  </td>
-                  <td className={`num${l.nonCash ? ' ln-dim' : ''}`}>{l.nonCash ? `(${usd(l.amount)})` : usd(l.amount)}</td>
-                  <td className="num ln-dim">{pctOf(l.amount)}</td>
-                  <td colSpan={7} className="mt-meta">
-                    {l.info && `${l.info.from} → ${l.info.to}`}
-                    {(l.spent ?? 0) > 0 && !l.nonCash && <span> · {usd(l.spent!)} gone out</span>}
-                    {(l.unfunded ?? 0) > 0 && <span className="neg"> · ⚠ {usd(l.unfunded!)} over budget</span>}
-                    {l.accounts && <span> · {l.accounts.map((a) => a.name).join(', ')}</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          )
-        })}
-        <tbody className="mt-total">
-          <tr>
-            <td>Allocations</td>
-            <td />
-            <td className="num">{bench.reduce((t, r) => t + r.you, 0).toFixed(0)}%</td>
-            <td colSpan={2} className="v-why">Yours counts the Army’s match, so it tops 100%.</td>
-            <td>{bench.reduce((t, r) => t + r.robo.pct, 0)}%</td>
-            <td>{bench.reduce((t, r) => t + r.ramsey.pct, 0)}%</td>
-            <td>{bench.reduce((t, r) => t + r.kiyosaki.pct, 0)}%</td>
-            <td colSpan={2} />
-          </tr>
-        </tbody>
-      </table>
-      <p className="b-note">
-        <strong>Robo</strong>: what an automated planner would set from your profile alone — not from this plan: deployed and
-        tax-free to July, a household to run, ~$18k of card-rate debt, little cash, and an uncertain income from August. Match
-        first, runway second, highest-rate debt third, then investing. <strong>Ramsey</strong> and <strong>Kiyosaki</strong>:
-        paraphrased from their published advice and applied to you — not quotes. Each of the three sums to 100% of gross.
-        Typical: US households with a head aged 25–34, approximate (BLS Consumer Expenditure Survey, Fed debt-service ratio,
-        Vanguard How America Saves); your gross includes untaxed BAH and BAS, so every share reads a little low. Tap a category
-        to see its lines; the 1st and 15th cards have every transaction.
-      </p>
-    </div>
-  )
-}
 
 const r2 = (n: number) => Math.round(n * 100) / 100
 

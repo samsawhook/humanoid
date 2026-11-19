@@ -34,6 +34,48 @@ export interface BenchRow {
   robo: Voice & { status: BenchStatus }
   ramsey: Voice
   kiyosaki: Voice
+  /** The same comparisons condensed: one number or range each, a light, and the commentary for a hover. */
+  cells: BenchCell[]
+  /** Your share less one-time payments (a payoff, a catch-up). */
+  adjusted: number
+}
+
+export type Light = 'green' | 'yellow' | 'red' | 'none'
+
+export interface BenchCell {
+  key: 'typical' | 'advisor' | 'robo' | 'ramsey' | 'kiyosaki' | 'target'
+  label: string
+  text: string
+  tip: string
+  light: Light
+}
+
+/** Short, comparable versions of the typical figure and the advisor rule, per category. */
+const SHORT: Record<string, { typical?: number; advisor?: { text: string; min?: number; max?: number } }> = {
+  deductions: { typical: 16 },
+  home: { typical: 25, advisor: { text: '≤28%', max: 28 } },
+  car: { typical: 13, advisor: { text: '10–15%', max: 15 } },
+  sent: { typical: 10, advisor: { text: '≤7%', max: 7 } },
+  personal: { typical: 11, advisor: { text: '≤27%', max: 27 } },
+  tech: { typical: 4, advisor: { text: '3–5%', min: 3, max: 5 } },
+  debt: { typical: 5, advisor: { text: '≤36% w/ home' } },
+  invest: { typical: 12, advisor: { text: '≥15%', min: 15 } },
+  business: { typical: 0 },
+  cash: { typical: 5, advisor: { text: '3–6 mo' } },
+}
+
+const r1x = (n: number) => Math.round(n * 10) / 10
+
+/** Within a bound: green; a little outside (≤2 pts): yellow; further: red. */
+function lightBound(v: number, min?: number, max?: number): Light {
+  if (min === undefined && max === undefined) return 'none'
+  const off = Math.max(0, min !== undefined ? min - v : 0, max !== undefined ? v - max : 0)
+  return off <= 0 ? 'green' : off <= 2 ? 'yellow' : 'red'
+}
+/** Near a point: within 2 pts green, within 5 yellow, beyond red. */
+function lightPoint(v: number, p: number): Light {
+  const d = Math.abs(v - p)
+  return d <= 2 ? 'green' : d <= 5 ? 'yellow' : 'red'
 }
 
 export interface Voice {
@@ -236,6 +278,7 @@ export function benchmarkRows(st: PaycheckStatement): BenchRow[] {
   }
   const homeAndDebt = r1(you.home! + you.debt!)
   return RULES.map((r) => {
+    const vo = VOICES[r.key]!
     const v = you[r.key]!
     /** The share without one-time payments (a payoff, a catch-up), when there are any. */
     let adj = v
@@ -271,14 +314,66 @@ export function benchmarkRows(st: PaycheckStatement): BenchRow[] {
       }
     }
     if (r.key === 'invest') verdict += ` · incl. ${pct(match)}% match`
-    const vo = VOICES[r.key]!
-    const rb = vo.robo
+    const rb = VOICES[r.key]!.robo
     const roboStatus: BenchStatus =
       rb.max !== undefined && adj > rb.max ? 'over' : rb.min !== undefined && v < rb.min ? 'under' : rb.max !== undefined || rb.min !== undefined ? 'on' : 'info'
+    const sh = SHORT[r.key] ?? {}
+    const fixedRow = !!r.fixed
+    const cells: BenchCell[] = [
+      {
+        key: 'typical',
+        label: 'Typical',
+        text: sh.typical !== undefined ? `${sh.typical}%` : '—',
+        tip: `Typical, age 25–34: ${r.typical}`,
+        light: fixedRow || sh.typical === undefined ? 'none' : lightPoint(adj, sh.typical),
+      },
+      {
+        key: 'advisor',
+        label: 'Advisor',
+        text: sh.advisor?.text ?? '—',
+        tip: `Advisor rule: ${r.advisor}`,
+        light:
+          r.key === 'debt'
+            ? lightBound(r1x(adj + you.home!), undefined, 36)
+            : fixedRow || !sh.advisor
+              ? 'none'
+              : lightBound(adj, sh.advisor.min, sh.advisor.max),
+      },
+      {
+        key: 'robo',
+        label: 'Robo',
+        text: `${vo.robo.pct}%`,
+        tip: `Robo, tuned to you: ${vo.robo.why}`,
+        light: r.key === 'deductions' ? 'none' : vo.robo.min !== undefined || vo.robo.max !== undefined ? lightBound(adj, vo.robo.min, vo.robo.max) : lightPoint(adj, vo.robo.pct),
+      },
+      {
+        key: 'ramsey',
+        label: 'Ramsey',
+        text: `${vo.ramsey.pct}%`,
+        tip: `Dave Ramsey (paraphrased): ${vo.ramsey.why}`,
+        light: r.key === 'deductions' ? 'none' : lightPoint(adj, vo.ramsey.pct),
+      },
+      {
+        key: 'kiyosaki',
+        label: 'Kiyosaki',
+        text: `${vo.kiyosaki.pct}%`,
+        tip: `Robert Kiyosaki (paraphrased): ${vo.kiyosaki.why}`,
+        light: r.key === 'deductions' ? 'none' : lightPoint(adj, vo.kiyosaki.pct),
+      },
+      {
+        key: 'target',
+        label: 'Plan',
+        text: r.max !== undefined ? `≤${r.max}%` : r.min !== undefined ? `≥${r.min}%` : r.fixed ? 'fixed' : '—',
+        tip: `Plan target: ${r.target}${verdict ? ` — ${verdict}` : ''}`,
+        light: fixedRow ? 'none' : status === 'on' ? 'green' : lightBound(adj, r.min, r.max),
+      },
+    ]
     return {
       key: r.key,
       label: r.label,
       you: v,
+      cells,
+      adjusted: adj,
       amount: Math.round(((v / 100) * g) * 100) / 100,
       typical: r.typical,
       advisor: r.advisor,
