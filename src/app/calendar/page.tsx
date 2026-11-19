@@ -1,105 +1,180 @@
-import { NODES, MILESTONES } from '@/core/goals/seed'
 import { TIMELINE } from '@/core/money/rates'
 import { projectPaychecks } from '@/core/money/paychecks'
 import { allocateAll } from '@/core/money/allocation'
 import { OBLIGATIONS, ONE_OFFS } from '@/core/money/obligations'
-import { localDaysBetween, startOfIsoWeek, addLocalDays } from '@/core/time/localDay'
+import { localDaysBetween } from '@/core/time/localDay'
 import { adminItemsFor } from '@/core/money/adminItems'
-import { Figure, TableView, Timeline, seriesColor } from '@/components/viz'
+import { LANES, PLAN_BARS, PLAN_POINTS, upcoming, type LaneKey } from '@/core/plan/calendar'
+import type { LocalDate } from '@/core/types'
 
 export const dynamic = 'force-dynamic'
 
-const TODAY = '2026-08-05'
+function todayInTexas(): LocalDate {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' }) as LocalDate
+}
+
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const nice = (d: string) => {
+  const t = new Date(d + 'T12:00:00Z')
+  return `${t.getUTCDate()} ${MON[t.getUTCMonth()]} ${String(t.getUTCFullYear()).slice(2)}`
+}
+
+const FROM = '2026-11-01'
+const TO = '2028-10-01'
 
 /**
- * The calendar, at the resolution the horizon actually supports.
- *
- * Not a month grid. At this range a month grid would be mostly empty boxes, and the
- * things that matter — when windows open and shut, when money lands, when the era
- * changes — are spans and points, not days.
+ * One Gantt, one row per thing: service, the minimesters, both law-school cycles, the
+ * job hunt and the money milestones. Bars are spans, diamonds are dates; hatched or
+ * faded means the date is my estimate.
  */
-export default function CalendarPage() {
-  const allocations = allocateAll(projectPaychecks(TODAY, TIMELINE.lastPayday), OBLIGATIONS, ONE_OFFS)
-  const admin = adminItemsFor(allocations)
+function PlanGantt({ today }: { today: LocalDate }) {
+  const labelW = 300
+  const plotW = 1080
+  const W = labelW + plotW + 16
+  const rowH = 24
+  const laneH = 30
+  const top = 34
+  const t0 = Date.parse(FROM + 'T00:00:00Z')
+  const t1 = Date.parse(TO + 'T00:00:00Z')
+  const x = (d: string) => labelW + ((Date.parse(d + 'T00:00:00Z') - t0) / (t1 - t0)) * plotW
 
-  const eras = [
-    {
-      key: 'premob',
-      label: 'Pre-mob',
-      start: TIMELINE.premobStart,
-      end: TIMELINE.deploymentStart,
-      color: seriesColor(3),
-    },
-    {
-      key: 'deployed',
-      label: 'Deployed',
-      start: TIMELINE.deploymentStart,
-      end: TIMELINE.expectedReturn,
-      color: seriesColor(0),
-      estimated: true,
-      note: 'End date is the 11-month read; orders run to ' + TIMELINE.ordersMaxEnd,
-    },
-    {
-      key: 'czte',
-      label: 'CZTE',
-      start: TIMELINE.czteStart,
-      end: TIMELINE.expectedReturn,
-      color: seriesColor(2),
-      note: 'Tax-free. Cannot be earned at any other time in your life.',
-    },
-    ...NODES.filter((n) => n.windowClose).map((n, i) => ({
-      key: n.id,
-      label: n.title,
-      start: n.windowOpen ?? TODAY,
-      end: n.windowClose!,
-      color: seriesColor((i % 3) + 3),
-      estimated: n.dateConfidence === 'low',
-      note: n.outcomeDefinition ?? undefined,
-    })),
-  ]
-
-  const upcoming = [
-    { label: 'Nannies start', date: '2026-08-09', kind: 'obligation' },
-    { label: 'FSA begins', date: TIMELINE.fsaStart, kind: 'pay' },
-    { label: 'Ship out — CZTE and IDP begin', date: TIMELINE.deploymentStart, kind: 'era' },
-    { label: 'ODP begins', date: TIMELINE.odpStart, kind: 'pay' },
-    ...MILESTONES.filter((m) => !m.achievedAt && m.targetDate).map((m) => ({
-      label: m.title,
-      date: m.targetDate!,
-      kind: 'milestone',
-    })),
-    ...admin.items.slice(0, 8).map((i) => ({
-      label: i.title,
-      date: i.dueAt!.toISOString().slice(0, 10),
-      kind: 'admin',
-    })),
-  ]
-    .map((e) => ({ ...e, days: localDaysBetween(TODAY, e.date) }))
-    .filter((e) => e.days >= 0)
-    .sort((a, b) => a.days - b.days)
-
-  const weeks = new Map<string, { pay: number; count: number }>()
-  for (const a of allocations) {
-    const w = startOfIsoWeek(a.paycheck.payDate)
-    const prev = weeks.get(w) ?? { pay: 0, count: 0 }
-    weeks.set(w, { pay: prev.pay + a.paycheck.net, count: prev.count + 1 })
+  type Row =
+    | { kind: 'lane'; lane: (typeof LANES)[number] }
+    | { kind: 'bar'; lane: LaneKey; label: string; start: string; end: string; estimated?: boolean; note?: string }
+    | { kind: 'point'; lane: LaneKey; label: string; date: string; estimated?: boolean; decision?: boolean; note?: string }
+  const rows: Row[] = []
+  for (const lane of LANES) {
+    rows.push({ kind: 'lane', lane })
+    const items: Row[] = [
+      ...PLAN_BARS.filter((b) => b.lane === lane.key).map((b) => ({ kind: 'bar' as const, ...b })),
+      ...PLAN_POINTS.filter((p) => p.lane === lane.key).map((p) => ({ kind: 'point' as const, ...p })),
+    ]
+    items.sort((a, b) => {
+      const da = a.kind === 'bar' ? a.start : a.kind === 'point' ? a.date : ''
+      const db = b.kind === 'bar' ? b.start : b.kind === 'point' ? b.date : ''
+      return da < db ? -1 : da > db ? 1 : 0
+    })
+    rows.push(...items)
   }
+  const ys: number[] = []
+  let y = top
+  for (const r of rows) {
+    ys.push(y)
+    y += r.kind === 'lane' ? laneH : rowH
+  }
+  const H = y + 8
+
+  const months: string[] = []
+  for (let i = 0; ; i++) {
+    const d = new Date(Date.UTC(2026, 10 + i, 1))
+    if (d.getTime() > t1) break
+    months.push(d.toISOString().slice(0, 10))
+  }
+  const color = (k: LaneKey) => LANES.find((l) => l.key === k)!.color
+
+  return (
+    <div className="gantt-wrap">
+      <svg className="gantt" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Plan calendar, November 2026 to August 2028">
+        {months.map((m) => {
+          const jan = m.slice(5, 7) === '01'
+          return (
+            <g key={m}>
+              <line x1={x(m)} x2={x(m)} y1={top - 6} y2={H - 6} stroke="var(--grid)" strokeWidth={jan ? 1.4 : 0.6} />
+              <text x={x(m) + 3} y={top - 12} className="g-tick">
+                {MON[Number(m.slice(5, 7)) - 1]}
+                {jan || m === FROM ? ` ’${m.slice(2, 4)}` : ''}
+              </text>
+            </g>
+          )
+        })}
+        {rows.map((r, i) => {
+          const yy = ys[i]!
+          if (r.kind === 'lane') {
+            return (
+              <g key={`lane-${r.lane.key}`}>
+                <rect x={0} y={yy + 2} width={W} height={laneH - 4} fill="var(--panel-2)" rx={4} />
+                <rect x={8} y={yy + 10} width={10} height={10} rx={2} fill={r.lane.color} />
+                <text x={26} y={yy + 19} className="g-lane">
+                  {r.lane.label}
+                  {r.lane.note && <tspan className="g-note"> · {r.lane.note}</tspan>}
+                </text>
+              </g>
+            )
+          }
+          const c = color(r.lane)
+          if (r.kind === 'bar') {
+            const x0 = Math.max(labelW, x(r.start))
+            const w = Math.max(4, Math.min(labelW + plotW, x(r.end)) - x0)
+            return (
+              <g key={`b-${i}`} className="g-row">
+                <title>{`${r.label}: ${nice(r.start)} → ${nice(r.end)}${r.estimated ? ' (estimated)' : ''}${r.note ? ` — ${r.note}` : ''}`}</title>
+                <text x={labelW - 10} y={yy + 16} textAnchor="end" className="g-lbl">
+                  {r.label}
+                </text>
+                <rect
+                  x={x0}
+                  y={yy + 5}
+                  width={w}
+                  height={rowH - 10}
+                  rx={4}
+                  fill={c}
+                  fillOpacity={r.estimated ? 0.35 : 1}
+                  stroke={c}
+                  strokeWidth={r.estimated ? 1.5 : 0}
+                  strokeDasharray={r.estimated ? '4 3' : undefined}
+                />
+              </g>
+            )
+          }
+          const cx = x(r.date)
+          const s = 7
+          return (
+            <g key={`p-${i}`} className="g-row">
+              <title>{`${r.label}: ${nice(r.date)}${r.estimated ? ' (estimated)' : ''}${r.note ? ` — ${r.note}` : ''}`}</title>
+              <text x={labelW - 10} y={yy + 16} textAnchor="end" className={`g-lbl${r.decision ? ' g-decision' : ''}`}>
+                {r.decision ? '◇ ' : ''}
+                {r.label}
+              </text>
+              <path
+                d={`M${cx},${yy + 12 - s} L${cx + s},${yy + 12} L${cx},${yy + 12 + s} L${cx - s},${yy + 12} Z`}
+                fill={r.decision ? 'var(--bg)' : c}
+                stroke={r.decision ? 'var(--text)' : 'var(--surface-1)'}
+                strokeWidth={r.decision ? 2 : 1.5}
+                opacity={r.estimated && !r.decision ? 0.65 : 1}
+              />
+              <text x={cx + 11} y={yy + 16} className="g-date">
+                {nice(r.date)}
+              </text>
+            </g>
+          )
+        })}
+        <line x1={x(today)} x2={x(today)} y1={top - 6} y2={H - 6} stroke="var(--status-critical)" strokeWidth={2} />
+        <text x={x(today) + 4} y={H - 8} className="g-today">
+          today
+        </text>
+      </svg>
+    </div>
+  )
+}
+
+export default function CalendarPage() {
+  const today = todayInTexas()
+  const allocations = allocateAll(projectPaychecks(today, TIMELINE.lastPayday), OBLIGATIONS, ONE_OFFS)
+  const admin = adminItemsFor(allocations)
+  const laneLabel = (k: LaneKey) => LANES.find((l) => l.key === k)!.label.split(' — ')[0]
+  const next = upcoming(today).slice(0, 24)
 
   return (
     <>
       <h1>Calendar</h1>
       <p className="sub">
-        Spans and points, not a month grid — at this range the only things that matter are
-        when windows open and shut, when the era changes, and when money lands.
+        The plan from now to the 2028 school year, one row per thing. Bars are spans, diamonds are dates, ◇ is a decision.
+        Dashed or faded means the date is my estimate — hover for the detail.
       </p>
 
-      <h2>The next twelve months</h2>
-      <Figure
-        title="Eras and windows"
-        caption="Hatched bars carry estimated dates. Where CZTE and the deployment overlap is the only period in your life this money can be earned tax-free."
-      >
-        <Timeline from="2026-07-01" to="2028-03-01" today={TODAY} bars={eras} />
-      </Figure>
+      <div className="viz">
+        <PlanGantt today={today} />
+      </div>
 
       <h2>What lands next</h2>
       <div className="panel scroll">
@@ -109,27 +184,35 @@ export default function CalendarPage() {
               <th>Date</th>
               <th>Days</th>
               <th>What</th>
-              <th>Kind</th>
+              <th>Area</th>
             </tr>
           </thead>
           <tbody>
-            {upcoming.map((e) => (
-              <tr key={`${e.date}-${e.label}`}>
-                <td>{e.date}</td>
-                <td className={e.days <= 45 ? 'warn' : ''}>{e.days}</td>
-                <td style={{ whiteSpace: 'normal' }}>{e.label}</td>
-                <td className="muted">{e.kind}</td>
-              </tr>
-            ))}
+            {next.map((e) => {
+              const days = localDaysBetween(today, e.date)
+              return (
+                <tr key={`${e.date}-${e.label}`}>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    {nice(e.date)}
+                    {e.estimated ? <span className="muted"> ~</span> : ''}
+                  </td>
+                  <td className={days <= 30 ? 'warn' : ''}>{days}</td>
+                  <td style={{ whiteSpace: 'normal' }}>
+                    {e.decision ? '◇ ' : ''}
+                    {e.label}
+                    {e.note && <div className="muted" style={{ fontSize: 12 }}>{e.note}</div>}
+                  </td>
+                  <td className="muted">{laneLabel(e.lane)}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
 
       <h2>Payday admin</h2>
       <p className="sub">
-        Each payday&rsquo;s manual transfers, as one pinned item rather than six. Six
-        separate to-dos on the 1st is a list you learn to ignore; one item you do in a
-        single sitting is a thing that gets done.
+        Each payday&rsquo;s manual transfers as one pinned item. The line-by-line detail is on the Money page&rsquo;s paycheck cards.
       </p>
       <div className="panel scroll">
         <table>
@@ -142,7 +225,7 @@ export default function CalendarPage() {
             </tr>
           </thead>
           <tbody>
-            {admin.items.slice(0, 8).map((i) => (
+            {admin.items.slice(0, 6).map((i) => (
               <tr key={i.id}>
                 <td>{i.dueAt!.toISOString().slice(0, 10)}</td>
                 <td>📌 {i.title}</td>
@@ -154,52 +237,6 @@ export default function CalendarPage() {
             ))}
           </tbody>
         </table>
-      </div>
-
-      <h2>Paydays</h2>
-      <div className="panel">
-        <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
-          The 1st and the 15th, shifted back to Friday when they fall on a weekend. Weeks
-          with a payday, through the deployment.
-        </p>
-        <div className="scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Week of</th>
-                <th>Payday</th>
-                <th>Net</th>
-                <th>Biggest line</th>
-                <th>Left over</th>
-              </tr>
-            </thead>
-            <tbody>
-              {allocations.slice(0, 14).map((a) => {
-                const biggest = [...a.lines].sort((x, y) => y.allocated - x.allocated)[0]
-                return (
-                  <tr key={a.paycheck.scheduledDate}>
-                    <td className="muted">{startOfIsoWeek(a.paycheck.payDate)}</td>
-                    <td>{a.paycheck.payDate}</td>
-                    <td>${a.paycheck.net.toLocaleString()}</td>
-                    <td className="muted">
-                      {biggest ? `${biggest.label} $${biggest.allocated.toLocaleString()}` : '—'}
-                    </td>
-                    <td className="muted">
-                      ${a.remainder.toLocaleString()}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="note">
-        <strong>Day-level scheduling lives on <a href="/week">This week</a>.</strong> The
-        queue, the deterministic re-slotter and the ICS feed are all pure functions — they
-        never needed the database, only persistence does. What is still missing is the
-        record of what actually happened, which is what the schema is for.
       </div>
     </>
   )

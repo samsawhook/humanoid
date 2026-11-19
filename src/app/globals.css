@@ -424,3 +424,17 @@ main:has(.mlayout) { max-width: 2000px; padding-left: 24px; padding-right: 24px;
 .mnav-row { display: inline-flex; align-items: center; gap: 9px; }
 .mnav-ic { width: 18px; height: 18px; flex: none; opacity: .75; }
 .mnav button.on .mnav-ic { opacity: 1; color: var(--accent); }
+
+/* Calendar Gantt: one row per thing, lanes as bands. */
+main:has(.gantt-wrap) { max-width: 1600px; }
+.gantt-wrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 6px; }
+.gantt { display: block; width: 100%; min-width: 980px; height: auto; }
+.gantt text { fill: var(--muted); font-size: 12px; }
+.gantt .g-tick { font-size: 11px; }
+.gantt .g-lane { fill: var(--text); font-size: 13px; font-weight: 650; }
+.gantt .g-note { fill: var(--muted); font-weight: 400; }
+.gantt .g-lbl { fill: var(--text); font-size: 12.5px; }
+.gantt .g-decision { font-weight: 700; }
+.gantt .g-date { font-size: 11px; }
+.gantt .g-today { fill: var(--status-critical); font-weight: 600; font-size: 11px; }
+.gantt .g-row:hover .g-lbl { fill: var(--accent); }
