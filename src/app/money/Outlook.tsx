@@ -849,7 +849,17 @@ const CAT_COLORS: Record<string, string> = {
 const STORE = 'return-budget-v2'
 
 /** Your base, then each modification as a step, to a new total and the salary it takes. */
-function BudgetBridge({ spend, other, rating }: { spend: number; other: { va: number; drill: number }; rating: number }) {
+function BudgetBridge({
+  spend,
+  other,
+  rating,
+  loans,
+}: {
+  spend: number
+  other: { va: number; drill: number }
+  rating: number
+  loans: { student: number; ut: number }
+}) {
   const [sel, setSel] = useState<Selection>(BASE_SELECTION)
   useEffect(() => {
     try {
@@ -863,7 +873,7 @@ function BudgetBridge({ spend, other, rating }: { spend: number; other: { va: nu
       window.localStorage.setItem('return-budget-mods', JSON.stringify(next))
     } catch {}
   }
-  const b = buildBridge(sel)
+  const b = buildBridge(sel, loans)
   const delta = b.rows.reduce((t, r) => t + r.amount, 0)
   const extraIncome = b.income.reduce((t, r) => t + r.amount, 0)
   const total = spend + delta
@@ -881,7 +891,7 @@ function BudgetBridge({ spend, other, rating }: { spend: number; other: { va: nu
       ))}
     </div>
   )
-  const groups = ['Location', 'Remote / office', 'Type of work', 'Children'] as const
+  const groups = ['Location', 'Remote / office', 'Type of work', 'School', 'Children'] as const
   return (
     <section className="bridge">
       <h3 className="fig-title">Modifications — your base, then my estimates for each change</h3>
@@ -890,6 +900,7 @@ function BudgetBridge({ spend, other, rating }: { spend: number; other: { va: nu
         <div className="mod"><span>Remote / office</span>{seg('arrangement', ARRANGEMENT_LABEL, (x) => x as Selection['arrangement'])}</div>
         <div className="mod"><span>Type of work</span>{seg('work', WORK_LABEL, (x) => x as Selection['work'])}</div>
         <div className="mod"><span>Children</span>{seg('children', { 1: 'One (base)', 2: 'Two', 3: 'Three' }, (x) => Number(x) as Selection['children'])}</div>
+        <div className="mod"><span>School</span>{seg('macc', { false: 'Done (base)', true: 'Finishing the MAcc' }, (x) => (x === 'true') as Selection['macc'])}</div>
       </div>
       <div className="bridge-table">
         <div className="br-row br-base">
@@ -1205,7 +1216,7 @@ function ReturnBudget() {
           </div>
         </div>
       </article>
-      <BudgetBridge spend={spend} other={other} rating={rating} />
+      <BudgetBridge spend={spend} other={other} rating={rating} loans={{ student: v('debt:student', 75.83), ut: v('debt:ut', 129) }} />
     </section>
   )
 }

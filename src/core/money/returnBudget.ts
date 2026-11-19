@@ -180,8 +180,10 @@ export interface Selection {
   arrangement: ArrangementKey
   work: WorkKey
   children: 1 | 2 | 3
+  /** Still finishing the MAcc (through Dec 2027) while working. */
+  macc: boolean
 }
-export const BASE_SELECTION: Selection = { location: 'corpus', arrangement: 'hybrid', work: 'federal', children: 1 }
+export const BASE_SELECTION: Selection = { location: 'corpus', arrangement: 'hybrid', work: 'federal', children: 1, macc: false }
 
 export const LOCATION_LABEL: Record<LocationKey, string> = {
   corpus: 'Corpus (base)',
@@ -215,7 +217,7 @@ const CITY: Record<LocationKey, { rent: number; childcare: number; driving: numb
 const CORPUS_RENT_NET = 1250
 
 export interface BridgeRow {
-  group: 'Location' | 'Remote / office' | 'Type of work' | 'Children'
+  group: 'Location' | 'Remote / office' | 'Type of work' | 'Children' | 'School'
   label: string
   amount: number
   why: string
@@ -231,7 +233,11 @@ export interface Bridge {
   noSalary: boolean
 }
 
-export function buildBridge(sel: Selection): Bridge {
+/**
+ * `loans`: what the base pays on the two student loans — deferred while you are in any
+ * school (your rule, 19 Nov), so a school option takes them back out.
+ */
+export function buildBridge(sel: Selection, loans: { student: number; ut: number } = { student: 75.83, ut: 129 }): Bridge {
   const c = CITY[sel.location]
   const rows: BridgeRow[] = []
   const income: BridgeRow[] = []
@@ -271,6 +277,12 @@ export function buildBridge(sel: Selection): Bridge {
     add('Type of work', 'Study-hours sitter', 250, 'Evenings and weekends before exams.')
     add('Type of work', 'Books & fees', 80, 'Hazlewood covers tuition.')
     income.push({ group: 'Type of work', label: 'GI Bill housing (averaged)', amount: Math.round(c.mha * 0.8 * 0.75), why: 'MHA at the 80% tier, paid September–May.' })
+  }
+  const inSchool = sel.macc || sel.work === 'nightlaw' || sel.work === 'lawschool'
+  if (inSchool) {
+    const why = sel.macc && sel.work !== 'nightlaw' && sel.work !== 'lawschool' ? 'Enrolled in the MAcc: in-school deferment.' : 'Enrolled in law school: in-school deferment.'
+    add('School', 'Federal student loan (Nelnet) — deferred', -loans.student, why)
+    add('School', 'UT loan (Dept of Education) — deferred', -loans.ut, why)
   }
   if (sel.children > 1) {
     const n = sel.children - 1

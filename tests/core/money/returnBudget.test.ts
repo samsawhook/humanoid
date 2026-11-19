@@ -18,9 +18,22 @@ describe('modifications bridge', () => {
   it('is empty at the base, and moving to Houston with an office job and night law costs more', async () => {
     const { buildBridge, BASE_SELECTION } = await import('@/core/money/returnBudget')
     expect(buildBridge(BASE_SELECTION).rows).toEqual([])
-    const b = buildBridge({ location: 'houston', arrangement: 'office', work: 'nightlaw', children: 2 })
+    const b = buildBridge({ location: 'houston', arrangement: 'office', work: 'nightlaw', children: 2, macc: false })
     expect(b.rows.reduce((t, r) => t + r.amount, 0)).toBeGreaterThan(1000)
     expect(b.income[0]!.amount).toBeGreaterThan(0)
     expect(buildBridge({ ...BASE_SELECTION, work: 'lawschool' }).noSalary).toBe(true)
+  })
+})
+
+describe('student loans in school', () => {
+  it('are deferred in the bridge for any school, and in the 20-year model while enrolled', async () => {
+    const { buildBridge, BASE_SELECTION } = await import('@/core/money/returnBudget')
+    const b = buildBridge({ ...BASE_SELECTION, macc: true })
+    expect(b.rows.filter((r) => r.group === 'School').reduce((t, r) => t + r.amount, 0)).toBeCloseTo(-(75.83 + 129), 2)
+    const { projectPath } = await import('@/core/money/paths')
+    const law = projectPath('law')
+    const inSchool = law.months.filter((m) => m.inSchool)
+    expect(inSchool.length).toBeGreaterThan(30)
+    for (const m of inSchool) expect(m.costs['UT loan plan']).toBeUndefined()
   })
 })

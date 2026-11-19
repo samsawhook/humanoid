@@ -313,12 +313,15 @@ export function buildLedger(path: PathKey | 'country' | Scenario): Ledger {
     } else {
       // Home: the path's debt budget, scheduled payments first, then the priority order.
       let budget = a.debtPaydownMonthly
-      for (const k of ['avant', 'chase', 'student_loan']) {
+      // In school: both student loans are deferred (your rule, 19 Nov) — no scheduled payment,
+      // and the extra goes to the other debts first.
+      const deferred = !!pm?.inSchool
+      for (const k of deferred ? ['avant', 'chase'] : ['avant', 'chase', 'student_loan']) {
         const due = Math.min(budget, bal[k]!, debt(k).scheduledMonthly ?? 0)
         budget = payInOrder(due, [k], bal, pay) + (budget - due)
       }
-      budget = payInOrder(budget, PAYABLE, bal, pay)
-      payInOrder(a.utMonthly, ['ut_loan'], bal, pay)
+      budget = payInOrder(budget, deferred ? PAYABLE.filter((k) => k !== 'student_loan') : PAYABLE, bal, pay)
+      if (!deferred) payInOrder(a.utMonthly, ['ut_loan'], bal, pay)
       // Anything the plan left of the car, arrears or collection is cleared first in practice.
       payInOrder(bal.car! + bal.arrears!, ['car', 'arrears'], bal, pay)
     }

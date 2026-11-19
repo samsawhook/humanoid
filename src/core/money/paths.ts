@@ -349,6 +349,8 @@ export interface PathMonth {
   mortgage: number
   debt: number
   netWorth: number
+  /** Enrolled this month — student loans deferred. */
+  inSchool: boolean
 }
 
 export interface PathProjection {
@@ -470,6 +472,8 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
     const costs: Record<string, number> = {}
     let invested = 0
     let phase = ''
+    /** Enrolled this month (any school): student loans are deferred (your rule, 19 Nov). */
+    let schoolNow = false
 
     // Growth on what is already held.
     investments *= 1 + a.nthReturn / 12
@@ -515,6 +519,7 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
 
       if (key === 'law') {
         const inSchool = between(m, law.schoolStart, law.schoolEnd)
+        schoolNow = inSchool
         const monthNo = Number(m.slice(5, 7))
         if (inSchool) {
           phase = 'Law school'
@@ -565,6 +570,7 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
       } else if (key === 'night') {
         const nt = a.night
         const inSchool = between(m, nt.schoolStart, nt.schoolEnd)
+        schoolNow = inSchool
         const monthNo = Number(m.slice(5, 7))
         if (inSchool && (monthNo >= 9 || monthNo <= 5))
           income['GI Bill housing (MHA, part-time)'] = nt.school.monthlyMha * tier * nt.rateOfPursuit * infl
@@ -596,6 +602,7 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
         }
       } else {
         const enrolled = macc.enrolledMonths.includes(m)
+        schoolNow = enrolled
         if (enrolled) income['GI Bill housing (online)'] = macc.onlineMhaFull * tier
         if (monthIndex(m) < monthIndex(macc.jobStart)) {
           phase = 'Home — job search'
@@ -730,7 +737,8 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
       const debtPay = Math.min(debt, a.debtPaydownMonthly)
       if (debtPay > 0) costs['Debt payments'] = debtPay
       debt -= debtPay
-      const utPay = Math.min(ut, a.utMonthly)
+      // In school: the UT (Dept of Education) loan is deferred — no payment that month.
+      const utPay = schoolNow ? 0 : Math.min(ut, a.utMonthly)
       if (utPay > 0) costs['UT loan plan'] = utPay
       ut -= utPay
 
@@ -764,6 +772,7 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
       mortgage: r2(mortgage + newMortgage),
       debt: r2(debt + ut + chargeOffs),
       netWorth: r2(cash + investments + retirement + homeValue + newValue - liabilities),
+      inSchool: schoolNow,
     })
   }
 
