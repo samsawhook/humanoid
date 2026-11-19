@@ -24,7 +24,7 @@ export const NOV1 = {
   checkingAfter: 27.11,
 }
 
-type Cat = 'home' | 'car' | 'sent' | 'personal' | 'debt' | 'invest' | 'in'
+type Cat = 'home' | 'car' | 'sent' | 'personal' | 'tech' | 'debt' | 'invest' | 'in'
 interface Txn {
   date: LocalDate
   amount: number
@@ -47,12 +47,12 @@ export const NOV1_TXNS: Txn[] = [
   T('2026-11-02', 355.0, 'Westlake — auto loan payment', 'car', 'Auto loan payment'),
   T('2026-10-29', 1150.0, 'Venmo to Sommer — nanny + top-up', 'sent', 'Nanny + top-up'),
   T('2026-11-05', 200.0, 'Venmo to Sommer — supplemental', 'sent', 'Supplemental'),
-  T('2026-11-02', 26.65, 'Squarespace', 'personal', 'Software & subscriptions'),
-  T('2026-11-02', 99.79, 'Hugedomains (sawhook.com)', 'personal', 'Software & subscriptions'),
-  T('2026-11-02', 21.78, 'Google Workspace', 'personal', 'Software & subscriptions'),
-  T('2026-11-03', 32.48, 'Apple', 'personal', 'Software & subscriptions'),
-  T('2026-11-09', 106.6, 'Anthropic (Claude)', 'personal', 'Software & subscriptions'),
-  T('2026-11-09', 16.23, 'Apple', 'personal', 'Software & subscriptions'),
+  T('2026-11-02', 26.65, 'Squarespace', 'tech', 'Subscriptions — AI, email & domains, Apple'),
+  T('2026-11-02', 99.79, 'Hugedomains (sawhook.com)', 'tech', 'Subscriptions — AI, email & domains, Apple'),
+  T('2026-11-02', 21.78, 'Google Workspace', 'tech', 'Subscriptions — AI, email & domains, Apple'),
+  T('2026-11-03', 32.48, 'Apple', 'tech', 'Subscriptions — AI, email & domains, Apple'),
+  T('2026-11-09', 106.6, 'Anthropic (Claude)', 'tech', 'Subscriptions — AI, email & domains, Apple'),
+  T('2026-11-09', 16.23, 'Apple', 'tech', 'Subscriptions — AI, email & domains, Apple'),
   T('2026-11-02', 113.91, "Levi's", 'personal', 'Personal local (food, shopping)'),
   T('2026-11-02', 130.72, 'Adidas', 'personal', 'Personal local (food, shopping)'),
   T('2026-10-29', 53.88, 'Restaurant', 'personal', 'Personal local (food, shopping)'),
@@ -66,7 +66,7 @@ export const NOV1_TXNS: Txn[] = [
   T('2026-11-05', 7.08, 'Local purchase', 'personal', 'Personal local (food, shopping)'),
   T('2026-11-09', 5.72, 'Starbucks', 'personal', 'Personal local (food, shopping)'),
   T('2026-11-09', 8.17, 'Outlet store', 'personal', 'Personal local (food, shopping)'),
-  T('2026-11-09', 10.62, 'Museum', 'personal', 'Entertainment'),
+  T('2026-11-09', 10.62, 'Museum', 'tech', 'Entertainment'),
   T('2026-11-05', 30.0, 'Wells Fargo wire fee (Nth)', 'personal', 'Bank fees'),
   T('2026-11-09', 25.0, 'Brightway (Mastercard ending 28)', 'debt', 'Card minimums — open accounts'),
   T('2026-11-10', 47.0, 'Online transfer to WF Platinum card', 'debt', 'Card minimums — open accounts'),
@@ -86,6 +86,7 @@ const LABEL: Record<Cat, string> = {
   car: 'Car',
   sent: 'Wife & Kids',
   personal: 'Personal spending',
+  tech: 'Tech',
   debt: 'Debt payments',
   invest: 'Investing',
   in: '',
@@ -152,7 +153,7 @@ export function nov1Statement(): PaycheckStatement {
     total: r2(dLines.reduce((s, l) => s + l.amount, 0)),
   }
   const netIncome = r2(gross.total - deductions.total)
-  const spending = (['home', 'car', 'sent', 'personal', 'debt'] as Cat[])
+  const spending = (['home', 'car', 'sent', 'personal', 'tech', 'debt'] as Cat[])
     .map((c) => sectionOf(c, NOV1_TXNS))
     .filter((s) => s.lines.length)
   const freeCashFlow = r2(netIncome - spending.reduce((s, x) => s + x.total, 0))

@@ -210,6 +210,7 @@ export const CAT_COLOR: Record<string, string> = {
   car: '#d95926',
   sent: '#199e70',
   personal: '#c98500',
+  tech: '#2fb5c9',
   debt: '#d55181',
   emergency: '#e66767',
   other: '#7d848f',

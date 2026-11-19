@@ -94,7 +94,7 @@ const sum = (ls: StatementLine[]) => r2(ls.filter((l) => !l.nonCash).reduce((s, 
 
 /** Where each plan line belongs. Lines not listed fall into "Other". */
 const LINE_HOME: Record<string, string> = {
-  phone: 'personal',
+  phone: 'tech',
   mortgage_current: 'home',
   arrears_catchup_payment: 'home',
   mortgage_arrears: 'home',
@@ -127,8 +127,8 @@ const LINE_HOME: Record<string, string> = {
 const LIVING_SPLIT: { sub: string; label: string; section: string; keys: string[] }[] = [
   { sub: 'home_services', label: 'Home services (HVAC plan)', section: 'home', keys: ['home_improvement'] },
   { sub: 'fuel', label: 'Fuel', section: 'car', keys: ['gas'] },
-  { sub: 'software', label: 'Software & subscriptions', section: 'personal', keys: ['subscriptions'] },
-  { sub: 'entertainment', label: 'Entertainment', section: 'personal', keys: ['entertainment'] },
+  { sub: 'software', label: 'Subscriptions — AI, email & domains, Apple', section: 'tech', keys: ['subscriptions'] },
+  { sub: 'entertainment', label: 'Entertainment', section: 'tech', keys: ['entertainment'] },
   {
     sub: 'personal_local',
     label: 'Personal local (PX, food, shopping)',
@@ -150,6 +150,7 @@ const SECTION_LABEL: Record<string, string> = {
   car: 'Car',
   sent: 'Wife & Kids',
   personal: 'Personal spending',
+  tech: 'Tech',
   debt: 'Debt payments',
   emergency: 'Emergencies (assumed)',
   other: 'Other',
@@ -370,7 +371,7 @@ export function paycheckStatement(a: Allocation, next: Allocation | undefined, a
     }
   }
 
-  const order = ['home', 'car', 'sent', 'personal', 'debt', 'emergency', 'other']
+  const order = ['home', 'car', 'sent', 'personal', 'tech', 'debt', 'emergency', 'other']
   const spending: StatementSection[] = order
     .filter((k) => sections.has(k))
     .map((k) => ({ key: k, label: SECTION_LABEL[k]!, lines: sections.get(k)!, total: sum(sections.get(k)!) }))

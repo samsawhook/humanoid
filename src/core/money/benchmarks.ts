@@ -79,9 +79,14 @@ export const VOICES: Record<string, { robo: Voice; ramsey: Voice; kiyosaki: Voic
     kiyosaki: { pct: 30, why: 'Support the family; pay for extras from asset income, not pay.' },
   },
   personal: {
-    robo: { pct: 7, max: 8, why: 'Deployed costs are low; hold the line.' },
-    ramsey: { pct: 3, why: '"Rice and beans" until the debt is gone.' },
-    kiyosaki: { pct: 5, why: 'Pay yourself first; luxuries come from what your assets earn.' },
+    robo: { pct: 3, max: 4, why: 'Deployed costs are low; hold the line.' },
+    ramsey: { pct: 1, why: '"Rice and beans" until the debt is gone.' },
+    kiyosaki: { pct: 2, why: 'Pay yourself first; luxuries come from what your assets earn.' },
+  },
+  tech: {
+    robo: { pct: 4, max: 5, why: 'Keep the phone and pass; cut subscriptions to what earns its keep — AI, email, the domain.' },
+    ramsey: { pct: 2, why: 'Cancel the subscriptions and streaming; cheapest phone plan until debt-free.' },
+    kiyosaki: { pct: 3, why: 'AI, email and the domain are tools of the business — run them through Nth.' },
   },
   debt: {
     robo: { pct: 12, min: 12, why: 'Avalanche: highest rate first. Paying 25% debt beats any return.' },
@@ -159,10 +164,18 @@ const RULES: Rule[] = [
   {
     key: 'personal',
     label: 'Personal spending',
-    typical: '≈15% (food out, fun, clothes, phone, subscriptions)',
-    advisor: 'Wants ≤ 30% of take-home (50/30/20)',
-    target: '≤ 12%',
-    max: 12,
+    typical: '≈11% (food out, clothes, personal care)',
+    advisor: 'Wants ≤ 30% of take-home (50/30/20), tech included',
+    target: '≤ 7%',
+    max: 7,
+  },
+  {
+    key: 'tech',
+    label: 'Tech',
+    typical: '≈4% (phone, streaming, software)',
+    advisor: 'Phone + subscriptions ≈ 3–5%',
+    target: '≤ 7% (phone with the pass, AI, email, domain)',
+    max: 7,
   },
   {
     key: 'debt',
@@ -213,6 +226,7 @@ export function benchmarkRows(st: PaycheckStatement): BenchRow[] {
     car: pct(sec('car')),
     sent: pct(sec('sent')),
     personal: pct(sec('personal')),
+    tech: pct(sec('tech')),
     debt: pct(sec('debt')),
     invest: pct(st.investing.total + match - nthAmt),
     business: pct(nthAmt),
