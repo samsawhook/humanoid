@@ -14,6 +14,10 @@ export interface BudgetLine {
   amount: number
   /** Why this number. */
   basis: string
+  /** Sommer's side: the line of yours this one takes over (yours is $0, "she covers it"). */
+  covers?: string
+  /** A share of what is left after the other lines (saving, fun) — computed, not typed. */
+  share?: number
 }
 
 export interface BudgetCategory {
@@ -82,7 +86,7 @@ export const RETURN_BUDGET: BudgetCategory[] = [
     lines: [
       { key: 'groceries', label: 'Groceries & household', amount: 0, basis: 'Sommer covers it, generally (your note, 19 Nov).' },
       { key: 'childcare', label: 'Childcare (one under five)', amount: 900, basis: 'Corpus daycare, if you both work. Drops to $0 if one of you is home.' },
-      { key: 'kids', label: 'Kids — diapers, clothes, gear', amount: 250, basis: 'Per child under five.' },
+      { key: 'kids', label: 'Kids — clothes & bigger gear', amount: 100, basis: 'Diapers, wipes and baby food are on Sommer’s Amazon & baby line (20 Nov).' },
       { key: 'household', label: 'Her spending & the household extras', amount: 300, basis: 'What the supplemental covers now.' },
     ],
   },
@@ -127,32 +131,54 @@ export const RETURN_BUDGET: BudgetCategory[] = [
 ]
 
 /**
- * Sommer's side: what she covers (your note, 19 Nov: groceries and utilities, generally).
- * My estimates for the amounts; her pay is not known here — until you enter it, it is set
- * to exactly cover her side, so "Combined" starts where your note puts it.
+ * Sommer's side: her numbers (20 Nov). She earns $63k and nets $2,100 on the 1st and 15th.
+ * Her bills first; whatever is left splits evenly between saving and fun.
  */
 export const SOMMER_BUDGET: BudgetCategory[] = [
   {
     key: 'home',
     label: 'Home',
-    lines: [{ key: 'utilities', label: 'Utilities — electric, water, gas, internet', amount: 350, basis: 'Corpus, a family house with AC most of the year. MY ESTIMATE.' }],
+    lines: [
+      { key: 'electric', label: 'Electric', amount: 500, basis: 'Her number (20 Nov).', covers: 'utilities' },
+      { key: 'watergas', label: 'Water & gas', amount: 200, basis: 'Her number (20 Nov).' },
+      { key: 'wifi', label: 'Wi-Fi', amount: 100, basis: 'Her number (20 Nov).' },
+    ],
+  },
+  {
+    key: 'car',
+    label: 'Car',
+    lines: [{ key: 'fuel', label: 'Gas — her car', amount: 150, basis: 'Her number (20 Nov).' }],
   },
   {
     key: 'sent',
     label: 'Wife & Kids',
-    lines: [{ key: 'groceries', label: 'Groceries & household', amount: 900, basis: 'A family of three. MY ESTIMATE.' }],
+    lines: [
+      { key: 'groceries', label: 'Groceries', amount: 800, basis: 'Her number (20 Nov).' },
+      { key: 'dog', label: 'Dog food', amount: 200, basis: 'Her number (20 Nov).' },
+      {
+        key: 'amazon',
+        label: 'Amazon & baby — diapers, wipes, food, household',
+        amount: 300,
+        basis: 'MY ESTIMATE of a typical month with a one-year-old: diapers and wipes ~$90, baby food and snacks ~$80, household and small gear ~$130.',
+      },
+    ],
+  },
+  {
+    key: 'invest',
+    label: 'Investing & saving',
+    lines: [{ key: 'save', label: 'Her saving', amount: 0, basis: 'Half of what is left after her bills.', share: 0.5 }],
   },
   {
     key: 'personal',
     label: 'Personal spending',
-    lines: [{ key: 'own', label: 'Her own costs — car, phone, personal', amount: 0, basis: 'Not known — fill in what she pays for herself.' }],
+    lines: [{ key: 'fun', label: 'Her fun money', amount: 0, basis: 'The other half of what is left after her bills.', share: 0.5 }],
   },
 ]
 export const SOMMER_INCOME: BudgetLine = {
   key: 'pay',
   label: 'Sommer — take-home pay',
-  amount: 0,
-  basis: 'Not known. Until you enter it, it is set to cover her side exactly.',
+  amount: 4200,
+  basis: '$63k a year; she nets $2,100 on the 1st and 15th.',
 }
 
 export const EMPLOYEE_401K = 0.05

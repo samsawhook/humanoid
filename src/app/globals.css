@@ -668,3 +668,4 @@ body:has(nav.rail) main { margin-left: 60px; }
 .who-tag.sommer { border-color: #d07fc0; color: #e3a6d6; }
 
 [hidden] { display: none !important; }
+.rb-computed { display: inline-block; min-width: 72px; text-align: right; padding: 4px 8px; font-variant-numeric: tabular-nums; color: var(--muted); }

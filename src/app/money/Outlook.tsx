@@ -1077,25 +1077,28 @@ function ReturnBudget({ metas }: { metas: ScenarioMeta[] }) {
     cs.map((c) => ({ key: c.key, label: c.label, lines: c.lines.map((l) => ({ ...l, ek: `${prefix}${c.key}:${l.key}`, owner })) }))
   const mine = tag(RETURN_BUDGET, 'me', '')
   const hers = tag(SOMMER_BUDGET, 'sommer', 'w:')
-  const totalOf = (cs: typeof mine) => cs.reduce((t, c) => t + c.lines.reduce((u, l) => u + v(l.ek, l.amount), 0), 0)
+  // Her side: bills first, then what is left splits between saving and fun.
+  const herPay = v('w:in:pay', SOMMER_INCOME.amount)
+  const herBills = hers.reduce((t, c) => t + c.lines.filter((l) => l.share == null).reduce((u, l) => u + v(l.ek, l.amount), 0), 0)
+  const herRemainder = herPay - herBills
+  const valOf = (l: { ek: string; amount: number; share?: number }) => (l.share != null ? Math.max(0, herRemainder) * l.share : v(l.ek, l.amount))
+  const totalOf = (cs: typeof mine) => cs.reduce((t, c) => t + c.lines.reduce((u, l) => u + valOf(l), 0), 0)
   const spend = totalOf(mine)
   const herSpend = totalOf(hers)
-  const herPayEdited = edits['w:in:pay'] !== undefined
-  const herPay = v('w:in:pay', herSpend)
   const herLeft = herPay - herSpend
   // Combined: your categories with hers folded in, then any only she has.
   const merged = [
     ...mine.map((c) => {
       const theirs = hers.find((h) => h.key === c.key)?.lines ?? []
       // Your $0 placeholder for a line she carries ("Sommer covers it") would only repeat it.
-      const yours = c.lines.filter((l) => !(v(l.ek, l.amount) === 0 && theirs.some((t) => t.key === l.key)))
+      const yours = c.lines.filter((l) => !(v(l.ek, l.amount) === 0 && theirs.some((t) => t.key === l.key || t.covers === l.key)))
       return { ...c, lines: [...yours, ...theirs] }
     }),
     ...hers.filter((h) => !mine.some((c) => c.key === h.key)),
   ]
   const cats = (who === 'me' ? mine : who === 'sommer' ? hers : merged).map((c) => ({
     ...c,
-    total: c.lines.reduce((t, l) => t + v(l.ek, l.amount), 0),
+    total: c.lines.reduce((t, l) => t + valOf(l), 0),
   }))
   const viewSpend = cats.reduce((t, c) => t + c.total, 0)
   // Your salary needed: on your side alone, or for the household once her pay is counted.
@@ -1120,12 +1123,12 @@ function ReturnBudget({ metas }: { metas: ScenarioMeta[] }) {
     }
     for (const [title, cs] of [['YOUR SIDE', mine], ['SOMMER’S SIDE', hers]] as const) {
       out.push('', `— ${title} —`)
-      if (cs === hers) out.push(`  ${SOMMER_INCOME.label}: ${herPayEdited ? herPay : `not entered (set to cover her side, ${Math.round(herSpend)})`}`)
+      if (cs === hers) out.push(`  ${SOMMER_INCOME.label}: ${herPay}`, `  Her bills: ${Math.round(herBills)} · left for saving & fun: ${Math.round(herRemainder)}`)
       for (const c of cs) {
-        out.push('', `${c.label}: ${Math.round(c.lines.reduce((t, l) => t + v(l.ek, l.amount), 0) * 100) / 100}`)
+        out.push('', `${c.label}: ${Math.round(c.lines.reduce((t, l) => t + valOf(l), 0) * 100) / 100}`)
         for (const l of c.lines) {
-          const x = v(l.ek, l.amount)
-          out.push(`  ${l.label}: ${x}${x !== l.amount ? ` (estimate was ${l.amount})` : ''}`)
+          const x = Math.round(valOf(l) * 100) / 100
+          out.push(`  ${l.label}: ${x}${l.share != null ? ` (${l.share * 100}% of what is left)` : x !== l.amount ? ` (estimate was ${l.amount})` : ''}`)
         }
       }
     }
@@ -1197,10 +1200,12 @@ function ReturnBudget({ metas }: { metas: ScenarioMeta[] }) {
             {who === 'sommer' ? (
               <>
                 <div className="pcard-title">
-                  Sommer: {usd0(herPay)} in, {usd0(herSpend)} out
+                  Sommer: {usd0(herPay)} in · {usd0(herBills)} bills
                 </div>
                 <div className="pcard-sub">
-                  {herPayEdited ? `${herLeft >= 0 ? '+' : '−'}${usd0(Math.abs(herLeft))} a month after her side` : 'Her pay isn’t entered — set to cover her side exactly. Enter it below.'}
+                  {herRemainder >= 0
+                    ? `${usd0(herRemainder)} left after her bills — ${usd0(herRemainder / 2)} to saving, ${usd0(herRemainder / 2)} to fun`
+                    : `Her bills run ${usd0(-herRemainder)} over her pay`}
                 </div>
               </>
             ) : (
@@ -1217,8 +1222,8 @@ function ReturnBudget({ metas }: { metas: ScenarioMeta[] }) {
             )}
           </div>
           <div className="pcard-gross">
-            <div className="pcard-big">{who === 'sommer' ? `${herLeft >= 0 ? '+' : '−'}${usd0(Math.abs(herLeft))}` : usd0(gross)}</div>
-            <div className="pcard-sub">{who === 'sommer' ? 'left a month' : who === 'both' ? 'household in a month' : 'gross a month'}</div>
+            <div className="pcard-big">{who === 'sommer' ? `${herRemainder >= 0 ? '' : '−'}${usd0(Math.abs(herRemainder))}` : usd0(gross)}</div>
+            <div className="pcard-sub">{who === 'sommer' ? 'left after bills, a month' : who === 'both' ? 'household in a month' : 'gross a month'}</div>
             <div className="rb-actions">
               <button className="btn-ghost" onClick={() => copyExport()}>
                 {copied ? 'Copied ✓' : 'Copy for Claude'}
@@ -1247,7 +1252,7 @@ function ReturnBudget({ metas }: { metas: ScenarioMeta[] }) {
                 <div className="sec-top">
                   <span className="sec-name">
                     <i className="swatch-dot" style={{ background: '#a3aab6' }} />
-                    Gross income
+                    {who === 'sommer' ? 'Take-home pay' : who === 'both' ? 'Income — your gross, her take-home' : 'Gross income'}
                   </span>
                   <span className="sec-amt">{usd0(who === 'sommer' ? herPay : gross)}</span>
                 </div>
@@ -1301,9 +1306,8 @@ function ReturnBudget({ metas }: { metas: ScenarioMeta[] }) {
                     <div className="ln-top">
                       <div className="ln-name">
                         {SOMMER_INCOME.label}
-                        {!herPayEdited && <span className="who-tag">not entered</span>}
                       </div>
-                      <div className="ln-amt">{input('w:in:pay', herSpend)}</div>
+                      <div className="ln-amt">{input('w:in:pay', SOMMER_INCOME.amount)}</div>
                     </div>
                     <div className="ln-meta"><span>{SOMMER_INCOME.basis}</span></div>
                   </div>
@@ -1348,9 +1352,11 @@ function ReturnBudget({ metas }: { metas: ScenarioMeta[] }) {
                           {l.label}
                           {who === 'both' && <span className={`who-tag ${l.owner}`}>{l.owner === 'me' ? 'You' : 'Sommer'}</span>}
                         </div>
-                        <div className="ln-amt">{input(l.ek, l.amount)}</div>
+                        <div className="ln-amt">
+                          {l.share != null ? <span className="rb-computed" title="Computed: a share of what is left after her bills">{usd0(valOf(l))}</span> : input(l.ek, l.amount)}
+                        </div>
                       </div>
-                      {pill(v(l.ek, l.amount), CAT_COLORS[c.key]!)}
+                      {pill(valOf(l), CAT_COLORS[c.key]!)}
                       <div className="ln-meta"><span>{l.basis}</span></div>
                     </div>
                   ))}
