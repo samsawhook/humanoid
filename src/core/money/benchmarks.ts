@@ -52,6 +52,9 @@ export interface BenchCell {
 
 /** Short, comparable versions of the typical figure and the advisor rule, per category. */
 const SHORT: Record<string, { typical?: number; advisor?: { text: string; min?: number; max?: number } }> = {
+  food: { typical: 10, advisor: { text: '10–15%', max: 15 } },
+  childcare: { typical: 10, advisor: { text: '≤7%', max: 7 } },
+  gifts: { typical: 2, advisor: { text: '1–3%', max: 3 } },
   deductions: { typical: 16 },
   home: { typical: 25, advisor: { text: '≤28%', max: 28 } },
   car: { typical: 13, advisor: { text: '10–15%', max: 15 } },
@@ -269,9 +272,99 @@ const RULES: Rule[] = [
   },
 ]
 
+/**
+ * The household (Sommer's side, or both of you together): Wife & Kids is gone — it was a
+ * transfer between you — and Food, Childcare & kids and Gifts take its place. Shares are of
+ * the household's money in (your gross, her take-home). Each voice still sums to 100%.
+ */
+const HOUSEHOLD_RULES: Rule[] = [
+  { ...RULES.find((r) => r.key === 'deductions')!, fixed: 'Yours only — combat-zone exclusion; hers are taken before her pay lands.' },
+  { ...RULES.find((r) => r.key === 'home')!, target: '≤ 25% (the mortgage and her utilities)', max: 25 },
+  { ...RULES.find((r) => r.key === 'car')! },
+  { key: 'food', label: 'Food', typical: '≈10% (groceries + eating out)', advisor: '10–15% of take-home', target: '≤ 12%', max: 12 },
+  {
+    key: 'childcare',
+    label: 'Childcare & kids',
+    typical: 'Childcare alone ≈ 10% for families paying for it',
+    advisor: 'Childcare ≤ 7% of household income (the HHS affordability line)',
+    target: 'As planned — the nanny while you are away',
+    fixed: 'Fixed by your call: with you deployed, full-time care keeps the household running.',
+  },
+  { key: 'gifts', label: 'Gifts', typical: '≈2% (gifts and occasions)', advisor: '1–3%, budgeted ahead', target: '≤ 3%', max: 3 },
+  { ...RULES.find((r) => r.key === 'personal')!, typical: '≈11% (clothes, personal care, fun)', target: '≤ 10% (both of your fun money)', max: 10 },
+  { ...RULES.find((r) => r.key === 'tech')!, target: '≤ 5%', max: 5 },
+  { ...RULES.find((r) => r.key === 'debt')!, target: '≥ 5% until the cards are clear', min: 5 },
+  { ...RULES.find((r) => r.key === 'invest')!, target: '5% of your base + the match', min: 3 },
+  RULES.find((r) => r.key === 'brokerage')!,
+  RULES.find((r) => r.key === 'business')!,
+  { ...RULES.find((r) => r.key === 'cash')!, target: '≥ 8% — her savings and yours', min: 8 },
+]
+
+const HOUSEHOLD_VOICES: typeof VOICES = {
+  deductions: VOICES.deductions!,
+  home: {
+    robo: { pct: 20, max: 25, why: 'Mortgage and utilities under 25% of household income. No upgrade until the return settles.' },
+    ramsey: { pct: 20, why: 'Under his 25%-of-take-home line. The Four Walls come first.' },
+    kiyosaki: { pct: 18, why: '"Your house is a liability." Keep it lean; rent it out when you move.' },
+  },
+  car: {
+    robo: { pct: 3, max: 8, why: 'Insurance and fuel for two drivers. No car payment.' },
+    ramsey: { pct: 3, why: 'Cash cars only. No payments.' },
+    kiyosaki: { pct: 2, why: 'A liability. Insurance and fuel only.' },
+  },
+  food: {
+    robo: { pct: 10, max: 12, why: 'Groceries are fixed; eating out is the flex while the cards are owed.' },
+    ramsey: { pct: 8, why: 'Food is one of the Four Walls — groceries yes, restaurants no until debt-free.' },
+    kiyosaki: { pct: 9, why: 'Eat well at home; dining out is a luxury your assets should pay for.' },
+  },
+  childcare: {
+    robo: { pct: 20, max: 22, why: 'Essential with one parent deployed and one working. It falls when you are home.' },
+    ramsey: { pct: 20, why: 'Care is a Four Walls expense — it comes before any debt.' },
+    kiyosaki: { pct: 20, why: 'Buys your wife’s working hours — the household’s other income.' },
+  },
+  gifts: {
+    robo: { pct: 2, max: 3, why: 'Budget gifts and holidays monthly so December is already paid for.' },
+    ramsey: { pct: 1, why: 'Cash only, set aside ahead. No Christmas on a card.' },
+    kiyosaki: { pct: 1, why: 'Small; experiences over things.' },
+  },
+  personal: {
+    robo: { pct: 7, max: 10, why: 'Both of your fun money. Hold it here until the cards are done.' },
+    ramsey: { pct: 3, why: '"Live like no one else" — fun money near zero until debt-free.' },
+    kiyosaki: { pct: 5, why: 'Pay yourselves first; spend from what is left.' },
+  },
+  tech: {
+    robo: { pct: 3, max: 5, why: 'Phone and the subscriptions that earn their keep.' },
+    ramsey: { pct: 2, why: 'Cheapest phone plan; cancel streaming until debt-free.' },
+    kiyosaki: { pct: 3, why: 'The AI, email and domain are business tools — run them through Nth.' },
+  },
+  debt: {
+    robo: { pct: 8, min: 5, why: 'Avalanche: highest rate first. A guaranteed ~25% beats any return.' },
+    ramsey: { pct: 22, why: 'Snowball: every spare dollar, her fun money included, at the smallest balance.' },
+    kiyosaki: { pct: 8, why: 'Kill the bad debt — keep building the business meanwhile.' },
+  },
+  invest: {
+    robo: { pct: 4, min: 3, why: 'Your TSP for the full match. Her 401(k) match too, if her employer offers one.' },
+    ramsey: { pct: 0, why: 'Pause investing until debt-free; then 15% to retirement.' },
+    kiyosaki: { pct: 2, why: 'Keep the match; wary of paper funds you don’t control.' },
+  },
+  brokerage: VOICES.brokerage!,
+  business: {
+    robo: { pct: 4, why: 'Treat Nth as a fixed bill while its creditors are owed.' },
+    ramsey: { pct: 4, why: 'Pay what you personally owe; no new borrowing for it.' },
+    kiyosaki: { pct: 20, why: 'The B quadrant — the right game, once it pays you.' },
+  },
+  cash: {
+    robo: { pct: 14, min: 8, why: 'Her savings and yours: build 3 months of runway before you are home.' },
+    ramsey: { pct: 12, why: 'Baby Step 1 first ($1,000), then it all goes to the snowball — her savings included.' },
+    kiyosaki: { pct: 7, why: '"Savers are losers": a buffer, the rest into assets that pay.' },
+  },
+}
+
 const r1 = (n: number) => Math.round(n * 10) / 10
 
-export function benchmarkRows(st: PaycheckStatement): BenchRow[] {
+export function benchmarkRows(st: PaycheckStatement, profile: 'sam' | 'household' = 'sam'): BenchRow[] {
+  const rules = profile === 'household' ? HOUSEHOLD_RULES : RULES
+  const voices = profile === 'household' ? HOUSEHOLD_VOICES : VOICES
   const g = st.gross.total
   if (g <= 0) return []
   const pct = (n: number) => r1((n / g) * 100)
@@ -286,6 +379,9 @@ export function benchmarkRows(st: PaycheckStatement): BenchRow[] {
     home: pct(sec('home')),
     car: pct(sec('car')),
     sent: pct(sec('sent')),
+    food: pct(sec('food')),
+    childcare: pct(sec('childcare')),
+    gifts: pct(sec('gifts')),
     personal: pct(sec('personal')),
     tech: pct(sec('tech')),
     debt: pct(sec('debt')),
@@ -295,8 +391,8 @@ export function benchmarkRows(st: PaycheckStatement): BenchRow[] {
     cash: pct(st.netCash.total),
   }
   const homeAndDebt = r1(you.home! + you.debt!)
-  return RULES.map((r) => {
-    const vo = VOICES[r.key]!
+  return rules.map((r) => {
+    const vo = voices[r.key]!
     const v = you[r.key]!
     /** The share without one-time payments (a payoff, a catch-up), when there are any. */
     let adj = v
@@ -332,7 +428,7 @@ export function benchmarkRows(st: PaycheckStatement): BenchRow[] {
       }
     }
     if (r.key === 'invest') verdict += ` · incl. ${pct(match)}% match`
-    const rb = VOICES[r.key]!.robo
+    const rb = voices[r.key]!.robo
     const roboStatus: BenchStatus =
       rb.max !== undefined && adj > rb.max ? 'over' : rb.min !== undefined && v < rb.min ? 'under' : rb.max !== undefined || rb.min !== undefined ? 'on' : 'info'
     const sh = SHORT[r.key] ?? {}

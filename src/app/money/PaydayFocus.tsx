@@ -7,8 +7,7 @@ import { nov1Statement, NOV1 } from '@/core/money/reconstruct'
 import { combineStatements, paycheckStatement, type PaycheckStatement, type StatementLine, type StatementSection } from '@/core/money/statement'
 import { benchmarkRows, type BenchRow, type BenchStatus } from '@/core/money/benchmarks'
 import { PATH_ASSUMPTIONS } from '@/core/money/paths'
-import { combinedSide, sommerSide, sumSides } from '@/core/money/sides'
-import { SideCard } from './SideCard'
+import { combinedStatement, HER_CHECKING_START, HER_SAVINGS_START, sommerStatement } from '@/core/money/sides'
 import { WhoSwitch } from './WhoSwitch'
 import { limitsFor, tspYear } from '@/core/money/limits'
 import { projectPaycheck } from '@/core/money/paychecks'
@@ -216,6 +215,9 @@ export const CAT_COLOR: Record<string, string> = {
   home: '#3987e5',
   car: '#d95926',
   sent: '#199e70',
+  food: '#7cb342',
+  childcare: '#199e70',
+  gifts: '#e06fb0',
   personal: '#c98500',
   tech: '#2fb5c9',
   debt: '#d55181',
@@ -316,6 +318,15 @@ function lineChip(l: StatementLine, spendable: string): Chip | null {
 
 /** Card minimums are estimates until the statement says; everything else is an exact amount. */
 const ESTIMATED_MINIMUMS = ['platinum', 'brightway', 'credit_one', 'citi', 'capital_one', 'chase']
+
+export interface HerCash {
+  checkingStart: number
+  in: number
+  out: number
+  checkingEnd: number
+  savingsStart: number
+  savingsEnd: number
+}
 
 export interface Maxing {
   year: number
@@ -696,7 +707,16 @@ function PaydayCard({
   wide = false,
   bench = false,
   maxing,
+  mode = 'sam',
+  hers,
+  householdMonthly,
 }: {
+  /** The household's average monthly spending, for "months covered". */
+  householdMonthly?: number
+  /** Sommer's accounts over this card (Sommer and Combined): her own walk, and the liquidity test. */
+  hers?: HerCash
+  /** Whose card: yours (bank-anchored), Sommer's, or the household's. */
+  mode?: 'sam' | 'sommer' | 'both'
   /** The paycheck your latest bank update falls in: "now" comes from the bank. */
   live?: boolean
   /** Always laid out across the full width (the month view). */
@@ -719,13 +739,16 @@ function PaydayCard({
   spendable: string
 }) {
   const g = st.gross.total
-  const benchRows = bench ? benchmarkRows(st) : null
+  const benchRows = bench ? benchmarkRows(st, mode === 'sam' ? 'sam' : 'household') : null
   // Net cash that ties to the walk: checking's change is end − start (bank-anchored), and any
   // gap from what the records explain is shown as its own line, never blended in.
   const netCashTied = (() => {
+    if (mode === 'sommer') return st.netCash
     const savingsLine = st.netCash.lines.find((l) => l.key === 'savings')
     const checking = r2(checkingAfter - checkingBefore)
-    const gap = r2(st.netCash.total - checking - (savingsLine?.amount ?? 0))
+    // Her savings (Combined) are not in your accounts: leave them out of the tie.
+    const hers = st.netCash.lines.filter((l) => l.key.startsWith('w_')).reduce((t, l) => t + l.amount, 0)
+    const gap = r2(st.netCash.total - checking - (savingsLine?.amount ?? 0) - hers)
     const lines: StatementLine[] = [
       { key: 'checking', label: `Change to checking (${usd(checkingBefore)} → ${usd(checkingAfter)})`, amount: checking, txns: [] },
       ...st.netCash.lines.filter((l) => l.key !== 'checking'),
@@ -755,7 +778,7 @@ function PaydayCard({
         </div>
         <div className="pcard-gross">
           <div className="pcard-big">{usd(g)}</div>
-          <div className="pcard-sub">gross · take-home {usd(st.takeHome)}</div>
+          <div className="pcard-sub">{mode === 'sommer' ? 'her take-home + what you send' : mode === 'both' ? `household in · take-home ${usd(st.takeHome)}` : `gross · take-home ${usd(st.takeHome)}`}</div>
           {!wide && (
             <label className="wide-toggle">
               <input type="checkbox" /> <span>⤢ Expand across</span>
@@ -798,7 +821,7 @@ function PaydayCard({
       {st.spending.map((sec) => (
         <Section key={sec.key} sec={sec} gross={g} spendable={spendable} showActuals={showActuals} bench={bx(sec.key)} />
       ))}
-      <Total label="Free cash flow" amount={st.freeCashFlow} gross={g} note="After home, car, Wife & Kids, personal and debt" strong />
+      <Total label="Free cash flow" amount={st.freeCashFlow} gross={g} note={mode === 'sam' ? 'After home, car, Wife & Kids, personal and debt' : 'After every spending category'} strong />
       </div>
       <div className="pcol">
       <Section
@@ -814,13 +837,15 @@ function PaydayCard({
       </Section>
 
       <Section sec={netCashTied} gross={g} spendable={spendable} showActuals={false} sign={st.netCash.total < 0 ? '−' : '+'} bar={false} bench={bx('cash')}>
-      {(() => {
+      {mode !== 'sommer' && (() => {
         const d = (k: string) => st.netCash.lines.find((l) => l.key === k)?.amount ?? 0
         // The cash walk for checking: where it starts, what comes in, what has gone, what is
         // still to go, and where it ends. On the live paycheck, "now" is the bank's own number.
         const end = checkingAfter
         const start = checkingBefore
-        const plannedOut = r2(start + st.takeHome - end)
+        // Your checking only: her pay (Combined) lands in her account, not yours.
+        const payIn = r2(st.takeHome - (st.gross.lines.find((l) => l.key === 'w_pay')?.amount ?? 0))
+        const plannedOut = r2(start + payIn - end)
         const out = [...st.spending.flatMap((x) => x.lines), ...st.investing.lines.filter((l) => l.key !== 'tsp' && l.key !== 'retirement')].filter(
           (l) => !l.nonCash && l.amount > 0,
         )
@@ -849,7 +874,7 @@ function PaydayCard({
               <table>
                 <tbody>
                   <Row k="Start — before this pay lands" v={start} />
-                  <Row k="Pay in" v={st.takeHome} sign="+ " />
+                  <Row k="Pay in" v={payIn} sign="+ " />
                   {bankNow != null ? (
                     <>
                       <Row k="Gone out so far" v={gone} sign="− " />
@@ -857,7 +882,7 @@ function PaydayCard({
                         k={`Now — bank, ${nice(ACTUALS_AS_OF.date)} ${ACTUALS_AS_OF.time}`}
                         v={bankNow}
                         strong
-                        note={`The plan expected ${usd(r2(start + st.takeHome - gone))} by now.`}
+                        note={`The plan expected ${usd(r2(start + payIn - gone))} by now.`}
                       />
                       <Row k="Still to go out" v={remaining} sign="− " note="Budgeted lines not yet seen, and the savings transfer." />
                       <Row k="End — est." v={bankEnd!} strong cls={bankEnd! < 0 ? 'cw-bad' : 'cw-end'} />
@@ -888,6 +913,85 @@ function PaydayCard({
               )}
             </div>
           </div>
+        )
+      })()}
+      {hers && (() => {
+        const Row = ({ k, v, sign, strong, cls, note }: { k: string; v: number; sign?: string; strong?: boolean; cls?: string; note?: string }) => (
+          <tr className={`${strong ? 'cw-strong' : ''} ${cls ?? ''}`}>
+            <td>
+              {k}
+              {note && <div className="cw-note">{note}</div>}
+            </td>
+            <td className={v < 0 ? 'neg' : ''}>{sign ? `${sign}${usd(Math.abs(v))}` : usd(v)}</td>
+          </tr>
+        )
+        // The liquidity test: every account at the end of this card, and whether the household
+        // as a whole stays above water when one account dips.
+        const accounts = [
+          ...(mode === 'both'
+            ? [
+                { name: `Sam — ${CHECKING}`, v: checkingAfter },
+                { name: `Sam — ${SAVINGS}`, v: savings },
+              ]
+            : []),
+          { name: 'Sommer — checking', v: hers.checkingEnd },
+          { name: 'Sommer — savings', v: hers.savingsEnd },
+        ]
+        const total = r2(accounts.reduce((t, a) => t + a.v, 0))
+        const monthlyOut = householdMonthly ?? r2(st.spending.reduce((t, x) => t + x.total, 0) * (wide ? 1 : 2))
+        const months = monthlyOut > 0 ? total / monthlyOut : 0
+        const negative = accounts.filter((a) => a.v < 0)
+        // Red: the household as a whole is short. Yellow: one account dips, the others cover it.
+        const light = total < 0 ? 'red' : negative.length > 0 ? 'yellow' : 'green'
+        return (
+          <>
+            <div className="cashwalk">
+              <div className="cw-box">
+                <div className="cw-title">Sommer — checking</div>
+                <table>
+                  <tbody>
+                    <Row k="Start" v={hers.checkingStart} note={hers.checkingStart === HER_CHECKING_START ? 'Starting balance not known — assumed $0.' : undefined} />
+                    <Row k="Pay + what you send" v={hers.in} sign="+ " />
+                    <Row k="Bills, nanny, fun & her savings transfer" v={hers.out} sign="− " />
+                    <Row k="End — est." v={hers.checkingEnd} strong cls={hers.checkingEnd < 0 ? 'cw-bad' : 'cw-end'} />
+                  </tbody>
+                </table>
+              </div>
+              <div className="cw-box">
+                <div className="cw-title">Sommer — savings</div>
+                <table>
+                  <tbody>
+                    <Row k="Start" v={hers.savingsStart} />
+                    <Row k="In" v={r2(hers.savingsEnd - hers.savingsStart)} sign="+ " />
+                    <Row k="End — est." v={hers.savingsEnd} strong cls="cw-end" />
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            {mode === 'both' && (
+              <div className={`liquidity lq-${light}`}>
+                <div className="cw-title">
+                  <i className="bdot" /> Household cash — the liquidity test
+                </div>
+                <table>
+                  <tbody>
+                    {accounts.map((a) => (
+                      <Row key={a.name} k={a.name} v={a.v} cls={a.v < 0 ? 'cw-bad' : ''} />
+                    ))}
+                    <Row k="All four, end of this card" v={total} strong cls={total < 0 ? 'cw-bad' : 'cw-end'} />
+                  </tbody>
+                </table>
+                <p className="cw-note">
+                  {total < 0
+                    ? `Short ${usd(-total)} as a household — no account can cover it.`
+                    : negative.length
+                      ? `${negative.map((a) => a.name).join(' and ')} below zero — covered by the household's other cash (${usd(total)} in all). Move it before the bill hits.`
+                      : `All accounts positive.`}{' '}
+                  {usd(total)} is {months.toFixed(1)} months of the household's spending (about {usd(monthlyOut)} a month on average); the usual target is 3–6.
+                </p>
+              </div>
+            )}
+          </>
         )
       })()}
       </Section>
@@ -1014,6 +1118,39 @@ export function PaydayFocus({
 
   const endOf = (i: number) => Math.round((modelAfter(i) + (liveIdx >= 0 && i >= liveIdx ? bankOffset : 0)) * 100) / 100
 
+  // Sommer's accounts, paycheck by paycheck from 1 Nov: her checking takes her pay and what
+  // you send and pays everything out, so it holds its start; her savings build.
+  const herOrder = [-1, ...allocations.map((_, i) => i)]
+  const herStmt = (i: number) => sommerStatement(i < 0 ? nov1Statement() : paycheckStatement(allocations[i]!, allocations[i + 1]))
+  const herSavingsAfter = new Map<number, number>()
+  {
+    let cum = HER_SAVINGS_START
+    for (const i of herOrder) {
+      cum = r2(cum + herStmt(i).netCash.total)
+      herSavingsAfter.set(i, cum)
+    }
+  }
+  // The household's average month, for the "months covered" figure.
+  const householdMonthly = (() => {
+    const all = allocations.map((a, i) => combinedStatement(paycheckStatement(a, allocations[i + 1])))
+    return r2((all.reduce((t, x) => t + x.spending.reduce((u, y) => u + y.total, 0), 0) / all.length) * 2)
+  })()
+  const herCash = (is: number[]): HerCash => {
+    const sts = is.map(herStmt)
+    const inn = r2(sts.reduce((t, x) => t + x.gross.total, 0))
+    const saved = r2(sts.reduce((t, x) => t + x.netCash.total, 0))
+    const first = herOrder.indexOf(is[0]!)
+    const savingsStart = first > 0 ? herSavingsAfter.get(herOrder[first - 1]!)! : HER_SAVINGS_START
+    return {
+      checkingStart: HER_CHECKING_START,
+      in: inn,
+      out: inn,
+      checkingEnd: HER_CHECKING_START,
+      savingsStart,
+      savingsEnd: herSavingsAfter.get(is[is.length - 1]!)!,
+    }
+  }
+
   const cardFor = (i: number) => {
     const a = allocations[i]!
     const next = allocations[i + 1]
@@ -1085,14 +1222,14 @@ export function PaydayFocus({
               )}
             </div>
             {(['sommer', 'both'] as const).map((w) => {
-              const side = w === 'sommer' ? sommerSide : combinedSide
-              const sub = (c: NonNullable<(typeof cards)[number]>) => (w === 'sommer' ? 'Her pay, what you send, her bills' : 'Your paycheck and hers, as one household')
+              const make = w === 'sommer' ? sommerStatement : combinedStatement
+              const sub = w === 'sommer' ? 'Her pay, what you send, her bills' : 'Your paycheck and hers, as one household'
               return (
                 <div className={`who-block who-${w}`} key={w}>
                   <div className="pgrid split">
                     {cards.map((c, k) =>
                       c ? (
-                        <SideCard key={c.i} who={w} side={side(c.st)} tag={c.tag} title={c.title} subtitle={sub(c)} />
+                        <PaydayCard key={c.i} {...c} mode={w} st={make(c.st)} subtitle={sub} showActuals={false} live={false} hers={herCash([c.i])} householdMonthly={householdMonthly} />
                       ) : (
                         <div key={`empty-${k}`} className="pcard pcard-empty">
                           {k === 0 ? '1st' : '15th'} paycheck — before this plan started.
@@ -1102,7 +1239,24 @@ export function PaydayFocus({
                   </div>
                   {present.length > 1 && (
                     <div className="pgrid combined">
-                      <SideCard wide who={w} side={sumSides(present.map((c) => side(c.st)))} tag="Month" title={`${label} — 1st + 15th`} subtitle={sub(present[0]!)} />
+                      <PaydayCard
+                        wide
+                        bench
+                        mode={w}
+                        st={combineStatements(present.map((c) => make(c.st)))}
+                        tag="Month"
+                        title={`${label} — 1st + 15th`}
+                        subtitle={sub}
+                        showActuals={false}
+                        checkingAfter={last.checkingAfter}
+                        checkingBefore={present[0]!.checkingBefore}
+                        maxing={w === 'both' ? maxingThrough(m) : undefined}
+                        hers={herCash(present.map((c) => c.i))}
+                        householdMonthly={householdMonthly}
+                        savings={last.savings}
+                        short={0}
+                        spendable={present[0]!.spendable}
+                      />
                     </div>
                   )}
                 </div>

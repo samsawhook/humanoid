@@ -674,3 +674,10 @@ body:has(nav.rail) main { margin-left: 60px; }
 .whoswitch[data-who="both"] .who-block:not(.who-both) { display: none; }
 .whoswitch > .rb-who { position: sticky; top: 8px; z-index: 5; }
 .side-foot { font-size: 12px; padding: 8px 2px 2px; border-top: 1px solid var(--line); margin-top: 8px; }
+.liquidity { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--panel-2); border-left: 3px solid #8a93a3; }
+.liquidity table { width: 100%; }
+.liquidity td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.liquidity .bdot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; background: #8a93a3; }
+.lq-green { border-left-color: #3fc56b; } .lq-green .bdot { background: #3fc56b; }
+.lq-yellow { border-left-color: #e0b13a; } .lq-yellow .bdot { background: #e0b13a; }
+.lq-red { border-left-color: #e5534b; } .lq-red .bdot { background: #e5534b; }

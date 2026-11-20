@@ -1,10 +1,11 @@
 /**
- * The paycheck cards from Sommer's side and from the household's — next to yours.
+ * The paycheck from Sommer's side and from the household's, as statements in the same
+ * shape as yours, so they render in the same card with the same advisor comparisons.
  *
  *  - Sommer: her take-home ($2,100 on the 1st and 15th, like yours) plus the cash you send
  *    in. Out: the whole regular $1,000 and any top-up to the nanny (your answer, 20 Nov),
- *    her bills (the back-home numbers, the same now — your answer, 20 Nov), and what is left
- *    split between her saving and her fun money.
+ *    her bills (the back-home numbers, the same now — your answer, 20 Nov), then what is
+ *    left split between her savings and her fun money.
  *  - Combined: your statement and hers as one household. The cash you send is a transfer
  *    between you, so "Wife & Kids" goes: the nanny lands in Childcare & kids, supplemental
  *    and Christmas money and your gifts in Gifts, her groceries in Food.
@@ -13,36 +14,17 @@
  */
 
 import { SOMMER_BUDGET, SOMMER_INCOME } from './returnBudget'
-import type { PaycheckStatement, StatementLine } from './statement'
-
-export type Owner = 'sam' | 'sommer'
-
-export interface SideLine {
-  label: string
-  amount: number
-  owner: Owner
-  note?: string
-}
-export interface SideSection {
-  key: string
-  label: string
-  lines: SideLine[]
-  total: number
-}
-export interface SideStatement {
-  /** Money coming in: pay (gross for you, take-home for her) and transfers. */
-  income: SideSection
-  /** Withheld from your pay (Combined only). */
-  deductions?: SideSection
-  sections: SideSection[]
-  /** Your checking and savings change (Combined only): what is left in your accounts. */
-  netCash?: SideSection
-}
+import type { PaycheckStatement, StatementLine, StatementSection } from './statement'
 
 const r2 = (n: number) => Math.round(n * 100) / 100
-const total = (ls: SideLine[]) => r2(ls.reduce((t, l) => t + l.amount, 0))
-const section = (key: string, label: string, lines: SideLine[]): SideSection => ({ key, label, lines: lines.filter((l) => Math.abs(l.amount) > 0.004), total: total(lines) })
+const sum = (ls: StatementLine[]) => r2(ls.filter((l) => !l.nonCash).reduce((t, l) => t + l.amount, 0))
+const section = (key: string, label: string, lines: StatementLine[]): StatementSection => {
+  const ls = lines.filter((l) => Math.abs(l.amount) > 0.004 || l.nonCash)
+  return { key, label, lines: ls, total: sum(ls) }
+}
+const line = (key: string, label: string, amount: number, note?: string): StatementLine => ({ key, label, amount: r2(amount), txns: [], note })
 
+/** The household's spending categories, in card order. */
 export const SIDE_ORDER: { key: string; label: string }[] = [
   { key: 'home', label: 'Home' },
   { key: 'car', label: 'Car' },
@@ -52,7 +34,6 @@ export const SIDE_ORDER: { key: string; label: string }[] = [
   { key: 'personal', label: 'Personal spending' },
   { key: 'tech', label: 'Tech' },
   { key: 'debt', label: 'Debt payments' },
-  { key: 'invest', label: 'Investing & saving' },
   { key: 'other', label: 'Other' },
 ]
 
@@ -60,7 +41,6 @@ export const SIDE_ORDER: { key: string; label: string }[] = [
 const isCashToHer = (l: StatementLine) => /^(support_home|nanny|christmas)/.test(l.key)
 const isNanny = (l: StatementLine) => /^(support_home_deployed|nanny)/.test(l.key)
 
-/** Her monthly lines, as (her category, label, monthly amount). */
 const HER_PLACE: Record<string, string> = {
   'home:electric': 'home',
   'home:watergas': 'home',
@@ -71,96 +51,103 @@ const HER_PLACE: Record<string, string> = {
   'sent:amazon': 'home',
   'sent:baby': 'childcare',
 }
-function herBills(): { cat: string; label: string; monthly: number }[] {
-  return SOMMER_BUDGET.flatMap((c) =>
-    c.lines.filter((l) => l.share == null).map((l) => ({ cat: HER_PLACE[`${c.key}:${l.key}`] ?? c.key, label: l.label, monthly: l.amount })),
-  )
-}
 
-/** Her paycheck: what is left after her half of the bills, split saving / fun. */
+/** Her paycheck: half of each monthly bill, then what is left split savings / fun. */
 function herPaycheck() {
   const pay = r2(SOMMER_INCOME.amount / 2)
-  const bills = herBills().map((b) => ({ ...b, amount: r2(b.monthly / 2) }))
-  const left = r2(pay - bills.reduce((t, b) => t + b.amount, 0))
-  return { pay, bills, save: r2(Math.max(0, left) / 2), fun: r2(Math.max(0, left) / 2), left }
+  const bills = SOMMER_BUDGET.flatMap((c) =>
+    c.lines
+      .filter((l) => l.share == null)
+      .map((l) => ({ cat: HER_PLACE[`${c.key}:${l.key}`] ?? c.key, line: line(`w_${l.key}`, l.label, l.amount / 2, 'Her side — half the monthly bill each paycheck.') })),
+  )
+  const left = r2(pay - bills.reduce((t, b) => t + b.line.amount, 0))
+  const half = r2(Math.max(0, left) / 2)
+  return {
+    pay,
+    bills,
+    savings: line('w_savings', 'Her savings — half of what is left', half),
+    fun: line('w_fun', 'Her fun money — the other half', half),
+  }
 }
 
-export function sommerSide(st: PaycheckStatement): SideStatement {
+function finish(payday: string, gross: StatementSection, deductions: StatementSection, spending: StatementSection[], investing: StatementSection, netCash: StatementSection, takeHome: number): PaycheckStatement {
+  const netIncome = r2(gross.total - deductions.total)
+  const spent = spending.reduce((t, s) => t + s.total, 0)
+  return {
+    payday,
+    gross,
+    deductions,
+    netIncome,
+    spending: SIDE_ORDER.map((o) => spending.find((s) => s.key === o.key)).filter((s): s is StatementSection => !!s && s.lines.length > 0),
+    freeCashFlow: r2(netIncome - spent),
+    investing,
+    netCash,
+    balanceSheet: section('balance', 'Balance sheet', []),
+    takeHome: r2(takeHome),
+  }
+}
+
+export function sommerStatement(st: PaycheckStatement): PaycheckStatement {
   const sent = st.spending.find((s) => s.key === 'sent')?.lines.filter(isCashToHer) ?? []
   const h = herPaycheck()
-  const by = (cat: string): SideLine[] => h.bills.filter((b) => b.cat === cat).map((b) => ({ label: b.label, amount: b.amount, owner: 'sommer' }))
-  const fromYou = (ls: StatementLine[]): SideLine[] => ls.map((l) => ({ label: `${l.label} — from Sam`, amount: l.amount, owner: 'sam' }))
-  const sections = [
-    section('childcare', 'Childcare & kids', [...fromYou(sent.filter(isNanny)), ...by('childcare')]),
+  const by = (cat: string) => h.bills.filter((b) => b.cat === cat).map((b) => b.line)
+  const fromSam = (l: StatementLine): StatementLine => ({ ...line(l.key, `${l.label} — from Sam`, l.amount), note: 'Paid from what you send.' })
+  const spending = [
     section('home', 'Home', by('home')),
     section('car', 'Car', by('car')),
     section('food', 'Food', by('food')),
-    section('gifts', 'Gifts', fromYou(sent.filter((l) => !isNanny(l)))),
-    section('invest', 'Investing & saving', [{ label: 'Her saving — half of what is left', amount: h.save, owner: 'sommer' }]),
-    section('personal', 'Personal spending', [{ label: 'Her fun money — the other half', amount: h.fun, owner: 'sommer' }]),
+    section('childcare', 'Childcare & kids', [...sent.filter(isNanny).map(fromSam), ...by('childcare')]),
+    section('gifts', 'Gifts', sent.filter((l) => !isNanny(l)).map(fromSam)),
+    section('personal', 'Personal spending', [h.fun]),
   ]
-  return {
-    income: section('income', 'Money in', [
-      { label: 'Sommer — take-home pay', amount: h.pay, owner: 'sommer', note: '$63k a year; $2,100 on the 1st and 15th.' },
-      ...sent.map((l): SideLine => ({ label: `From Sam — ${l.label}`, amount: l.amount, owner: 'sam' })),
-    ]),
-    sections: order(sections),
-  }
+  const gross = section('gross', 'Money in — her take-home and what you send', [
+    line('w_pay', 'Sommer — take-home pay', h.pay, '$63k a year; $2,100 on the 1st and 15th.'),
+    ...sent.map((l) => line(`in_${l.key}`, `From Sam — ${l.label}`, l.amount)),
+  ])
+  return finish(
+    st.payday,
+    gross,
+    section('deductions', 'Deductions (taken before her pay lands)', []),
+    spending,
+    section('invest', 'Investing', []),
+    section('cash', 'Net cash', [h.savings]),
+    gross.total,
+  )
 }
 
-export function combinedSide(st: PaycheckStatement): SideStatement {
+export function combinedStatement(st: PaycheckStatement): PaycheckStatement {
   const h = herPaycheck()
-  const buckets: Record<string, SideLine[]> = {}
-  const put = (cat: string, l: SideLine) => (buckets[cat] ??= []).push(l)
-  for (const s of st.spending) {
+  const buckets: Record<string, StatementLine[]> = {}
+  const put = (cat: string, l: StatementLine) => (buckets[cat] ??= []).push(l)
+  for (const s of st.spending)
     for (const l of s.lines) {
-      if (l.nonCash) continue
       const cat = s.key === 'sent' ? (isNanny(l) ? 'childcare' : 'gifts') : SIDE_ORDER.some((o) => o.key === s.key) ? s.key : 'other'
-      put(cat, { label: l.label, amount: l.amount, owner: 'sam' })
+      put(cat, l)
     }
-  }
-  for (const l of st.investing.lines) if (!l.nonCash) put('invest', { label: l.label, amount: l.amount, owner: 'sam' })
-  for (const b of h.bills) put(b.cat, { label: b.label, amount: b.amount, owner: 'sommer' })
-  put('invest', { label: 'Her saving', amount: h.save, owner: 'sommer' })
-  put('personal', { label: 'Her fun money', amount: h.fun, owner: 'sommer' })
-  return {
-    income: section('income', 'Money in — your gross, her take-home', [
-      ...st.gross.lines.filter((l) => !l.nonCash).map((l): SideLine => ({ label: l.label, amount: l.amount, owner: 'sam' })),
-      { label: 'Sommer — take-home pay', amount: h.pay, owner: 'sommer' },
-    ]),
-    deductions: section('deductions', 'Deductions (yours)', st.deductions.lines.filter((l) => !l.nonCash).map((l) => ({ label: l.label, amount: l.amount, owner: 'sam' as const }))),
-    sections: order(SIDE_ORDER.map((o) => section(o.key, o.label, buckets[o.key] ?? []))),
-    netCash: section('cash', 'Net cash — your checking & savings', st.netCash.lines.filter((l) => !l.nonCash).map((l) => ({ label: l.label, amount: l.amount, owner: 'sam' as const }))),
-  }
+  for (const b of h.bills) put(b.cat, b.line)
+  put('personal', h.fun)
+  const spending = SIDE_ORDER.map((o) => section(o.key, o.label, buckets[o.key] ?? []))
+  const gross = section('gross', 'Gross — your pay and her take-home', [...st.gross.lines, line('w_pay', 'Sommer — take-home pay', h.pay, '$63k a year; $2,100 on the 1st and 15th.')])
+  return finish(
+    st.payday,
+    gross,
+    st.deductions,
+    spending,
+    st.investing,
+    section('cash', st.netCash.label, [...st.netCash.lines, h.savings]),
+    st.takeHome + h.pay,
+  )
 }
 
-function order(ss: SideSection[]): SideSection[] {
-  return SIDE_ORDER.map((o) => ss.find((s) => s.key === o.key)).filter((s): s is SideSection => !!s && s.lines.length > 0)
-}
+/**
+ * Her checking before the first paycheck here. Not known — assumed $0 until you give it, so
+ * the liquidity test leans on what she builds, not on a balance we haven't seen.
+ */
+export const HER_CHECKING_START = 0
+/** Her savings before the first paycheck here: likewise assumed $0. */
+export const HER_SAVINGS_START = 0
 
-/** The month: the two paychecks' sides summed, line by line. */
-export function sumSides(list: SideStatement[]): SideStatement {
-  const merge = (ss: (SideSection | undefined)[]): SideSection | undefined => {
-    const first = ss.find(Boolean)
-    if (!first) return undefined
-    const lines: SideLine[] = []
-    for (const s of ss) for (const l of s?.lines ?? []) {
-      const same = lines.find((x) => x.label === l.label && x.owner === l.owner)
-      if (same) same.amount = r2(same.amount + l.amount)
-      else lines.push({ ...l })
-    }
-    return section(first.key, first.label, lines)
-  }
-  const keys = SIDE_ORDER.map((o) => o.key)
-  return {
-    income: merge(list.map((x) => x.income))!,
-    deductions: merge(list.map((x) => x.deductions)),
-    sections: order(keys.map((k) => merge(list.map((x) => x.sections.find((s) => s.key === k)))).filter((s): s is SideSection => !!s)),
-    netCash: merge(list.map((x) => x.netCash)),
-  }
-}
-
-/** In minus everything out: zero when the side ties. */
-export function residual(s: SideStatement): number {
-  return r2(s.income.total - (s.deductions?.total ?? 0) - s.sections.reduce((t, x) => t + x.total, 0) - (s.netCash?.total ?? 0))
+/** In minus everything out: zero when the statement ties. */
+export function residual(s: PaycheckStatement): number {
+  return r2(s.gross.total - s.deductions.total - s.spending.reduce((t, x) => t + x.total, 0) - s.investing.total - s.netCash.total)
 }
