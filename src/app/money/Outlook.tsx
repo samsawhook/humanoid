@@ -1111,7 +1111,7 @@ function ReturnBudget({ metas }: { metas: ScenarioMeta[] }) {
       .flatMap((l): (Line & { cat: string })[] =>
         c.key === 'personal' && l.key === 'you'
           ? [
-              { ...l, ek: `${l.ek}#food`, cat: 'food', label: 'Your food out — lunches, coffee', basis: `A third of your "You" line (MY ESTIMATE of its food part). Edit the whole line on Just me.`, calc: () => v(l.ek, l.amount) * YOU_FOOD_SHARE },
+              { ...l, ek: `${l.ek}#food`, cat: 'food', label: 'Your food out — lunches, coffee', basis: `A third of your "You" line (MY ESTIMATE of its food part). Edit the whole line on Sam.`, calc: () => v(l.ek, l.amount) * YOU_FOOD_SHARE },
               { ...l, ek: `${l.ek}#rest`, cat: 'personal', label: 'You — clothes, shopping', basis: 'The rest of your "You" line, after its food part.', calc: () => v(l.ek, l.amount) * (1 - YOU_FOOD_SHARE) },
             ]
           : [{ ...l, cat: combinedCategory(c.key, l.key) }],
@@ -1204,7 +1204,7 @@ function ReturnBudget({ metas }: { metas: ScenarioMeta[] }) {
         <div className="seg rb-who" role="group" aria-label="Whose budget">
           {(
             [
-              ['me', 'Just me'],
+              ['me', 'Sam'],
               ['sommer', 'Sommer'],
               ['both', 'Combined'],
             ] as const
@@ -1335,7 +1335,7 @@ function ReturnBudget({ metas }: { metas: ScenarioMeta[] }) {
                   </div>
                 )}
                 {who === 'sommer' && (
-                  <div className="ln rb-line" title="Your Wife & Kids lines: the nanny, the kids and the household extras. Edit them on Just me.">
+                  <div className="ln rb-line" title="Your Wife & Kids lines: the nanny, the kids and the household extras. Edit them on Sam.">
                     <div className="ln-top">
                       <div className="ln-name">From you — nanny, kids & household</div>
                       <div className="ln-amt"><span className="rb-computed">{usd0(fromYou)}</span></div>
