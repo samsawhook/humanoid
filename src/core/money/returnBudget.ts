@@ -126,6 +126,35 @@ export const RETURN_BUDGET: BudgetCategory[] = [
   },
 ]
 
+/**
+ * Sommer's side: what she covers (your note, 19 Nov: groceries and utilities, generally).
+ * My estimates for the amounts; her pay is not known here — until you enter it, it is set
+ * to exactly cover her side, so "Combined" starts where your note puts it.
+ */
+export const SOMMER_BUDGET: BudgetCategory[] = [
+  {
+    key: 'home',
+    label: 'Home',
+    lines: [{ key: 'utilities', label: 'Utilities — electric, water, gas, internet', amount: 350, basis: 'Corpus, a family house with AC most of the year. MY ESTIMATE.' }],
+  },
+  {
+    key: 'sent',
+    label: 'Wife & Kids',
+    lines: [{ key: 'groceries', label: 'Groceries & household', amount: 900, basis: 'A family of three. MY ESTIMATE.' }],
+  },
+  {
+    key: 'personal',
+    label: 'Personal spending',
+    lines: [{ key: 'own', label: 'Her own costs — car, phone, personal', amount: 0, basis: 'Not known — fill in what she pays for herself.' }],
+  },
+]
+export const SOMMER_INCOME: BudgetLine = {
+  key: 'pay',
+  label: 'Sommer — take-home pay',
+  amount: 0,
+  basis: 'Not known. Until you enter it, it is set to cover her side exactly.',
+}
+
 export const EMPLOYEE_401K = 0.05
 const FICA = 0.0765
 

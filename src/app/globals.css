@@ -662,3 +662,7 @@ body:has(nav.rail) main { margin-left: 60px; }
 .mx-facts { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; color: var(--muted); margin: 2px 0 6px; }
 .mx-facts span { cursor: help; }
 .mx-facts b { color: var(--text); font-variant-numeric: tabular-nums; }
+
+.rb-who { margin: 0 0 10px; }
+.who-tag { display: inline-block; margin-left: 8px; font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); vertical-align: 1px; }
+.who-tag.sommer { border-color: #d07fc0; color: #e3a6d6; }

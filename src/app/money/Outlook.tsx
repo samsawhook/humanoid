@@ -18,6 +18,9 @@ import {
   OTHER_INCOME,
   PRINCIPLES,
   RETURN_BUDGET,
+  SOMMER_BUDGET,
+  SOMMER_INCOME,
+  type BudgetCategory,
   WORK_LABEL,
   buildBridge,
   SCENARIO_PRESETS,
@@ -851,6 +854,7 @@ const CAT_COLORS: Record<string, string> = {
   tax: '#6b7280',
 }
 const STORE = 'return-budget-v2'
+type Who = 'me' | 'sommer' | 'both'
 
 /** Your base, then each modification as a step, to a new total and the salary it takes. */
 function BudgetBridge({
@@ -1055,19 +1059,54 @@ function ReturnBudget({ metas }: { metas: ScenarioMeta[] }) {
   const v = (k: string, d: number) => edits[k] ?? d
   const rating = v('rating', DEFAULT_RATING)
   const other = { va: vaNet(rating), drill: v('in:drill', OTHER_INCOME[1]!.amount) }
-  const cats = RETURN_BUDGET.map((c) => ({
+  // Whose budget: yours, Sommer's, or the household's together.
+  const [who, setWhoState] = useState<Who>('me')
+  useEffect(() => {
+    try {
+      const w = window.localStorage.getItem('return-budget-who') as Who | null
+      if (w === 'me' || w === 'sommer' || w === 'both') setWhoState(w)
+    } catch {}
+  }, [])
+  const setWho = (w: Who) => {
+    setWhoState(w)
+    try {
+      window.localStorage.setItem('return-budget-who', w)
+    } catch {}
+  }
+  const tag = (cs: BudgetCategory[], owner: 'me' | 'sommer', prefix: string) =>
+    cs.map((c) => ({ key: c.key, label: c.label, lines: c.lines.map((l) => ({ ...l, ek: `${prefix}${c.key}:${l.key}`, owner })) }))
+  const mine = tag(RETURN_BUDGET, 'me', '')
+  const hers = tag(SOMMER_BUDGET, 'sommer', 'w:')
+  const totalOf = (cs: typeof mine) => cs.reduce((t, c) => t + c.lines.reduce((u, l) => u + v(l.ek, l.amount), 0), 0)
+  const spend = totalOf(mine)
+  const herSpend = totalOf(hers)
+  const herPayEdited = edits['w:in:pay'] !== undefined
+  const herPay = v('w:in:pay', herSpend)
+  const herLeft = herPay - herSpend
+  // Combined: your categories with hers folded in, then any only she has.
+  const merged = [
+    ...mine.map((c) => {
+      const theirs = hers.find((h) => h.key === c.key)?.lines ?? []
+      // Your $0 placeholder for a line she carries ("Sommer covers it") would only repeat it.
+      const yours = c.lines.filter((l) => !(v(l.ek, l.amount) === 0 && theirs.some((t) => t.key === l.key)))
+      return { ...c, lines: [...yours, ...theirs] }
+    }),
+    ...hers.filter((h) => !mine.some((c) => c.key === h.key)),
+  ]
+  const cats = (who === 'me' ? mine : who === 'sommer' ? hers : merged).map((c) => ({
     ...c,
-    total: c.lines.reduce((t, l) => t + v(`${c.key}:${l.key}`, l.amount), 0),
+    total: c.lines.reduce((t, l) => t + v(l.ek, l.amount), 0),
   }))
-  const spend = cats.reduce((t, c) => t + c.total, 0)
-  const need = salaryNeeded(spend, other)
-  const gross = need.grossMonthly
+  const viewSpend = cats.reduce((t, c) => t + c.total, 0)
+  // Your salary needed: on your side alone, or for the household once her pay is counted.
+  const need = salaryNeeded(who === 'both' ? Math.max(0, spend + herSpend - herPay) : spend, other)
+  const gross = who === 'sommer' ? Math.max(herPay, 1) : who === 'both' ? need.grossMonthly + herPay : need.grossMonthly
   const pct = (n: number) => (gross > 0 ? `${((n / gross) * 100).toFixed(1)}%` : '')
   const offers = [
     { label: 'Federal / contractor', salary: 85000 },
     { label: 'Mid-size firm', salary: 78000 },
     { label: 'Small firm', salary: 65000 },
-  ].map((o) => ({ ...o, left: Math.round(monthlyCash(o.salary, other).cash - spend) }))
+  ].map((o) => ({ ...o, left: Math.round(monthlyCash(o.salary, other).cash - spend + (who === 'both' ? herLeft : 0)) }))
   // Export: every line with your number (and mine where you changed it), the totals and
   // the solve — as text to paste back into the chat, or as a file.
   const [copied, setCopied] = useState(false)
@@ -1079,17 +1118,22 @@ function ReturnBudget({ metas }: { metas: ScenarioMeta[] }) {
       const mine = v(`in:${l.key}`, l.amount)
       out.push(`  ${l.label}: ${mine}${mine !== l.amount ? ` (estimate was ${l.amount})` : ''}`)
     }
-    for (const c of cats) {
-      out.push('', `${c.label}: ${Math.round(c.total * 100) / 100}`)
-      for (const l of c.lines) {
-        const mine = v(`${c.key}:${l.key}`, l.amount)
-        out.push(`  ${l.label}: ${mine}${mine !== l.amount ? ` (estimate was ${l.amount})` : ''}`)
+    for (const [title, cs] of [['YOUR SIDE', mine], ['SOMMER’S SIDE', hers]] as const) {
+      out.push('', `— ${title} —`)
+      if (cs === hers) out.push(`  ${SOMMER_INCOME.label}: ${herPayEdited ? herPay : `not entered (set to cover her side, ${Math.round(herSpend)})`}`)
+      for (const c of cs) {
+        out.push('', `${c.label}: ${Math.round(c.lines.reduce((t, l) => t + v(l.ek, l.amount), 0) * 100) / 100}`)
+        for (const l of c.lines) {
+          const x = v(l.ek, l.amount)
+          out.push(`  ${l.label}: ${x}${x !== l.amount ? ` (estimate was ${l.amount})` : ''}`)
+        }
       }
     }
     out.push(
       '',
-      `Spending: ${Math.round(spend)} a month`,
-      `Salary needed: ${need.salary} a year (gross ${need.grossMonthly} a month with VA and drill; taxes ${need.taxes}; 401k ${need.k401})`,
+      `Your spending: ${Math.round(spend)} a month · Sommer's: ${Math.round(herSpend)} · household: ${Math.round(spend + herSpend)}`,
+      `Sommer: ${Math.round(herLeft) >= 0 ? '+' : ''}${Math.round(herLeft)} a month after her side`,
+      `Salary needed (${who === 'both' ? 'household view' : 'your side'}): ${need.salary} a year (gross ${need.grossMonthly} a month with VA and drill; taxes ${need.taxes}; 401k ${need.k401})`,
       ...offers.map((o) => `${o.label} at ${o.salary}: ${o.left >= 0 ? '+' : ''}${o.left} a month`),
       '',
       `Changed lines: ${Object.keys(edits).length}`,
@@ -1132,17 +1176,49 @@ function ReturnBudget({ metas }: { metas: ScenarioMeta[] }) {
   return (
     <section className="rbudget">
       <article className="pcard pcard-wide">
+        <div className="seg rb-who" role="group" aria-label="Whose budget">
+          {(
+            [
+              ['me', 'Just me'],
+              ['sommer', 'Sommer'],
+              ['both', 'Combined'],
+            ] as const
+          ).map(([k, label]) => (
+            <button key={k} className={who === k ? 'on' : ''} onClick={() => setWho(k)}>
+              {label}
+            </button>
+          ))}
+        </div>
         <header className="pcard-head">
           <div>
-            <div className="pcard-tag">After you&rsquo;re home · a normal month · yours to edit</div>
-            <div className="pcard-title">Salary needed: {usd0(need.salary)} a year</div>
-            <div className="pcard-sub">
-              Gross {usd0(gross)} a month with VA and drill · taxes {usd0(need.taxes)} · 401(k) 5% {usd0(need.k401)} · spending {usd0(spend)}
+            <div className="pcard-tag">
+              After you&rsquo;re home · a normal month · {who === 'me' ? 'your side' : who === 'sommer' ? 'Sommer’s side' : 'the household'} · yours to edit
             </div>
+            {who === 'sommer' ? (
+              <>
+                <div className="pcard-title">
+                  Sommer: {usd0(herPay)} in, {usd0(herSpend)} out
+                </div>
+                <div className="pcard-sub">
+                  {herPayEdited ? `${herLeft >= 0 ? '+' : '−'}${usd0(Math.abs(herLeft))} a month after her side` : 'Her pay isn’t entered — set to cover her side exactly. Enter it below.'}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="pcard-title">
+                  {who === 'both' ? 'Household — your salary needed' : 'Salary needed'}: {usd0(need.salary)} a year
+                </div>
+                <div className="pcard-sub">
+                  {who === 'both'
+                    ? `Your gross ${usd0(need.grossMonthly)} + Sommer’s take-home ${usd0(herPay)} · household spending ${usd0(viewSpend)}`
+                    : `Gross ${usd0(gross)} a month with VA and drill · taxes ${usd0(need.taxes)} · 401(k) 5% ${usd0(need.k401)} · spending ${usd0(spend)}`}
+                </div>
+              </>
+            )}
           </div>
           <div className="pcard-gross">
-            <div className="pcard-big">{usd0(gross)}</div>
-            <div className="pcard-sub">gross a month</div>
+            <div className="pcard-big">{who === 'sommer' ? `${herLeft >= 0 ? '+' : '−'}${usd0(Math.abs(herLeft))}` : usd0(gross)}</div>
+            <div className="pcard-sub">{who === 'sommer' ? 'left a month' : who === 'both' ? 'household in a month' : 'gross a month'}</div>
             <div className="rb-actions">
               <button className="btn-ghost" onClick={() => copyExport()}>
                 {copied ? 'Copied ✓' : 'Copy for Claude'}
@@ -1156,7 +1232,7 @@ function ReturnBudget({ metas }: { metas: ScenarioMeta[] }) {
             </div>
           </div>
         </header>
-        <div className="rb-offers">
+        <div className="rb-offers" hidden={who === 'sommer'}>
           {offers.map((o) => (
             <span key={o.label} className={`lightchip lc-${o.left >= 0 ? 'green' : o.left > -500 ? 'yellow' : 'red'}`} title="First-year salary on that route, against this budget">
               <i />
@@ -1173,10 +1249,12 @@ function ReturnBudget({ metas }: { metas: ScenarioMeta[] }) {
                     <i className="swatch-dot" style={{ background: '#a3aab6' }} />
                     Gross income
                   </span>
-                  <span className="sec-amt">{usd0(gross)}</span>
+                  <span className="sec-amt">{usd0(who === 'sommer' ? herPay : gross)}</span>
                 </div>
               </summary>
               <div className="sec-body">
+                {who !== 'sommer' && (
+                  <>
                 <div className="ln rb-line">
                   <div className="ln-top">
                     <div className="ln-name">Salary (needed)</div>
@@ -1216,9 +1294,23 @@ function ReturnBudget({ metas }: { metas: ScenarioMeta[] }) {
                     </div>
                   </div>
                 ))}
+                  </>
+                )}
+                {who !== 'me' && (
+                  <div className="ln rb-line" title={SOMMER_INCOME.basis}>
+                    <div className="ln-top">
+                      <div className="ln-name">
+                        {SOMMER_INCOME.label}
+                        {!herPayEdited && <span className="who-tag">not entered</span>}
+                      </div>
+                      <div className="ln-amt">{input('w:in:pay', herSpend)}</div>
+                    </div>
+                    <div className="ln-meta"><span>{SOMMER_INCOME.basis}</span></div>
+                  </div>
+                )}
               </div>
             </details>
-            <details className="sec">
+            <details className="sec" hidden={who === 'sommer'}>
               <summary>
                 <div className="sec-top">
                   <span className="sec-name">
@@ -1250,12 +1342,15 @@ function ReturnBudget({ metas }: { metas: ScenarioMeta[] }) {
                 </summary>
                 <div className="sec-body">
                   {c.lines.map((l) => (
-                    <div className="ln rb-line" key={l.key} title={l.basis}>
+                    <div className="ln rb-line" key={l.ek} title={l.basis}>
                       <div className="ln-top">
-                        <div className="ln-name">{l.label}</div>
-                        <div className="ln-amt">{input(`${c.key}:${l.key}`, l.amount)}</div>
+                        <div className="ln-name">
+                          {l.label}
+                          {who === 'both' && <span className={`who-tag ${l.owner}`}>{l.owner === 'me' ? 'You' : 'Sommer'}</span>}
+                        </div>
+                        <div className="ln-amt">{input(l.ek, l.amount)}</div>
                       </div>
-                      {pill(v(`${c.key}:${l.key}`, l.amount), CAT_COLORS[c.key]!)}
+                      {pill(v(l.ek, l.amount), CAT_COLORS[c.key]!)}
                       <div className="ln-meta"><span>{l.basis}</span></div>
                     </div>
                   ))}
