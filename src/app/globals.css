@@ -666,3 +666,5 @@ body:has(nav.rail) main { margin-left: 60px; }
 .rb-who { margin: 0 0 10px; }
 .who-tag { display: inline-block; margin-left: 8px; font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); vertical-align: 1px; }
 .who-tag.sommer { border-color: #d07fc0; color: #e3a6d6; }
+
+[hidden] { display: none !important; }
