@@ -76,7 +76,7 @@ export const RETURN_BUDGET: BudgetCategory[] = [
     label: 'Car',
     lines: [
       { key: 'insurance', label: 'GEICO', amount: 149.5, basis: '$69 every two weeks.' },
-      { key: 'fuel', label: 'Fuel', amount: 250, basis: 'Two drivers home; Monarch showed $363 before, with more driving.' },
+      { key: 'fuel', label: 'Fuel', amount: 0, basis: 'One car — Sommer pays the gas on her side (20 Nov).' },
       { key: 'maintenance', label: 'Maintenance', amount: 75, basis: 'Oil, tyres, the odd repair, averaged.' },
     ],
   },
@@ -159,7 +159,7 @@ export const SOMMER_BUDGET: BudgetCategory[] = [
   {
     key: 'car',
     label: 'Car',
-    lines: [{ key: 'fuel', label: 'Gas — her car', amount: 150, basis: 'Her number (20 Nov).' }],
+    lines: [{ key: 'fuel', label: 'Gas — the one car', amount: 150, basis: 'Her number (20 Nov). One car, so this is all the household’s fuel.', covers: 'fuel' }],
   },
   {
     key: 'sent',
