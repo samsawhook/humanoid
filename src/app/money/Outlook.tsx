@@ -1366,7 +1366,7 @@ function ReturnBudget({ metas }: { metas: ScenarioMeta[] }) {
           </div>
         </div>
       </article>
-      <BudgetBridge spend={spend} other={other} rating={rating} loans={{ student: v('debt:student', 75.83), ut: v('debt:ut', 129) }} metas={metas} />
+      <BudgetBridge spend={spend} other={other} rating={rating} loans={{ student: v('debt:student', 121), ut: v('debt:ut', 129) }} metas={metas} />
     </section>
   )
 }

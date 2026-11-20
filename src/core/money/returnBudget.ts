@@ -115,7 +115,7 @@ export const RETURN_BUDGET: BudgetCategory[] = [
       { key: 'chase', label: 'Chase plan', amount: 110, basis: 'Agreement.' },
       { key: 'cards_open', label: 'Cards — Platinum, Brightway, Credit One', amount: 105, basis: 'Minimums; Credit One $30 autopay.' },
       { key: 'cards_closed', label: 'Cards — Citi, Capital One', amount: 106, basis: 'Estimated minimums.' },
-      { key: 'student', label: 'Federal student loan (Nelnet)', amount: 75.83, basis: 'Scheduled payment.' },
+      { key: 'student', label: 'Federal student loan (Nelnet)', amount: 121, basis: 'Your number: $250 a month for both student loans once home (20 Nov) — this is the rest after the UT $129.' },
       { key: 'ut', label: 'UT loan (Dept of Education)', amount: 129, basis: '$9,907; the $129 plan.' },
     ],
   },
@@ -319,7 +319,7 @@ export interface Bridge {
  * `loans`: what the base pays on the two student loans — deferred while you are in any
  * school (your rule, 19 Nov), so a school option takes them back out.
  */
-export function buildBridge(sel: Selection, loans: { student: number; ut: number } = { student: 75.83, ut: 129 }): Bridge {
+export function buildBridge(sel: Selection, loans: { student: number; ut: number } = { student: 121, ut: 129 }): Bridge {
   const c = CITY[sel.location]
   const rows: BridgeRow[] = []
   const income: BridgeRow[] = []

@@ -29,7 +29,7 @@ describe('student loans in school', () => {
   it('are deferred in the bridge for any school, and in the 20-year model while enrolled', async () => {
     const { buildBridge, BASE_SELECTION } = await import('@/core/money/returnBudget')
     const b = buildBridge({ ...BASE_SELECTION, macc: true })
-    expect(b.rows.filter((r) => r.group === 'School').reduce((t, r) => t + r.amount, 0)).toBeCloseTo(-(75.83 + 129), 2)
+    expect(b.rows.filter((r) => r.group === 'School').reduce((t, r) => t + r.amount, 0)).toBeCloseTo(-250, 2)
     const { projectPath } = await import('@/core/money/paths')
     const law = projectPath('law')
     const inSchool = law.months.filter((m) => m.inSchool)
