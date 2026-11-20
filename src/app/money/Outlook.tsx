@@ -20,6 +20,9 @@ import {
   RETURN_BUDGET,
   SOMMER_BUDGET,
   SOMMER_INCOME,
+  COMBINED_CATEGORIES,
+  YOU_FOOD_SHARE,
+  combinedCategory,
   type BudgetCategory,
   WORK_LABEL,
   buildBridge,
@@ -852,6 +855,9 @@ const CAT_COLORS: Record<string, string> = {
   debt: '#d55181',
   invest: '#9085e9',
   tax: '#6b7280',
+  food: '#7cb342',
+  childcare: '#199e70',
+  gifts: '#e06fb0',
 }
 const STORE = 'return-budget-v2'
 type Who = 'me' | 'sommer' | 'both'
@@ -1073,37 +1079,53 @@ function ReturnBudget({ metas }: { metas: ScenarioMeta[] }) {
       window.localStorage.setItem('return-budget-who', w)
     } catch {}
   }
-  const tag = (cs: BudgetCategory[], owner: 'me' | 'sommer', prefix: string) =>
+  type Line = BudgetCategory['lines'][number] & { ek: string; owner: 'me' | 'sommer'; calc?: () => number }
+  type Cat = { key: string; label: string; lines: Line[] }
+  const tag = (cs: BudgetCategory[], owner: 'me' | 'sommer', prefix: string): Cat[] =>
     cs.map((c) => ({ key: c.key, label: c.label, lines: c.lines.map((l) => ({ ...l, ek: `${prefix}${c.key}:${l.key}`, owner })) }))
   const mine = tag(RETURN_BUDGET, 'me', '')
   const hers = tag(SOMMER_BUDGET, 'sommer', 'w:')
+  // What you send her: your Wife & Kids lines. On her card it is income, and the nanny and
+  // the rest are her expenses — the same lines, so an edit on either card moves both.
+  const sentLines = (mine.find((c) => c.key === 'sent')?.lines ?? []).filter((l) => v(l.ek, l.amount) > 0)
+  const fromYou = sentLines.reduce((t, l) => t + v(l.ek, l.amount), 0)
   // Her side: bills first, then what is left splits between saving and fun.
   const herPay = v('w:in:pay', SOMMER_INCOME.amount)
   const herBills = hers.reduce((t, c) => t + c.lines.filter((l) => l.share == null).reduce((u, l) => u + v(l.ek, l.amount), 0), 0)
   const herRemainder = herPay - herBills
-  const valOf = (l: { ek: string; amount: number; share?: number }) => (l.share != null ? Math.max(0, herRemainder) * l.share : v(l.ek, l.amount))
-  const totalOf = (cs: typeof mine) => cs.reduce((t, c) => t + c.lines.reduce((u, l) => u + valOf(l), 0), 0)
+  const valOf = (l: Line) => (l.calc ? l.calc() : l.share != null ? Math.max(0, herRemainder) * l.share : v(l.ek, l.amount))
+  const totalOf = (cs: Cat[]) => cs.reduce((t, c) => t + c.lines.reduce((u, l) => u + valOf(l), 0), 0)
   const spend = totalOf(mine)
   const herSpend = totalOf(hers)
   const herLeft = herPay - herSpend
-  // Combined: your categories with hers folded in, then any only she has.
-  const merged = [
-    ...mine.map((c) => {
-      const theirs = hers.find((h) => h.key === c.key)?.lines ?? []
-      // Your $0 placeholder for a line she carries ("Sommer covers it") would only repeat it.
-      const yours = c.lines.filter((l) => !(v(l.ek, l.amount) === 0 && theirs.some((t) => t.key === l.key || t.covers === l.key)))
-      return { ...c, lines: [...yours, ...theirs] }
-    }),
-    ...hers.filter((h) => !mine.some((c) => c.key === h.key)),
-  ]
-  const cats = (who === 'me' ? mine : who === 'sommer' ? hers : merged).map((c) => ({
+  const herView: Cat[] = hers.map((c) =>
+    c.key === 'sent'
+      ? { ...c, lines: [...sentLines.map((l) => ({ ...l, label: `${l.label.replace('Childcare (one under five)', 'Nanny / childcare')} — paid from what you send`, owner: 'sommer' as const })), ...c.lines] }
+      : c,
+  )
+  // Combined: every real expense once, regrouped — Food, Childcare & kids and Gifts instead
+  // of Wife & Kids (a transfer between you), and your "You" line split into food and the rest.
+  const all: Line[] = [...mine, ...hers].flatMap((c) =>
+    c.lines
+      .filter((l) => !(l.owner === 'me' && v(l.ek, l.amount) === 0 && hers.some((h) => h.lines.some((t) => t.key === l.key || t.covers === l.key))))
+      .flatMap((l): (Line & { cat: string })[] =>
+        c.key === 'personal' && l.key === 'you'
+          ? [
+              { ...l, ek: `${l.ek}#food`, cat: 'food', label: 'Your food out — lunches, coffee', basis: `A third of your "You" line (MY ESTIMATE of its food part). Edit the whole line on Just me.`, calc: () => v(l.ek, l.amount) * YOU_FOOD_SHARE },
+              { ...l, ek: `${l.ek}#rest`, cat: 'personal', label: 'You — clothes, shopping', basis: 'The rest of your "You" line, after its food part.', calc: () => v(l.ek, l.amount) * (1 - YOU_FOOD_SHARE) },
+            ]
+          : [{ ...l, cat: combinedCategory(c.key, l.key) }],
+      ),
+  ) as (Line & { cat: string })[]
+  const merged: Cat[] = COMBINED_CATEGORIES.map((k) => ({ ...k, lines: (all as (Line & { cat: string })[]).filter((l) => l.cat === k.key) })).filter((c) => c.lines.length)
+  const cats = (who === 'me' ? mine : who === 'sommer' ? herView : merged).map((c) => ({
     ...c,
     total: c.lines.reduce((t, l) => t + valOf(l), 0),
   }))
   const viewSpend = cats.reduce((t, c) => t + c.total, 0)
   // Your salary needed: on your side alone, or for the household once her pay is counted.
   const need = salaryNeeded(who === 'both' ? Math.max(0, spend + herSpend - herPay) : spend, other)
-  const gross = who === 'sommer' ? Math.max(herPay, 1) : who === 'both' ? need.grossMonthly + herPay : need.grossMonthly
+  const gross = who === 'sommer' ? Math.max(herPay + fromYou, 1) : who === 'both' ? need.grossMonthly + herPay : need.grossMonthly
   const pct = (n: number) => (gross > 0 ? `${((n / gross) * 100).toFixed(1)}%` : '')
   const offers = [
     { label: 'Federal / contractor', salary: 85000 },
@@ -1200,11 +1222,11 @@ function ReturnBudget({ metas }: { metas: ScenarioMeta[] }) {
             {who === 'sommer' ? (
               <>
                 <div className="pcard-title">
-                  Sommer: {usd0(herPay)} in · {usd0(herBills)} bills
+                  Sommer: {usd0(herPay + fromYou)} in · {usd0(herBills + fromYou)} out
                 </div>
                 <div className="pcard-sub">
                   {herRemainder >= 0
-                    ? `${usd0(herRemainder)} left after her bills — ${usd0(herRemainder / 2)} to saving, ${usd0(herRemainder / 2)} to fun`
+                    ? `Her pay ${usd0(herPay)} + ${usd0(fromYou)} from you · ${usd0(herRemainder)} left after bills — ${usd0(herRemainder / 2)} to saving, ${usd0(herRemainder / 2)} to fun`
                     : `Her bills run ${usd0(-herRemainder)} over her pay`}
                 </div>
               </>
@@ -1254,7 +1276,7 @@ function ReturnBudget({ metas }: { metas: ScenarioMeta[] }) {
                     <i className="swatch-dot" style={{ background: '#a3aab6' }} />
                     {who === 'sommer' ? 'Take-home pay' : who === 'both' ? 'Income — your gross, her take-home' : 'Gross income'}
                   </span>
-                  <span className="sec-amt">{usd0(who === 'sommer' ? herPay : gross)}</span>
+                  <span className="sec-amt">{usd0(who === 'sommer' ? herPay + fromYou : gross)}</span>
                 </div>
               </summary>
               <div className="sec-body">
@@ -1312,6 +1334,15 @@ function ReturnBudget({ metas }: { metas: ScenarioMeta[] }) {
                     <div className="ln-meta"><span>{SOMMER_INCOME.basis}</span></div>
                   </div>
                 )}
+                {who === 'sommer' && (
+                  <div className="ln rb-line" title="Your Wife & Kids lines: the nanny, the kids and the household extras. Edit them on Just me.">
+                    <div className="ln-top">
+                      <div className="ln-name">From you — nanny, kids & household</div>
+                      <div className="ln-amt"><span className="rb-computed">{usd0(fromYou)}</span></div>
+                    </div>
+                    <div className="ln-meta"><span>What you send each month: your Wife &amp; Kids lines.</span></div>
+                  </div>
+                )}
               </div>
             </details>
             <details className="sec" hidden={who === 'sommer'}>
@@ -1353,7 +1384,7 @@ function ReturnBudget({ metas }: { metas: ScenarioMeta[] }) {
                           {who === 'both' && <span className={`who-tag ${l.owner}`}>{l.owner === 'me' ? 'You' : 'Sommer'}</span>}
                         </div>
                         <div className="ln-amt">
-                          {l.share != null ? <span className="rb-computed" title="Computed: a share of what is left after her bills">{usd0(valOf(l))}</span> : input(l.ek, l.amount)}
+                          {l.share != null || l.calc ? <span className="rb-computed" title="Computed — see the note below">{usd0(valOf(l))}</span> : input(l.ek, l.amount)}
                         </div>
                       </div>
                       {pill(valOf(l), CAT_COLORS[c.key]!)}

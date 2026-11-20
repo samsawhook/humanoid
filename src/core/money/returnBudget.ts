@@ -199,6 +199,39 @@ export const SOMMER_INCOME: BudgetLine = {
   basis: '$63k a year; she nets $2,100 on the 1st and 15th.',
 }
 
+/**
+ * The Combined view regroups the household's lines: no "Wife & Kids" (that was a transfer
+ * between you two), but Food, Childcare and Gifts. Your "You" line is part food: a third
+ * of it (MY ESTIMATE: lunches and coffee) moves to Food.
+ */
+export const COMBINED_CATEGORIES: { key: string; label: string }[] = [
+  { key: 'home', label: 'Home' },
+  { key: 'car', label: 'Car' },
+  { key: 'food', label: 'Food' },
+  { key: 'childcare', label: 'Childcare & kids' },
+  { key: 'gifts', label: 'Gifts' },
+  { key: 'personal', label: 'Personal spending' },
+  { key: 'tech', label: 'Tech' },
+  { key: 'debt', label: 'Debt payments' },
+  { key: 'invest', label: 'Investing & saving' },
+]
+export const YOU_FOOD_SHARE = 1 / 3
+const COMBINED_MAP: Record<string, string> = {
+  'sent:groceries': 'food',
+  'sent:childcare': 'childcare',
+  'sent:kids': 'childcare',
+  'sent:baby': 'childcare',
+  'sent:household': 'gifts',
+  'sent:dog': 'home',
+  'sent:amazon': 'home',
+  'personal:gifts': 'gifts',
+  'personal:eatout': 'food',
+}
+/** Where a line lands in the Combined view. */
+export function combinedCategory(catKey: string, lineKey: string): string {
+  return COMBINED_MAP[`${catKey}:${lineKey}`] ?? catKey
+}
+
 export const EMPLOYEE_401K = 0.05
 const FICA = 0.0765
 
