@@ -97,6 +97,18 @@ export const RETURN_BUDGET: BudgetCategory[] = [
       { key: 'you', label: 'You — food out, clothes, shopping', amount: 600, basis: 'Your number (19 Nov).' },
       { key: 'tricare', label: 'Tricare Select Reserve (family)', amount: 263, basis: 'Your figure, with a little inflation.' },
       { key: 'gifts', label: 'Gifts & occasions', amount: 75, basis: 'Birthdays, anniversary, Christmas, averaged.' },
+      {
+        key: 'eatout',
+        label: 'Eating out — family',
+        amount: 250,
+        basis: 'MY ESTIMATE: a family meal out most weekends (~$45 with a toddler) plus a date night a month. Your own lunches and coffee stay on the "You" line.',
+      },
+      {
+        key: 'travel',
+        label: 'Travel — trips & visits',
+        amount: 300,
+        basis: 'MY ESTIMATE: ~$3,600 a year — one family trip (~$2,000 driving, lodging, food) plus a couple of weekends away or visits to family. Set aside monthly so the trip is paid for before you go.',
+      },
     ],
   },
   {
