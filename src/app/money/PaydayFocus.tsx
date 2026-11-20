@@ -7,6 +7,9 @@ import { nov1Statement, NOV1 } from '@/core/money/reconstruct'
 import { combineStatements, paycheckStatement, type PaycheckStatement, type StatementLine, type StatementSection } from '@/core/money/statement'
 import { benchmarkRows, type BenchRow, type BenchStatus } from '@/core/money/benchmarks'
 import { PATH_ASSUMPTIONS } from '@/core/money/paths'
+import { combinedSide, sommerSide, sumSides } from '@/core/money/sides'
+import { SideCard } from './SideCard'
+import { WhoSwitch } from './WhoSwitch'
 import { limitsFor, tspYear } from '@/core/money/limits'
 import { projectPaycheck } from '@/core/money/paychecks'
 import { monthlyBasicPay } from '@/core/money/drillPay'
@@ -1046,6 +1049,7 @@ export function PaydayFocus({
         <span><i className="lg lg-solid" /> Filled = already gone out</span>
         <span><i className="lg lg-over" /> Orange = spent over budget</span>
       </div>
+      <WhoSwitch>
       {months.map((m) => {
         const cards: (ReturnType<typeof cardFor> | null)[] = [idx(m, '01'), idx(m, '15')].map((i) => (i >= 0 ? cardFor(i) : null))
         // Before the plan: the 1 Nov paycheck, rebuilt from the statement and screenshots.
@@ -1080,6 +1084,31 @@ export function PaydayFocus({
                 </label>
               )}
             </div>
+            {(['sommer', 'both'] as const).map((w) => {
+              const side = w === 'sommer' ? sommerSide : combinedSide
+              const sub = (c: NonNullable<(typeof cards)[number]>) => (w === 'sommer' ? 'Her pay, what you send, her bills' : 'Your paycheck and hers, as one household')
+              return (
+                <div className={`who-block who-${w}`} key={w}>
+                  <div className="pgrid split">
+                    {cards.map((c, k) =>
+                      c ? (
+                        <SideCard key={c.i} who={w} side={side(c.st)} tag={c.tag} title={c.title} subtitle={sub(c)} />
+                      ) : (
+                        <div key={`empty-${k}`} className="pcard pcard-empty">
+                          {k === 0 ? '1st' : '15th'} paycheck — before this plan started.
+                        </div>
+                      ),
+                    )}
+                  </div>
+                  {present.length > 1 && (
+                    <div className="pgrid combined">
+                      <SideCard wide who={w} side={sumSides(present.map((c) => side(c.st)))} tag="Month" title={`${label} — 1st + 15th`} subtitle={sub(present[0]!)} />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+            <div className="who-block who-sam">
             <div className="pgrid split">
               {cards.map((c, k) =>
                 c ? (
@@ -1110,9 +1139,11 @@ export function PaydayFocus({
                 />
               </div>
             )}
+            </div>
           </section>
         )
       })}
+      </WhoSwitch>
     </section>
   )
 }

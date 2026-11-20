@@ -669,3 +669,8 @@ body:has(nav.rail) main { margin-left: 60px; }
 
 [hidden] { display: none !important; }
 .rb-computed { display: inline-block; min-width: 72px; text-align: right; padding: 4px 8px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.whoswitch[data-who="sam"] .who-block:not(.who-sam),
+.whoswitch[data-who="sommer"] .who-block:not(.who-sommer),
+.whoswitch[data-who="both"] .who-block:not(.who-both) { display: none; }
+.whoswitch > .rb-who { position: sticky; top: 8px; z-index: 5; }
+.side-foot { font-size: 12px; padding: 8px 2px 2px; border-top: 1px solid var(--line); margin-top: 8px; }
