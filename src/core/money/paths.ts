@@ -186,7 +186,8 @@ export const PATH_ASSUMPTIONS = {
    * planned for the first months home, Sep 2027. Used, cheap, and paid in cash — no loans
    * (your calls, 21 Nov): ~$10k for an older, higher-mileage three-row SUV. MY ESTIMATE.
    */
-  car: { replaceMonth: '2027-09' as string | null, price: 10000, downShare: 1, rate: 0.09, termMonths: 60 },
+  /** `sommerShare`: the part Sommer pays from her savings (planner toggle; 0 = all yours). */
+  car: { sommerShare: 0, replaceMonth: '2027-09' as string | null, price: 10000, downShare: 1, rate: 0.09, termMonths: 60 },
   /** Modelled emergencies: how many, the first month, months apart, and size (2027 dollars). Off by default. */
   emergencies: { count: 0, first: '2028-01', everyMonths: 24, size: 5000 },
 
@@ -816,8 +817,9 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
         costs['Car — replacement loan'] = due
       }
       if (cr.replaceMonth && m === cr.replaceMonth && cr.price > 0) {
-        const price = cr.price * infl
-        costs[cr.downShare >= 1 ? 'Car — replacement, paid in cash' : 'Car — replacement, down payment'] = price * cr.downShare
+        // Sommer's share comes from her savings: not on your side.
+        const price = cr.price * infl * (1 - cr.sommerShare)
+        costs[cr.downShare >= 1 ? `Car — replacement, paid in cash${cr.sommerShare > 0 ? ` (your ${Math.round((1 - cr.sommerShare) * 100)}%)` : ''}` : 'Car — replacement, down payment'] = price * cr.downShare
         carLoan = price * (1 - cr.downShare)
         const r = cr.rate / 12
         carPmt = r > 0 ? (carLoan * r) / (1 - Math.pow(1 + r, -cr.termMonths)) : carLoan / cr.termMonths

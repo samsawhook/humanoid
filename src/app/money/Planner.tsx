@@ -36,6 +36,7 @@ interface Levers {
   carReplace: string | null
   carPrice: number
   carDown: number
+  carSommer: number
   emergCount: number
   emergFirst: string
   emergEvery: number
@@ -59,6 +60,7 @@ function baseLevers(sc: Scenario): Levers {
     carReplace: a.car.replaceMonth,
     carPrice: a.car.price,
     carDown: a.car.downShare,
+    carSommer: a.car.sommerShare,
     emergCount: a.emergencies.count,
     emergFirst: a.emergencies.first,
     emergEvery: a.emergencies.everyMonths,
@@ -77,7 +79,7 @@ function apply(sc: Scenario, l: Levers): Scenario {
     vaRating: l.va,
     vaMonthly: VA_MONTHLY[l.va] ?? sc.a.vaMonthly,
     family: { ...sc.a.family, births: [sc.a.family.births[0]!, ...[l.child2, l.child3].filter((b): b is string => !!b)].sort() },
-    car: { ...sc.a.car, replaceMonth: l.carReplace, price: l.carPrice, downShare: l.carDown },
+    car: { ...sc.a.car, replaceMonth: l.carReplace, price: l.carPrice, downShare: l.carDown, sommerShare: l.carSommer },
     emergencies: { count: l.emergCount, first: l.emergFirst, everyMonths: l.emergEvery, size: l.emergSize },
   }
   return { ...sc, a }
@@ -290,7 +292,7 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
           )}
         </Lever>
 
-        <Lever title="The Expedition" changed={isChanged('carReplace', 'carPrice', 'carDown')} onReset={() => reset('carReplace', 'carPrice', 'carDown')} hint={lv.carReplace ? 'Used, paid in cash — no loan. If cash isn’t there that month, the shortfall shows as borrowed below. The car is not counted as an asset.' : 'Lasts the whole plan — no replacement modelled.'}>
+        <Lever title="The Expedition" changed={isChanged('carReplace', 'carPrice', 'carDown', 'carSommer')} onReset={() => reset('carReplace', 'carPrice', 'carDown', 'carSommer')} hint={lv.carReplace ? `Used, paid in cash — no loan.${lv.carSommer > 0 ? ` Sommer pays ${usd0(lv.carPrice * lv.carSommer)} from her savings (~$7.6k by Jul 2027); you pay ${usd0(lv.carPrice * (1 - lv.carSommer))}.` : ''} If your cash isn’t there that month, the shortfall shows as borrowed below. The car is not counted as an asset.` : 'Lasts the whole plan — no replacement modelled.'}>
           <div className="lv-row">
             <Seg value={!!lv.carReplace} options={[[true, 'Replace'], [false, 'Lasts']]} onChange={(v) => set('carReplace', v ? (base.carReplace ?? '2027-09') : null)} />
             {lv.carReplace && <Month value={lv.carReplace} onChange={(m) => set('carReplace', m)} label="Dies in" />}
@@ -298,6 +300,12 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
           {lv.carReplace && (
             <div className="lv-row">
               <Money value={lv.carPrice} onChange={(n) => set('carPrice', n)} step={1000} label="Used, price" />
+            </div>
+          )}
+          {lv.carReplace && (
+            <div className="lv-row">
+              <span className="lv-lab">Split</span>
+              <Seg value={lv.carSommer} options={[[0, 'All you'], [0.5, '50 / 50 with Sommer']]} onChange={(v) => set('carSommer', v)} />
             </div>
           )}
         </Lever>
