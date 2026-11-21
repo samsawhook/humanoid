@@ -292,7 +292,7 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
 
         <Lever title="The Expedition" changed={isChanged('carReplace', 'carPrice', 'carDown')} onReset={() => reset('carReplace', 'carPrice', 'carDown')} hint={lv.carReplace ? `${Math.round(lv.carDown * 100)}% down, the rest over 5 years at 7%. The car is not counted as an asset.` : 'Lasts the whole plan — no replacement modelled.'}>
           <div className="lv-row">
-            <Seg value={!!lv.carReplace} options={[[true, 'Replace'], [false, 'Lasts']]} onChange={(v) => set('carReplace', v ? (base.carReplace ?? '2030-06') : null)} />
+            <Seg value={!!lv.carReplace} options={[[true, 'Replace'], [false, 'Lasts']]} onChange={(v) => set('carReplace', v ? (base.carReplace ?? '2027-09') : null)} />
             {lv.carReplace && <Month value={lv.carReplace} onChange={(m) => set('carReplace', m)} label="Dies in" />}
           </div>
           {lv.carReplace && (
