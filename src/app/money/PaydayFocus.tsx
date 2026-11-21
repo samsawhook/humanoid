@@ -726,7 +726,10 @@ function PaydayCard({
   mode = 'sam',
   hers,
   householdMonthly,
+  nowFromBank = false,
 }: {
+  /** Combined: this is the live paycheck, so the Cash strip shows the bank's to-date figures. */
+  nowFromBank?: boolean
   /** The household's average monthly spending, for "months covered". */
   householdMonthly?: number
   /** Sommer's accounts over this card (Sommer and Combined): her own walk, and the liquidity test. */
@@ -813,30 +816,51 @@ function PaydayCard({
     return { key: 'cash', label: 'Cash', lines: [...actualLines, ...recLines], total }
   })()
   // Cash at a glance, in the folded Net cash line: start → change → end, with a light.
-  // Cash at a glance (checking): start, the planned change, the actual change, end, and a light.
+  // Cash at a glance (checking): start, the budgeted change, the forecast (budget adjusted
+  // for overages and what has already happened), to date from the bank, what is still to go,
+  // and the expected end — with a light.
   const cashGlance = (() => {
-    const accts: { start: number; end: number }[] = []
-    if (mode !== 'sommer') accts.push({ start: checkingBefore, end: checkingAfter })
-    if (mode !== 'sam' && hers) accts.push({ start: hers.checkingStart, end: hers.checkingEnd })
-    const start = r2(accts.reduce((t, a) => t + a.start, 0))
-    const end = r2(accts.reduce((t, a) => t + a.end, 0))
-    const actual = r2(end - start)
-    const light = cashLight(end, accts.some((a) => a.end < -0.005))
+    const herStart = mode !== 'sam' && hers ? hers.checkingStart : 0
+    const herEnd = mode !== 'sam' && hers ? hers.checkingEnd : 0
+    const samIn = mode !== 'sommer'
+    const start = r2((samIn ? checkingBefore : 0) + herStart)
+    const end = r2((samIn ? checkingAfter : 0) + herEnd)
+    const forecast = r2(end - start)
+    // Your bank balance is the only live figure; her checking is carried at its start.
+    const current = (live || nowFromBank) && samIn ? r2(ACTUALS_AS_OF.availableBalance + herStart) : null
+    const lastFullDay = (() => {
+      const d = new Date(`${ACTUALS_AS_OF.date}T12:00:00Z`)
+      d.setUTCDate(d.getUTCDate() - 1)
+      return d.toISOString().slice(0, 10)
+    })()
+    const light = cashLight(end, (samIn && checkingAfter < -0.005) || herEnd < -0.005)
     const signed = (v: number) => `${v < 0 ? '−' : '+'}${usd(Math.abs(v))}`
-    const differs = Math.abs(actual - planCash) > 0.005
+    const cells: { k: string; v: string; cls?: string; title?: string }[] = [
+      { k: 'Start', v: usd(start) },
+      { k: 'Budgeted change', v: signed(planCash), title: 'Pay minus every budgeted line and the saving, as planned.' },
+      { k: 'Forecast change', v: signed(forecast), cls: 'cg-head', title: 'The budget, plus overages, minus what came in under, plus what has already happened (early payments, the real deposit).' },
+      ...(current != null
+        ? [
+            { k: 'To date', v: signed(r2(current - start)) },
+            { k: `Now — through ${nice(lastFullDay)}`, v: usd(current), title: `Bank, ${nice(ACTUALS_AS_OF.date)} ${ACTUALS_AS_OF.time}` },
+            { k: 'Still to change', v: signed(r2(end - current)), title: 'Budgeted lines not yet seen, and the savings transfer.' },
+          ]
+        : []),
+      { k: 'Expected end', v: usd(end), cls: 'cg-end' },
+    ]
     return (
-      <div className={`cash-glance lq-${light.cls}`} title={light.why}>
-        <i className="bdot" />
-        <span>Start {usd(start)}</span>
-        {differs && <span className="cg-plan">Planned {signed(planCash)}</span>}
-        <span className={actual < 0 ? 'neg' : 'pos'}>
-          {differs ? 'Actual ' : ''}
-          {signed(actual)}
+      <div className={`cash-glance cg-cash lq-${light.cls}`} title={light.why}>
+        <div className="cg-grid">
+          {cells.map((c) => (
+            <div key={c.k} className={`cg-cell ${c.cls ?? ''}`} title={c.title}>
+              <div className="cg-k">{c.k}</div>
+              <div className={`cg-v${c.v.startsWith('−') || c.v.startsWith('-') ? ' neg' : ''}`}>{c.v}</div>
+            </div>
+          ))}
+        </div>
+        <span className="cg-why">
+          <i className="bdot" /> {light.label}
         </span>
-        <span>
-          End <b>{usd(end)}</b>
-        </span>
-        <span className="cg-why">{light.label}</span>
       </div>
     )
   })()
@@ -1342,7 +1366,7 @@ export function PaydayFocus({
                   <div className="pgrid split">
                     {cards.map((c, k) =>
                       c ? (
-                        <PaydayCard key={c.i} {...c} mode={w} st={make(c.st)} subtitle={sub} showActuals={false} live={false} hers={herCash([c.i])} householdMonthly={householdMonthly} />
+                        <PaydayCard key={c.i} {...c} mode={w} st={make(c.st)} subtitle={sub} showActuals={false} live={false} nowFromBank={w === 'both' && c.live} hers={herCash([c.i])} householdMonthly={householdMonthly} />
                       ) : (
                         <div key={`empty-${k}`} className="pcard pcard-empty">
                           {k === 0 ? '1st' : '15th'} paycheck — before this plan started.

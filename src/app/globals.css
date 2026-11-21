@@ -692,3 +692,11 @@ body:has(nav.rail) main { margin-left: 60px; }
 .cash-glance.lq-red { border-left-color: #e5534b; } .cash-glance.lq-red .bdot { background: #e5534b; }
 .cash-glance .cg-plan { color: var(--muted); }
 .cash-glance.cg-saving { border-left-color: #2fa4a9; }
+.cash-glance.cg-cash { align-items: flex-start; }
+.cg-grid { flex: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 6px 12px; }
+.cg-k { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+.cg-v { font-size: 13px; }
+.cg-v.neg { color: #e5534b; }
+.cg-head .cg-v, .cg-end .cg-v { font-weight: 700; }
+.cg-head .cg-k { color: inherit; font-weight: 600; }
+.cash-glance .cg-why { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
