@@ -219,6 +219,11 @@ export const PATH_ASSUMPTIONS = {
     movingCost: 3000,
     barCost: 4000,
     /**
+     * Firms that hire from their 2L summer usually pay the bar review course and the bar
+     * fees for incoming associates (your 21 Nov question). Planner lever; off = you pay $4k.
+     */
+    firmPaysBar: true,
+    /**
      * Household income your spouse loses by moving to Lubbock, per month in school. Zero in
      * the base case because her income is out of scope — a sensitivity, not a forecast.
      */
@@ -776,7 +781,7 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
         } else {
           if (monthIndex(m) < monthIndex(law.jobStart)) {
             phase = 'Bar study'
-            if (m === '2030-06') costs['Bar exam & prep course'] = law.barCost
+            if (m === '2030-06' && !law.firmPaysBar) costs['Bar exam & prep course'] = law.barCost
           } else {
             phase = `Attorney — ${law.market}`
             salary = salaryAt(law.salary, m) / 12

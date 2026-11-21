@@ -54,6 +54,7 @@ interface Levers {
   partTime: number
   partTimeFrom: string
   lawLoans: boolean
+  firmBar: boolean
 }
 
 export function baseLevers(sc: Scenario): Levers {
@@ -85,6 +86,7 @@ export function baseLevers(sc: Scenario): Levers {
     partTime: a.law.partTime.monthly,
     partTimeFrom: a.law.partTime.from,
     lawLoans: a.law.loans.enabled,
+    firmBar: a.law.firmPaysBar,
   }
 }
 
@@ -99,6 +101,7 @@ export function apply(sc: Scenario, l: Levers): Scenario {
       summerGross: { '2028': l.summer1L, '2029': l.summer2L },
       partTime: { monthly: l.partTime, from: l.partTimeFrom },
       loans: { ...sc.a.law.loans, enabled: l.lawLoans },
+      firmPaysBar: l.firmBar,
       ...(sc.path === 'law' ? { jobStart: l.jobStart, salary: reshapeLadder(sc.a.law.salary, l.jobStart, l.jobSalary) } : {}),
     },
     macc:
@@ -465,6 +468,7 @@ const LEVER_LABEL: Record<keyof Levers, string> = {
   partTime: 'Part-time in school $/mo',
   partTimeFrom: 'Part-time from',
   lawLoans: 'Federal law-school loans',
+  firmBar: 'Firm pays bar costs',
 }
 
 const q = (v: string | number) => (typeof v === 'number' ? String(Math.round(v * 100) / 100) : /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
@@ -793,9 +797,9 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
         <Lever
           title={isLaw ? 'Attorney job' : sc.path === 'night' ? 'Day job' : sc.a.macc.selfEmployed ? 'Your practice' : 'The job'}
           value={`${monLabel(lv.jobStart)} · ${usd0(lv.jobSalary)}${lv.signing ? ` + ${usd0(lv.signing)}` : ''}`}
-          changed={isChanged('jobStart', 'jobSalary', 'signing')}
-          onReset={() => reset('jobStart', 'jobSalary', 'signing')}
-          hint={`Starts ${monLabel(lv.jobStart)} at ${usd0(lv.jobSalary)}${sc.a.macc.selfEmployed && !isLaw ? ' profit' : ''} a year; the raises after follow the scenario's ladder, scaled to this start.${lv.signing ? ` Signing bonus with the first pay, 22% withheld.` : ''}`}
+          changed={isChanged('jobStart', 'jobSalary', 'signing', 'firmBar')}
+          onReset={() => reset('jobStart', 'jobSalary', 'signing', 'firmBar')}
+          hint={`Starts ${monLabel(lv.jobStart)} at ${usd0(lv.jobSalary)}${sc.a.macc.selfEmployed && !isLaw ? ' profit' : ''} a year; the raises after follow the scenario's ladder, scaled to this start.${lv.signing ? ` Signing bonus with the first pay, 22% withheld.` : ' Signing bonuses are uncommon at mid-size firms; BigLaw pays bar stipends.'}`}
         >
           <div className="lv-row">
             <Month value={lv.jobStart} onChange={(m) => set('jobStart', m)} label="Starts" />
@@ -806,6 +810,12 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
           <div className="lv-row">
             <Money value={lv.signing} onChange={(n) => set('signing', n)} step={1000} label="Signing bonus" />
           </div>
+          {isLaw && (
+            <div className="lv-row">
+              <span className="lv-lab">Bar review & fees</span>
+              <Seg value={lv.firmBar} options={[[true, 'Firm pays'], [false, 'You pay $4k']]} onChange={(v) => set('firmBar', v)} />
+            </div>
+          )}
         </Lever>
 
         {isLaw && (
