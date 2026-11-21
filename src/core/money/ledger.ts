@@ -78,7 +78,7 @@ export function pnlGroup(k: string): (typeof PNL_GROUPS)[number] {
   if (/Mortgage|New home|Rent in|Corpus house|cost premium|Rural extras|countryside|Home upgrade/.test(k)) return 'Home'
   if (/Wife & Kids|Family support|Children|New baby/.test(k)) return 'Wife & Kids'
   if (/Your spending|Tricare|VA waived/.test(k)) return 'Personal'
-  if (/Debt payments|UT loan/.test(k)) return 'Debt'
+  if (/Debt payments|UT loan|Law-school loans/.test(k)) return 'Debt'
   if (/401\(k\)|Nth/.test(k)) return 'Investing'
   if (/Moving|Bar exam|CPA review|Spouse income/.test(k)) return 'School & moves'
   return 'Other'
@@ -177,6 +177,7 @@ export const ACCOUNTS: AccountDef[] = [
     note: debt('ut_loan').note,
     schedule: true,
   },
+  { key: 'law_loans', label: 'Law school — federal Direct Unsubsidized', group: 'student', apr: PATH_ASSUMPTIONS.law.loans.rate, aprNote: '2026–27 rate', note: 'Only what each school year needs, half in August and half in January; deferred in school and six months after; then the Tiered Standard plan.' },
   { key: 'car', label: 'Westlake — car loan', group: 'other', apr: 0, paidBy: 'Paid off 18 Nov', schedule: true },
   { key: 'car_new', label: 'Replacement car — loan', group: 'other', apr: PATH_ASSUMPTIONS.car.rate, aprNote: 'Estimate', note: 'When the Expedition is replaced (a planner lever): the price less the down payment.' },
   { key: 'caine', label: 'Caine & Weiner (Progressive collection)', group: 'other', apr: 0, paidBy: how('late_payments'), schedule: true },
@@ -269,6 +270,7 @@ export function buildLedger(path: PathKey | 'country' | Scenario): Ledger {
   bal.new_home = 0
   bal.gap = 0
   bal.car_new = 0
+  bal.law_loans = 0
   const opening: Record<string, number> = {
     ...bal,
     tsp: proj.months[0]!.retirement - a.tspDeployedMonthly,
@@ -295,7 +297,7 @@ export function buildLedger(path: PathKey | 'country' | Scenario): Ledger {
 
     // Interest first, on what was owed coming into the month.
     for (const acc of ACCOUNTS) {
-      if (!DEBT_KEYS.includes(acc.key) || acc.held || !acc.apr || acc.key === 'chamberlain' || acc.key === 'new_home' || acc.key === 'gap' || acc.key === 'car_new') continue
+      if (!DEBT_KEYS.includes(acc.key) || acc.held || !acc.apr || acc.key === 'chamberlain' || acc.key === 'new_home' || acc.key === 'gap' || acc.key === 'car_new' || acc.key === 'law_loans') continue
       if (acc.key === 'ut_loan' && deployed) continue
       const i = r2(Math.max(0, bal[acc.key]!) * (acc.apr / 12))
       if (i > 0) {
@@ -379,6 +381,7 @@ export function buildLedger(path: PathKey | 'country' | Scenario): Ledger {
     const mortgageTotal = pm ? pm.mortgage : bal.chamberlain!
     bal.new_home = r2(Math.max(0, mortgageTotal - bal.chamberlain!))
     bal.car_new = r2(pm ? pm.carLoan : 0)
+    bal.law_loans = r2(pm ? pm.lawLoans : 0)
 
     const out: Record<string, number> = {}
     if (pm) {
@@ -522,7 +525,7 @@ export interface PathSummary {
   fundsNote: string
 }
 
-const PAYABLE_KEYS = ['platinum', 'brightway', 'credit_one', 'citi', 'capital_one', 'avant', 'chase', 'student_loan', 'ut_loan', 'caine', 'car', 'arrears']
+const PAYABLE_KEYS = ['platinum', 'brightway', 'credit_one', 'citi', 'capital_one', 'avant', 'chase', 'student_loan', 'ut_loan', 'law_loans', 'caine', 'car', 'arrears']
 
 export function summarize(l: Ledger): PathSummary {
   const cashOf = (p: { bal: Record<string, number> }) => (p.bal.checking ?? 0) + (p.bal.savings ?? 0) - (p.bal.gap ?? 0)

@@ -243,6 +243,25 @@ export const PATH_ASSUMPTIONS = {
      */
     partTime: { monthly: 0, from: '2028-08' },
     /**
+     * Federal student loans for living costs (tuition is covered by the GI Bill and
+     * Hazlewood). The rules for anyone first borrowing after 1 Jul 2026 (the 2025 budget
+     * law, "OBBBA"): Grad PLUS is closed; Direct Unsubsidized only — up to $50,000 a year
+     * and $200,000 in all for professional students, never more than the school's cost of
+     * attendance less other aid. 2026–27: 8.07% fixed, 1.057% fee off each disbursement
+     * (later years' rates are set each spring; this one is carried forward). Half each
+     * academic year in August, half in January. Deferred while enrolled at least half-time
+     * and for a six-month grace period; interest accrues throughout (unsubsidized). Then the
+     * Tiered Standard plan: 10, 15, 20 or 25 years by balance (<$25k, <$50k, <$100k, more),
+     * or RAP (1–10% of AGI). Borrowed: only what each school year needs to keep cash above
+     * zero, rounded up to $1,000 — not the maximum. Each year is also capped at Texas Tech
+     * Law's cost of attendance, $48,239 for 2026–27 (tuition $27,532 + living $20,707, Law
+     * Viewbook), rising with inflation: veterans' education benefits have not counted as
+     * "other aid" against that since 2009, so the GI Bill does not reduce it. MY READING of
+     * published rules; confirm both with TTU Law financial aid before the first year — and
+     * ask for dependent-care costs to be added to the budget if you need more.
+     */
+    loans: { enabled: true, rate: 0.0807, fee: 0.01057, annualCap: 50000, aggregateCap: 200000, coaBudget: 48239, graceMonths: 6 },
+    /**
      * Summers, consistent with the planning case (a mid-size firm or a Big 4 tax practice,
      * not BigLaw): ~10 weeks at ~$2,000 a week after 1L, ~$2,500 after 2L. Texas big firms
      * pay 1Ls and 2Ls the same — ~$4,327 a week ($225k a year), ~$43k a summer — but those
@@ -405,7 +424,49 @@ export interface PathMonth {
   businessValue: number
   /** The replacement car's loan, if one is running. */
   carLoan: number
+  /** Federal law-school loans: what is owed (principal and unpaid interest). */
+  lawLoans: number
+  /** Cash borrowed this month (loan proceeds, after the fee) — financing, not income. */
+  borrowed: number
 }
+
+/**
+ * The law-school loans for each academic year: what it needs to keep cash above zero,
+ * from a run of the path without them. Keyed by the year the academic year starts.
+ */
+function lawLoanPlan(a: typeof PATH_ASSUMPTIONS): Record<string, number> {
+  const L = a.law.loans
+  const dry = projectPath('law', { ...a, law: { ...a.law, loans: { ...L, enabled: false } } })
+  const plan: Record<string, number> = {}
+  let borrowedNet = 0
+  let total = 0
+  for (let y = Number(a.law.schoolStart.slice(0, 4)); `${y}-08` <= a.law.schoolEnd; y++) {
+    const startMonth = `${y}-08`
+    const endMonth = `${y + 1}-07` < a.law.schoolEnd ? `${y + 1}-07` : a.law.schoolEnd
+    const before = dry.months.find((m) => m.month === addMonths(startMonth, -1))
+    const year = dry.months.filter((m) => m.month >= startMonth && m.month <= endMonth)
+    // Lowest cash in the year without the loan, as it would stand with the earlier years' loans.
+    let run = (before?.cash ?? 0) + borrowedNet
+    let low = run
+    for (const m of year) {
+      run += m.net
+      low = Math.min(low, run)
+    }
+    const needNet = Math.max(0, -low)
+    const infl = Math.pow(1 + a.inflation, y - 2026)
+    const cap = Math.min(L.annualCap, L.coaBudget * infl, L.aggregateCap - total)
+    const gross = Math.min(cap, Math.ceil(needNet / (1 - L.fee) / 1000) * 1000)
+    if (gross > 0) {
+      plan[String(y)] = gross
+      total += gross
+      borrowedNet += gross * (1 - L.fee)
+    }
+  }
+  return plan
+}
+
+/** Tiered Standard plan term, by balance entering repayment. */
+const tieredYears = (bal: number) => (bal < 25000 ? 10 : bal < 50000 ? 15 : bal < 100000 ? 20 : 25)
 
 /** A pay ladder moved to start in `start` and scaled so its first rung is `first`. */
 export function reshapeLadder(anchors: Anchor[], start: string, first: number): Anchor[] {
@@ -480,6 +541,8 @@ export function sommerPath(key: PathKey, a = PATH_ASSUMPTIONS): PathMonth[] {
       inSchool: false,
       businessValue: 0,
       carLoan: 0,
+      lawLoans: 0,
+      borrowed: 0,
     })
   }
   return out
@@ -600,6 +663,11 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
   let inCountry = false
   let carLoan = 0
   let carPmt = 0
+  const LL = a.law.loans
+  const loanPlan = key === 'law' && LL.enabled ? lawLoanPlan(a) : {}
+  let lawLoans = 0
+  let lawPmt = 0
+  const repayStart = addMonths(a.law.schoolEnd, LL.graceMonths + 1)
   const sale = saleMonth(key, a)
   const bonus = reenlistOf(key, a)
   const shocks = emergencyMonths(a)
@@ -619,6 +687,8 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
     let phase = ''
     /** Enrolled this month (any school): student loans are deferred (your rule, 19 Nov). */
     let schoolNow = false
+    /** Loan proceeds this month: cash in, but not income. */
+    let borrowedThis = 0
 
     // Growth on what is already held.
     investments *= 1 + a.nthReturn / 12
@@ -895,6 +965,29 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
         }
       }
 
+      // Federal law-school loans: half each year in August, half in January; interest
+      // accrues from disbursement; repayment from the end of the grace period.
+      if (key === 'law') {
+        lawLoans *= 1 + LL.rate / 12
+        const mo = m.slice(5, 7)
+        const ayStart = mo >= '08' ? m.slice(0, 4) : String(Number(m.slice(0, 4)) - 1)
+        const yearLoan = loanPlan[ayStart] ?? 0
+        if (yearLoan > 0 && (mo === '08' || mo === '01') && monthIndex(m) <= monthIndex(law.schoolEnd)) {
+          lawLoans += yearLoan / 2
+          borrowedThis += (yearLoan / 2) * (1 - LL.fee)
+        }
+        if (m === repayStart && lawLoans > 0) {
+          const n = tieredYears(lawLoans) * 12
+          const r = LL.rate / 12
+          lawPmt = (lawLoans * r) / (1 - Math.pow(1 + r, -n))
+        }
+        if (monthIndex(m) >= monthIndex(repayStart) && lawLoans > 0.005) {
+          const due = Math.min(lawPmt, lawLoans)
+          lawLoans -= due
+          costs['Law-school loans — Tiered Standard repayment'] = due
+        }
+      }
+
       // Sommer's side: her pay in, her bills and fun money out; the rest is her saving.
       if (a.sommer.included) {
         income['Sommer — take-home pay'] = a.sommer.takeHome * infl
@@ -951,9 +1044,9 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
     const totalIncome = r2(Object.values(income).reduce((s, v) => s + v, 0))
     const totalCosts = r2(Object.values(costs).reduce((s, v) => s + v, 0))
     const net = r2(totalIncome - totalCosts)
-    if (!dep) cash += net
+    if (!dep) cash += net + borrowedThis
 
-    const liabilities = mortgage + newMortgage + debt + ut + chargeOffs + carLoan
+    const liabilities = mortgage + newMortgage + debt + ut + chargeOffs + carLoan + lawLoans
     // The practice is an asset: small accounting practices sell for about 1× a year's revenue.
     const businessValue = revenueLog.slice(-12).reduce((s, v) => s + v, 0)
     months.push({
@@ -975,6 +1068,8 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
       inSchool: schoolNow,
       businessValue: r2(businessValue),
       carLoan: r2(carLoan),
+      lawLoans: r2(lawLoans),
+      borrowed: r2(borrowedThis),
     })
   }
 

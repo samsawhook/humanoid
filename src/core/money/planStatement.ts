@@ -58,6 +58,7 @@ export function periodStatement(
   }
   const income = sumBy((m) => m.income)
   const costs = sumBy((m) => m.costs)
+  const borrowed = months.reduce((t, m) => t + (m.borrowed ?? 0), 0)
   const deployedInvested = months.filter((m) => m.phase === 'Deployed').reduce((t, m) => t + m.invested, 0)
 
   const isDeduction = (k: string) => pnlGroup(k) === 'Taxes' || /^VA waived/.test(k)
@@ -67,10 +68,11 @@ export function periodStatement(
   const cashChange = r2(cashOf(end) - cashOf(start))
   const totalIncome = Object.values(income).reduce((t, v) => t + v, 0)
   const totalCosts = Object.values(costs).reduce((t, v) => t + v, 0)
-  const other = r2(cashChange - (totalIncome - totalCosts - deployedInvested))
+  const other = r2(cashChange - (totalIncome + borrowed - totalCosts - deployedInvested))
 
   const gross = section('gross', 'Income', [
     ...Object.entries(income).map(([k, v], i) => line(`in_${i}`, k, v)),
+    line('in_loan', 'Borrowed — federal student loan, after the 1.057% fee (not income)', borrowed, 'Direct Unsubsidized: owed back from six months after graduation. It is in the debt line from the day it is paid.'),
     ...(other > 0 ? [line('in_other', 'Interest & other cash movements', other, OTHER_NOTE)] : []),
   ])
   const deductions = section(

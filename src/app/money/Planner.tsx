@@ -53,6 +53,7 @@ interface Levers {
   signing: number
   partTime: number
   partTimeFrom: string
+  lawLoans: boolean
 }
 
 export function baseLevers(sc: Scenario): Levers {
@@ -83,6 +84,7 @@ export function baseLevers(sc: Scenario): Levers {
     signing: a.signingBonus,
     partTime: a.law.partTime.monthly,
     partTimeFrom: a.law.partTime.from,
+    lawLoans: a.law.loans.enabled,
   }
 }
 
@@ -96,6 +98,7 @@ export function apply(sc: Scenario, l: Levers): Scenario {
       house: l.houseSell ? 'sell' : 'rent',
       summerGross: { '2028': l.summer1L, '2029': l.summer2L },
       partTime: { monthly: l.partTime, from: l.partTimeFrom },
+      loans: { ...sc.a.law.loans, enabled: l.lawLoans },
       ...(sc.path === 'law' ? { jobStart: l.jobStart, salary: reshapeLadder(sc.a.law.salary, l.jobStart, l.jobSalary) } : {}),
     },
     macc:
@@ -206,6 +209,22 @@ function PeriodCard({ ledger, p }: { ledger: Ledger; p: Period }) {
   )
 }
 
+/** The federal loans as borrowed: per school year, owed at repayment, and the payment. */
+function loanSummary(ledger: Ledger): string {
+  const byYear = new Map<string, number>()
+  for (const m of ledger.months)
+    if ((m.borrowed ?? 0) > 0) {
+      const y = Number(m.month.slice(0, 4)) - (m.month.slice(5) < '08' ? 1 : 0)
+      byYear.set(`${y}–${String(y + 1).slice(2)}`, (byYear.get(`${y}–${String(y + 1).slice(2)}`) ?? 0) + m.borrowed)
+    }
+  const first = ledger.months.find((m) => m.costs['Law-school loans — Tiered Standard repayment'])
+  const owed = first ? ledger.months[ledger.months.indexOf(first) - 1]?.lawLoans ?? 0 : 0
+  const parts = [...byYear.entries()].map(([y, v]) => `${y} ${usd0(v)}`).join(', ')
+  return parts
+    ? `Direct Unsubsidized, 8.07%, only what each year needs: ${parts} (after the fee). ${usd0(owed)} owed when repayment starts ${first ? monLabel(first.month) : ''}; ${first ? usd0(first.costs['Law-school loans — Tiered Standard repayment']!) : ''}/mo on the Tiered Standard plan. Limit $50k a year, $200k in all; no Grad PLUS for new borrowers.`
+    : 'No federal loans needed: cash stays above zero through school.'
+}
+
 // ── Export ───────────────────────────────────────────────────────────────────
 
 const LEVER_LABEL: Record<keyof Levers, string> = {
@@ -232,6 +251,7 @@ const LEVER_LABEL: Record<keyof Levers, string> = {
   signing: 'Signing bonus',
   partTime: 'Part-time in school $/mo',
   partTimeFrom: 'Part-time from',
+  lawLoans: 'Federal law-school loans',
 }
 
 const q = (v: string | number) => (typeof v === 'number' ? String(Math.round(v * 100) / 100) : /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
@@ -250,9 +270,9 @@ const cashAtOf = (ledger: Ledger) => (m: Ledger['months'][number]) => {
 function toCsv(ledger: Ledger): string {
   const ins = [...new Set(ledger.months.flatMap((m) => Object.keys(m.income)))]
   const outs = [...new Set(ledger.months.flatMap((m) => Object.keys(m.costs)))]
-  const head = ['Month', 'Phase', 'Income', 'Costs', 'Net', 'Cash (no new debt)', 'Debt (excl. mortgages)', 'Net worth', ...ins.map((k) => `In: ${k}`), ...outs.map((k) => `Out: ${k}`)]
+  const head = ['Month', 'Phase', 'Income', 'Costs', 'Net', 'Borrowed (student loans)', 'Law loans owed', 'Cash (no new debt)', 'Debt (excl. mortgages)', 'Net worth', ...ins.map((k) => `In: ${k}`), ...outs.map((k) => `Out: ${k}`)]
   const cashAt = cashAtOf(ledger)
-  const rows = ledger.months.map((m) => [m.month, m.phase, m.totalIncome, m.totalCosts, m.net, cashAt(m), m.debt, m.netWorth, ...ins.map((k) => m.income[k] ?? 0), ...outs.map((k) => m.costs[k] ?? 0)])
+  const rows = ledger.months.map((m) => [m.month, m.phase, m.totalIncome, m.totalCosts, m.net, m.borrowed ?? 0, m.lawLoans ?? 0, cashAt(m), m.debt, m.netWorth, ...ins.map((k) => m.income[k] ?? 0), ...outs.map((k) => m.costs[k] ?? 0)])
   return [head, ...rows].map((r) => r.map(q).join(',')).join('\n')
 }
 
@@ -575,6 +595,21 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
                 <Month value={lv.partTimeFrom} onChange={(m) => set('partTimeFrom', m)} label="From" />
               </div>
             )}
+          </Lever>
+        )}
+
+        {isLaw && (
+          <Lever
+            title="Law-school loans"
+            changed={isChanged('lawLoans')}
+            onReset={() => reset('lawLoans')}
+            hint={
+              lv.lawLoans
+                ? loanSummary(ledger)
+                : 'None: any shortfall in school is borrowed as a cash gap at ~8% instead — not a real option, shown for comparison.'
+            }
+          >
+            <Seg value={lv.lawLoans} options={[[true, 'Federal — what each year needs'], [false, 'None']]} onChange={(v) => set('lawLoans', v)} />
           </Lever>
         )}
 
