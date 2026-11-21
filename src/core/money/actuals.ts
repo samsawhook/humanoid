@@ -13,11 +13,11 @@
 import type { LocalDate } from '../types'
 
 export const ACTUALS_AS_OF = {
-  date: '2026-11-18' as LocalDate,
-  time: '21:12',
+  date: '2026-11-21' as LocalDate,
+  time: '09:31',
   source: 'Wells Fargo app screenshot (Joint Checking)',
   /** Available balance the bank showed at that moment. */
-  availableBalance: 845.14,
+  availableBalance: 663.33,
 }
 
 /**
@@ -123,7 +123,7 @@ export const ACTUALS: Actual[] = [
     description: 'Westlake — auto loan payoff',
     lineKey: 'car_payoff_now',
     payday: '2026-11-15',
-    status: 'pending',
+    status: 'posted',
   },
   {
     date: '2026-11-18',
@@ -154,8 +154,45 @@ export const ACTUALS: Actual[] = [
   {
     date: '2026-11-18',
     amount: 74,
-    description: 'GEICO — policy start',
+    description: 'GEICO — policy start ($74 hold, still counted on 21 Nov)',
     oneOffKey: 'geico_start',
+    payday: '2026-11-15',
+    status: 'pending',
+  },
+  {
+    // Posted 19 Nov. The bank still counts the $74 hold too: 845.14 − 74.77 − 107.04 = 663.33,
+    // the balance on 21 Nov. Expect the $74 hold to drop off and $74 to come back.
+    date: '2026-11-19',
+    amount: 74.77,
+    description: 'GEICO — policy start, posted (the $74 hold should drop off)',
+    oneOffKey: 'geico_start',
+    payday: '2026-11-15',
+    status: 'posted',
+  },
+  {
+    date: '2026-11-20',
+    amount: 54.2,
+    description: 'Electronics store',
+    lineKey: 'living_deployed',
+    sub: 'personal_local',
+    payday: '2026-11-15',
+    status: 'pending',
+  },
+  {
+    date: '2026-11-20',
+    amount: 29.96,
+    description: 'Barber',
+    lineKey: 'living_deployed',
+    sub: 'personal_local',
+    payday: '2026-11-15',
+    status: 'pending',
+  },
+  {
+    date: '2026-11-20',
+    amount: 22.88,
+    description: 'Five Guys',
+    lineKey: 'living_deployed',
+    sub: 'personal_local',
     payday: '2026-11-15',
     status: 'pending',
   },
