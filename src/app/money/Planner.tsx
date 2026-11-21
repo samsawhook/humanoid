@@ -236,16 +236,22 @@ const LEVER_LABEL: Record<keyof Levers, string> = {
 
 const q = (v: string | number) => (typeof v === 'number' ? String(Math.round(v * 100) / 100) : /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
 
+/**
+ * Cash at the end of a month as the chart shows it: the ledger's point for that month where
+ * there is one (it holds Sommer's savings in Combined while you are away), otherwise the
+ * path's own cash (after the first five years the ledger keeps one point a year).
+ */
+const cashAtOf = (ledger: Ledger) => (m: Ledger['months'][number]) => {
+  const p = ledger.points.find((x) => x.month === m.month)
+  return p ? cashOfP(p) : m.cash
+}
+
 /** Every month, every line: one row a month, one column a line. */
 function toCsv(ledger: Ledger): string {
   const ins = [...new Set(ledger.months.flatMap((m) => Object.keys(m.income)))]
   const outs = [...new Set(ledger.months.flatMap((m) => Object.keys(m.costs)))]
   const head = ['Month', 'Phase', 'Income', 'Costs', 'Net', 'Cash (no new debt)', 'Debt (excl. mortgages)', 'Net worth', ...ins.map((k) => `In: ${k}`), ...outs.map((k) => `Out: ${k}`)]
-  // Cash as the chart shows it (the ledger's, which holds Sommer's savings in Combined) where there is a point.
-  const cashAt = (m: (typeof ledger.months)[number]) => {
-    const p = ledger.points.find((x) => x.month === m.month)
-    return p ? cashOfP(p) : m.cash
-  }
+  const cashAt = cashAtOf(ledger)
   const rows = ledger.months.map((m) => [m.month, m.phase, m.totalIncome, m.totalCosts, m.net, cashAt(m), m.debt, m.netWorth, ...ins.map((k) => m.income[k] ?? 0), ...outs.map((k) => m.costs[k] ?? 0)])
   return [head, ...rows].map((r) => r.map(q).join(',')).join('\n')
 }
@@ -256,13 +262,14 @@ function toBrief(sc: Scenario, lv: Levers, base: Levers, ledger: Ledger, solv: R
   const levers = (Object.keys(LEVER_LABEL) as (keyof Levers)[]).map(
     (k) => `- ${LEVER_LABEL[k]}: ${fmt(lv[k])}${JSON.stringify(lv[k]) !== JSON.stringify(base[k]) ? ` (changed; scenario: ${fmt(base[k])})` : ''}`,
   )
+  const cashAt = cashAtOf(ledger)
   const years = new Map<string, { inc: number; out: number; cash: number; debt: number; nw: number }>()
   for (const m of ledger.months) {
     const y = m.month.slice(0, 4)
     const e = years.get(y) ?? { inc: 0, out: 0, cash: 0, debt: 0, nw: 0 }
     e.inc += m.totalIncome
     e.out += m.totalCosts
-    e.cash = cashOfP(ledger.points.find((x) => x.month >= m.month) ?? { bal: {} })
+    e.cash = cashAt(m)
     e.debt = m.debt
     e.nw = m.netWorth
     years.set(y, e)
@@ -288,7 +295,7 @@ function toBrief(sc: Scenario, lv: Levers, base: Levers, ledger: Ledger, solv: R
     '## First 18 months home, line by line',
     ...home.map(
       (m) =>
-        `- ${monLabel(m.month)} (${m.phase}): in ${usd0(m.totalIncome)} [${Object.entries(m.income).map(([k, v]) => `${k} ${usd0(v)}`).join('; ')}] · out ${usd0(m.totalCosts)} [${Object.entries(m.costs).map(([k, v]) => `${k} ${usd0(v)}`).join('; ')}] · cash ${usd0(cashOfP(ledger.points.find((x) => x.month >= m.month) ?? { bal: {} }))}`,
+        `- ${monLabel(m.month)} (${m.phase}): in ${usd0(m.totalIncome)} [${Object.entries(m.income).map(([k, v]) => `${k} ${usd0(v)}`).join('; ')}] · out ${usd0(m.totalCosts)} [${Object.entries(m.costs).map(([k, v]) => `${k} ${usd0(v)}`).join('; ')}] · cash ${usd0(cashAt(m))}`,
     ),
   ].join('\n')
 }
