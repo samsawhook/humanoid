@@ -293,7 +293,7 @@ export interface Period {
   phase: string
   income: number
   /** Inflows by source; loans are cash in but not income. */
-  inflow: { army: number; other: number; loans: number }
+  inflow: { army: number; house: number; other: number; loans: number }
   out: Record<string, number>
   start: BalMap
   end: BalMap
@@ -344,12 +344,12 @@ export function periodsOf(ledger: Ledger, groups: Group[], span: number): Period
     const k = keyOf(p.month)
     let per = out.at(-1)
     if (!per || per.key !== k) {
-      per = { key: k, label: unit === 'month' ? monLabel(k) : k, months: [], phase: p.phase, income: 0, inflow: { army: 0, other: 0, loans: 0 }, out: {}, start: prev, end: p.bal, assets: 0, debts: 0, byGroup: {} }
+      per = { key: k, label: unit === 'month' ? monLabel(k) : k, months: [], phase: p.phase, income: 0, inflow: { army: 0, house: 0, other: 0, loans: 0 }, out: {}, start: prev, end: p.bal, assets: 0, debts: 0, byGroup: {} }
       out.push(per)
     }
     per.months.push(...covered)
     per.income += p.income
-    per.inflow = { army: per.inflow.army + p.inflow.army, other: per.inflow.other + p.inflow.other, loans: per.inflow.loans + p.inflow.loans }
+    per.inflow = { army: per.inflow.army + p.inflow.army, house: per.inflow.house + p.inflow.house, other: per.inflow.other + p.inflow.other, loans: per.inflow.loans + p.inflow.loans }
     for (const [g, v] of Object.entries(p.out)) per.out[g] = (per.out[g] ?? 0) + v
     per.end = p.bal
     per.phase = p.phase
@@ -365,7 +365,7 @@ export function periodsOf(ledger: Ledger, groups: Group[], span: number): Period
 /**
  * P&L over the timeline: income up, costs down (stacked by category), net as a dot, and
  * cash at each period's end two ways — net of anything borrowed (the plan without new
- * debt) and on hand (with the gaps borrowed). Below, on its own scale, debts and assets.
+ * debt) and on hand (a funding gap below zero). Below, on its own scale, debts and assets.
  * Click a column for that period's card.
  */
 function PnlChart({ periods, groups, selected, onSelect }: { periods: Period[]; groups: Group[]; selected: string | null; onSelect: (k: string) => void }) {
@@ -373,9 +373,10 @@ function PnlChart({ periods, groups, selected, onSelect }: { periods: Period[]; 
   const outTotal = (p: Period) => Object.values(p.out).reduce((t, v) => t + v, 0)
   const inTotal = (p: Period) => p.income + p.inflow.loans
   const max = Math.max(1, ...periods.map((p) => Math.max(inTotal(p), outTotal(p), Math.abs(cashNet(p.end)), cashHand(p.end))))
-  const INFLOW: { key: 'army' | 'other' | 'loans'; label: string; color: string }[] = [
+  const INFLOW: { key: 'army' | 'house' | 'other' | 'loans'; label: string; color: string }[] = [
     { key: 'army', label: 'Army & VA', color: '#6f8f4e' },
-    { key: 'other', label: 'Non-Army income', color: '#c9d3df' },
+    { key: 'house', label: '628 Chamberlain (rent / sale)', color: '#b07cc6' },
+    { key: 'other', label: 'Other income', color: '#c9d3df' },
     { key: 'loans', label: 'Loans (borrowed)', color: '#e0b13a' },
   ]
   const inflowShown = INFLOW.filter((f) => periods.some((p) => p.inflow[f.key] > 0.5))
@@ -430,7 +431,7 @@ function PnlChart({ periods, groups, selected, onSelect }: { periods: Period[]; 
                   '\n' +
                   present.map((g) => `${g} −${usd0(p.out[g] ?? 0)}`).join('\n') +
                   `\nNet ${net < 0 ? '−' : '+'}${usd0(Math.abs(net))}` +
-                  `\nCash, no new debt ${usd0(cashNet(p.end))}\nCash on hand ${usd0(cashHand(p.end))}`}
+                  (cashNet(p.end) < 0 ? `\nFunding gap ${usd0(-cashNet(p.end))}` : `\nCash ${usd0(cashNet(p.end))}`)}
               </title>
               <rect x={52 + i * bw} y={top - 10} width={bw} height={H - 30} className="pnl-hit" />
               {(() => {
@@ -456,7 +457,6 @@ function PnlChart({ periods, groups, selected, onSelect }: { periods: Period[]; 
             </g>
           )
         })}
-        <path d={path(periods.map((p) => cashHand(p.end)), (v) => mid - y(v))} fill="none" stroke="#8fd3d6" strokeWidth={1.6} strokeDasharray="5 4" pointerEvents="none" />
         <path d={path(periods.map((p) => cashNet(p.end)), (v) => mid - y(v))} fill="none" stroke="#2fa4a9" strokeWidth={2} pointerEvents="none" />
         {periods.map((p, i) => {
           const v = cashNet(p.end)
@@ -525,8 +525,7 @@ function PnlChart({ periods, groups, selected, onSelect }: { periods: Period[]; 
           </span>
         ))}
         <span><i className="swatch-dot" style={{ background: '#3fc56b', borderRadius: '50%' }} />Net</span>
-        <span><i className="swatch-line" style={{ background: '#2fa4a9' }} />Cash — no new debt (red below zero)</span>
-        <span><i className="swatch-line dashed" style={{ borderColor: '#8fd3d6' }} />Cash on hand — gaps borrowed</span>
+        <span><i className="swatch-line" style={{ background: '#2fa4a9' }} />Cash at period end — below zero, a funding gap (red)</span>
         {assetGroups.map((g) => (
           <span key={g.key}>
             <i className="swatch-dot" style={{ background: BAL_COLOR[g.key] }} />
@@ -559,8 +558,8 @@ function PeriodTable({ periods, selected, onSelect }: { periods: Period[]; selec
             <th title="Student-loan proceeds: cash in, not income">Borrowed</th>
             <th>Costs</th>
             <th>Net</th>
-            <th title="Checking + savings, less anything borrowed">Cash — no new debt</th>
-            <th title="Checking + savings; gaps borrowed">Cash on hand</th>
+            <th title="Checking + savings at period end">Cash</th>
+            <th title="Cash the plan is short and has to find: savings, family, a credit line">Funding gap</th>
             <th>Assets</th>
             <th>Debts</th>
             <th>Net worth</th>
@@ -573,12 +572,12 @@ function PeriodTable({ periods, selected, onSelect }: { periods: Period[]; selec
                 <button className="linkish">{p.label}</button>
                 <div className="cf-phase">{p.phase}</div>
               </td>
-              <td title={`Army & VA ${usd0(p.inflow.army)} · other ${usd0(p.inflow.other)}`}>{usd0(p.income)}</td>
+              <td title={`Army & VA ${usd0(p.inflow.army)} · house ${usd0(p.inflow.house)} · other ${usd0(p.inflow.other)}`}>{usd0(p.income)}</td>
               <td>{p.inflow.loans ? usd0(p.inflow.loans) : '—'}</td>
               <td>{usd0(out(p))}</td>
               <td className={p.income - out(p) < 0 ? 'neg' : 'ok'}>{s(p.income - out(p))}</td>
-              <td className={cashNet(p.end) < 0 ? 'neg' : ''}>{s(cashNet(p.end))}</td>
-              <td>{usd0(cashHand(p.end))}</td>
+              <td>{usd0(Math.max(0, cashNet(p.end)))}</td>
+              <td className={cashNet(p.end) < 0 ? 'neg' : ''}>{cashNet(p.end) < 0 ? usd0(-cashNet(p.end)) : '—'}</td>
               <td>{usd0(p.assets)}</td>
               <td>{usd0(p.debts)}</td>
               <td className={p.assets - p.debts < 0 ? 'neg' : ''}>{s(p.assets - p.debts)}</td>
@@ -813,15 +812,10 @@ export function ReviewHeader({ meta, summary, planGaps }: { meta: ScenarioMeta; 
           <b className={summary.firstYearCashFlow >= 0 ? 'ok' : 'bad'}>{summary.firstYearCashFlow >= 0 ? '+' : '−'}{usd0(Math.abs(summary.firstYearCashFlow))}</b>
           <small>{usd0(summary.firstYearIncome)} in · {usd0(summary.firstYearCosts)} out</small>
         </div>
-        <div title="Checking + savings, less anything borrowed, at its lowest in the first five years">
-          <span>Lowest cash</span>
-          <b className={summary.lowCash.value < 0 ? 'bad' : 'ok'}>{usd0(summary.lowCash.value)}</b>
-          <small>{monLabel(summary.lowCash.month)}</small>
-        </div>
-        <div title="The most borrowed at once to cover a gap">
-          <span>Most borrowed</span>
+        <div title="The most cash the plan is short at once: to find from savings, family or a credit line">
+          <span>Max cash funding gap</span>
           <b className={summary.peakGap > 0 ? 'bad' : 'ok'}>{usd0(summary.peakGap)}</b>
-          <small>{summary.monthsShort} of 60 months short</small>
+          <small>{summary.monthsShort} of 60 months with a gap</small>
         </div>
         <div title="Cards, Avant, Chase, student loans, the collection — all paid">
           <span>Debt-free</span>
@@ -973,6 +967,13 @@ export function Scenarios({ ledger, groups }: { ledger: Ledger; groups: Group[] 
 /** Every scenario side by side — the comparison the PDF made, kept current. */
 export function AllView({ ledgers, summaries, metas }: { ledgers: Ledger[]; summaries: Record<string, PathSummary>; metas: ScenarioMeta[] }) {
   const [group, setGroup] = useState<'law' | 'evening' | 'cpa' | 'all'>('all')
+  const [span, setSpan] = useState('20y')
+  const [metric, setMetric] = useState<'nw' | 'cash'>('nw')
+  const spanMonths = SPANS.find((x) => x.key === span)!.months
+  const lastMonth = (() => {
+    const m = 11 + spanMonths
+    return `${2026 + Math.floor((m - 1) / 12)}-${String(((m - 1) % 12) + 1).padStart(2, '0')}`
+  })()
   const COLORS = ['var(--series-1)', 'var(--series-2)', 'var(--series-4)', 'var(--series-5)', 'var(--series-7)', 'var(--series-3)']
   const shown = metas.filter((m) => group === 'all' || m.group === group)
   // Net worth over twenty years, one line per scenario (≤ 6 at a time keeps it readable).
@@ -983,7 +984,9 @@ export function AllView({ ledgers, summaries, metas }: { ledgers: Ledger[]; summ
       key: m.id,
       label: m.short,
       color: COLORS[i % COLORS.length]!,
-      points: l.points.filter((_, k) => k % 6 === 0 || k > 60).map((p) => ({ date: `${p.month}-28`, value: p.bal ? netWorthOf(p, l) : 0 })),
+      points: l.points
+        .filter((p, k) => p.month <= lastMonth && (spanMonths <= 60 || k % 6 === 0 || k > 60))
+        .map((p) => ({ date: `${p.month}-28`, value: metric === 'nw' ? netWorthOf(p, l) : cashNet(p.bal) })),
     }
   })
   const GROUPS_ORDER: ('law' | 'evening' | 'cpa')[] = ['law', 'evening', 'cpa']
@@ -997,8 +1000,27 @@ export function AllView({ ledgers, summaries, metas }: { ledgers: Ledger[]; summ
           </button>
         ))}
       </div>
-      <h3 className="fig-title">Net worth, next twenty years{group === 'all' ? ' — one of each kind' : ''}</h3>
-      <TrendChart series={series} height={300} ariaLabel="Net worth by scenario" monthly tipTitle="" />
+      <div className="paymonth-head">
+        <h3 className="fig-title" style={{ margin: 0 }}>
+          {metric === 'nw' ? 'Net worth' : 'Cash — below zero, a funding gap'} — next {SPANS.find((x) => x.key === span)!.label}
+          {group === 'all' ? ' · one of each kind' : ''}
+        </h3>
+        <div className="seg" role="group" aria-label="Measure">
+          {(['nw', 'cash'] as const).map((k) => (
+            <button key={k} className={k === metric ? 'on' : ''} onClick={() => setMetric(k)}>
+              {k === 'nw' ? 'Net worth' : 'Cash'}
+            </button>
+          ))}
+        </div>
+        <div className="seg" role="group" aria-label="Timeline">
+          {SPANS.map((x) => (
+            <button key={x.key} className={x.key === span ? 'on' : ''} onClick={() => setSpan(x.key)}>
+              {x.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <TrendChart series={series} height={300} ariaLabel={metric === 'nw' ? 'Net worth by scenario' : 'Cash by scenario'} monthly tipTitle="" />
       <div className="tablewrap" style={{ marginTop: 12 }}>
         <table className="baltable alltable">
           <thead>
@@ -1006,8 +1028,8 @@ export function AllView({ ledgers, summaries, metas }: { ledgers: Ledger[]; summ
               <th>Scenario</th>
               <th title="Missing funds after you are home">Funds</th>
               <th>First year</th>
-              <th>Lowest cash</th>
-              <th>Most borrowed</th>
+              <th title="The most cash the plan is short at once: to find from savings, family or a credit line">Max funding gap</th>
+              <th>When</th>
               <th>Debt-free</th>
               <th>NW 1 yr</th>
               <th>NW 3 yr</th>
@@ -1035,8 +1057,8 @@ export function AllView({ ledgers, summaries, metas }: { ledgers: Ledger[]; summ
                         </span>
                       </td>
                       <td className={sm.firstYearCashFlow < 0 ? 'neg' : 'ok'}>{usd0(sm.firstYearCashFlow)}</td>
-                      <td className={sm.lowCash.value < 0 ? 'neg' : ''}>{usd0(sm.lowCash.value)}</td>
-                      <td className={sm.peakGap > 0 ? 'neg' : ''}>{usd0(sm.peakGap)}</td>
+                      <td className={sm.peakGap > 0 ? 'neg' : ''}>{sm.peakGap > 0 ? usd0(sm.peakGap) : '—'}</td>
+                      <td>{sm.peakGap > 0 ? monLabel(sm.lowCash.month) : ''}</td>
                       <td>{sm.debtFree ? monLabel(sm.debtFree) : '—'}</td>
                       {['1 yr', '3 yr', '5 yr', '10 yr', '20 yr'].map((k) => (
                         <td key={k} className={nv(k) < 0 ? 'neg' : ''}>

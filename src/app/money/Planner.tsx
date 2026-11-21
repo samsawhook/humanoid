@@ -196,17 +196,39 @@ function Seg<T extends string | number | boolean>({ value, options, onChange }: 
 /** A period of the plan in the paycheck card's format. */
 function PeriodCard({ ledger, p }: { ledger: Ledger; p: Period }) {
   const months = ledger.months.filter((m) => p.months.includes(m.month))
-  const st = periodStatement(p.label, months, p.start, p.end, { of: (g) => ledger.accounts.filter((a) => a.group === g).map((a) => a.key) })
-  const n = months.length
+  const n = Math.max(1, months.length)
+  // A quarter or a year shows its typical month: every line averaged over the period, and
+  // the balances moved by a month's share of the period's change.
+  const avg = (rec: (m: PathMonth) => Record<string, number>) => {
+    const out: Record<string, number> = {}
+    for (const m of months) for (const [k, v] of Object.entries(rec(m))) out[k] = (out[k] ?? 0) + v / n
+    return out
+  }
+  const typical: PathMonth[] =
+    n === 1
+      ? months
+      : [
+          {
+            ...months.at(-1)!,
+            income: avg((m) => m.income),
+            costs: avg((m) => m.costs),
+            invested: months.reduce((t, m) => t + m.invested, 0) / n,
+            borrowed: months.reduce((t, m) => t + (m.borrowed ?? 0), 0) / n,
+            phase: p.phase,
+          },
+        ]
+  const keys = new Set([...Object.keys(p.start), ...Object.keys(p.end)])
+  const end = n === 1 ? p.end : Object.fromEntries([...keys].map((k) => [k, (p.start[k] ?? 0) + ((p.end[k] ?? 0) - (p.start[k] ?? 0)) / n]))
+  const st = periodStatement(p.label, typical, p.start, end, { of: (g) => ledger.accounts.filter((a) => a.group === g).map((a) => a.key) })
   return (
     <PaydayCard
       st={st}
       tag={p.phase}
-      title={p.label}
-      subtitle={n === 1 ? 'One month' : `${n} months, added up`}
+      title={n === 1 ? p.label : `Typical month — ${p.label}`}
+      subtitle={n === 1 ? 'One month' : `The average of its ${n} months; cash starts where the period starts`}
       showActuals={false}
       checkingBefore={r2(cashOfBal(p.start))}
-      checkingAfter={r2(cashOfBal(p.end))}
+      checkingAfter={r2(cashOfBal(end))}
       savings={0}
       short={0}
       spendable=""
@@ -318,28 +340,20 @@ function KpiDash({ k, base, solv }: { k: Kpis; base: Kpis | null; solv: ReturnTy
   const tone = (v: number, warn: number, bad: number, higherBetter = true) => (higherBetter ? (v >= warn ? 'ok' : v >= bad ? 'warn' : 'bad') : v <= warn ? 'ok' : v <= bad ? 'warn' : 'bad')
   const tiles: { t: string; v: string; sub: string; cls: string; d?: React.ReactNode; tip: string }[] = [
     {
-      t: 'Cash holds?',
+      t: 'Funded?',
       v: solv.light === 'green' ? 'Yes' : solv.light === 'yellow' ? 'Mostly' : 'No',
-      sub: k.monthsShort ? `${k.monthsShort} months more than $500 short` : 'Never more than $500 short',
+      sub: k.monthsShort ? `${k.monthsShort} months with a funding gap over $500` : 'Never a funding gap over $500',
       cls: solv.light === 'green' ? 'ok' : solv.light === 'yellow' ? 'warn' : 'bad',
       d: delta(k.monthsShort, base?.monthsShort, 'down', (n) => `${n > 0 ? '+' : ''}${n} mo`),
-      tip: 'Cash = checking + savings, less anything borrowed to cover a gap. Over the whole plan from the month you are home.',
+      tip: 'A funding gap is a month where the plan spends more cash than you have: the money has to come from somewhere — savings, family, a credit line. Over the whole plan from the month you are home.',
     },
     {
-      t: 'Lowest cash',
-      v: kfmt(k.low),
-      sub: monLabel(k.lowMonth),
-      cls: tone(k.low, 0, -10000),
-      d: delta(k.low, base?.low, 'up'),
-      tip: 'The worst month for cash after you are home. Below zero is money you would have to borrow.',
-    },
-    {
-      t: 'Most borrowed',
-      v: kfmt(k.peakBorrow),
-      sub: k.peakBorrow ? 'at ~8% to cover gaps' : 'no gap borrowing',
-      cls: tone(k.peakBorrow, 0, 10000, false),
-      d: delta(k.peakBorrow, base?.peakBorrow, 'down'),
-      tip: 'The most the plan has to borrow at once — a credit line, a family loan or a private loan — beyond any student loans.',
+      t: 'Max cash funding gap',
+      v: k.low < 0 ? kfmt(-k.low) : '$0',
+      sub: k.low < 0 ? `${monLabel(k.lowMonth)} · to find: savings, family or a credit line` : `lowest cash ${kfmt(k.low)}, ${monLabel(k.lowMonth)}`,
+      cls: tone(Math.max(0, -k.low), 0, 10000, false),
+      d: delta(Math.max(0, -k.low), base ? Math.max(0, -base.low) : undefined, 'down'),
+      tip: 'The most cash the plan is short at once after you are home — beyond any student loans. The model charges ~8% on it until it is made up.',
     },
     {
       t: 'First year home',
@@ -469,7 +483,7 @@ const cashAtOf = (ledger: Ledger) => (m: Ledger['months'][number]) => {
 function toCsv(ledger: Ledger): string {
   const ins = [...new Set(ledger.months.flatMap((m) => Object.keys(m.income)))]
   const outs = [...new Set(ledger.months.flatMap((m) => Object.keys(m.costs)))]
-  const head = ['Month', 'Phase', 'Income', 'Costs', 'Net', 'Borrowed (student loans)', 'Law loans owed', 'Cash (no new debt)', 'Debt (excl. mortgages)', 'Net worth', ...ins.map((k) => `In: ${k}`), ...outs.map((k) => `Out: ${k}`)]
+  const head = ['Month', 'Phase', 'Income', 'Costs', 'Net', 'Borrowed (student loans)', 'Law loans owed', 'Cash (negative = funding gap)', 'Debt (excl. mortgages)', 'Net worth', ...ins.map((k) => `In: ${k}`), ...outs.map((k) => `Out: ${k}`)]
   const cashAt = cashAtOf(ledger)
   const rows = ledger.months.map((m) => [m.month, m.phase, m.totalIncome, m.totalCosts, m.net, m.borrowed ?? 0, m.lawLoans ?? 0, cashAt(m), m.debt, m.netWorth, ...ins.map((k) => m.income[k] ?? 0), ...outs.map((k) => m.costs[k] ?? 0)])
   return [head, ...rows].map((r) => r.map(q).join(',')).join('\n')
@@ -503,10 +517,10 @@ function toBrief(sc: Scenario, lv: Levers, base: Levers, ledger: Ledger, solv: R
     ...levers,
     '',
     '## Result',
-    `- Solvency: ${solv.light}. Lowest cash ${usd0(solv.low.value)} in ${monLabel(solv.low.month)}; most borrowed at once ${usd0(solv.peak)}.`,
-    solv.firstBelow ? `- Cash below zero from ${monLabel(solv.firstBelow)} to ${monLabel(solv.lastBelow!)}.` : '- Cash never below zero.',
+    `- Funded: ${solv.light}. Max cash funding gap ${usd0(Math.max(0, -solv.low.value))} in ${monLabel(solv.low.month)} (cash the plan is short and has to find).`,
+    solv.firstBelow ? `- A funding gap from ${monLabel(solv.firstBelow)} to ${monLabel(solv.lastBelow!)}.` : '- No funding gap.',
     '',
-    '## By year (cash = checking + savings less anything borrowed; debt excludes mortgages)',
+    '## By year (cash = checking + savings; negative = a funding gap to find; debt excludes mortgages)',
     row(['Year', 'Income', 'Costs', 'Net', 'Cash, Dec', 'Debt, Dec', 'Net worth, Dec']),
     row(['---', '---', '---', '---', '---', '---', '---']),
     ...[...years.entries()].map(([y, e]) => row([y, e.inc, e.out, e.inc - e.out, e.cash, e.debt, e.nw])),

@@ -65,18 +65,21 @@ export interface LedgerPoint {
   /** P&L for the period: income, and costs by group (investing included as an outflow). */
   income: number
   /** Inflows by source: Army & VA, everything else, and borrowed (loan proceeds — not income). */
-  inflow: { army: number; other: number; loans: number }
+  inflow: { army: number; house: number; other: number; loans: number }
   out: Record<string, number>
 }
 
 /** Army and VA money: active-duty and drill pay, the bonus, VA disability, the GI Bill. */
 export const isArmy = (k: string) => /Military pay|active-duty|drill pay|Re-enlistment|VA disability|VA back pay|GI Bill/.test(k)
-export function inflowOf(pm: PathMonth | undefined): { army: number; other: number; loans: number } {
-  if (!pm) return { army: 0, other: 0, loans: 0 }
+/** House money: 628 Chamberlain's rent, or its sale. */
+export const isHouse = (k: string) => /^Corpus house/.test(k)
+export function inflowOf(pm: PathMonth | undefined): { army: number; house: number; other: number; loans: number } {
+  if (!pm) return { army: 0, house: 0, other: 0, loans: 0 }
   let army = 0
+  let house = 0
   let other = 0
-  for (const [k, v] of Object.entries(pm.income)) isArmy(k) ? (army += v) : (other += v)
-  return { army: r2(army), other: r2(other), loans: r2(pm.borrowed ?? 0) }
+  for (const [k, v] of Object.entries(pm.income)) isArmy(k) ? (army += v) : isHouse(k) ? (house += v) : (other += v)
+  return { army: r2(army), house: r2(house), other: r2(other), loans: r2(pm.borrowed ?? 0) }
 }
 
 /** Cost lines into the groups the cards use. */
@@ -195,7 +198,7 @@ export const ACCOUNTS: AccountDef[] = [
   { key: 'caine', label: 'Caine & Weiner (Progressive collection)', group: 'other', apr: 0, paidBy: how('late_payments'), schedule: true },
   { key: 'goldman', label: 'Goldman (sued, dismissed)', group: 'other', held: true, note: debt('goldman').note },
   { key: 'psecu', label: 'PSECU (sued, dismissed)', group: 'other', held: true, note: debt('psecu').note },
-  { key: 'gap', label: 'Cash gap (borrowed)', group: 'other', apr: PATH_ASSUMPTIONS.gapRate, note: 'When the path runs short of cash, the gap is borrowed at ~8%.' },
+  { key: 'gap', label: 'Cash funding gap (to find)', group: 'other', apr: PATH_ASSUMPTIONS.gapRate, note: 'When the path runs short of cash, the gap is borrowed at ~8%.' },
   { key: 'tsp', label: 'TSP, then 401(k)', group: 'tsp', note: '5% + 5% match while deployed; 5% + 4% at a civilian job. 6% growth.' },
   { key: 'savings', label: 'Savings', group: 'savings', note: 'Emergency fund, SDP and future fund while deployed; after you are home, all cash above the checking float.' },
   { key: 'checking', label: 'WF Joint Checking', group: 'cash', note: `What each paycheck leaves behind; after you are home, a ${'$'}${CHECKING_FLOAT.toLocaleString()} float.` },
@@ -441,7 +444,7 @@ function thinPoints(monthly: LedgerPoint[]): LedgerPoint[] {
     if (!acc) acc = { month: p.month, phase: p.phase, bal: p.bal, pay: { ...p.pay }, int: { ...p.int }, income: p.income, inflow: { ...p.inflow }, out: { ...p.out } }
     else {
       acc.income = r2(acc.income + p.income)
-      acc.inflow = { army: r2(acc.inflow.army + p.inflow.army), other: r2(acc.inflow.other + p.inflow.other), loans: r2(acc.inflow.loans + p.inflow.loans) }
+      acc.inflow = { army: r2(acc.inflow.army + p.inflow.army), house: r2(acc.inflow.house + p.inflow.house), other: r2(acc.inflow.other + p.inflow.other), loans: r2(acc.inflow.loans + p.inflow.loans) }
       for (const [k, v] of Object.entries(p.out)) acc.out[k] = r2((acc.out[k] ?? 0) + v)
       for (const [k, v] of Object.entries(p.pay)) acc.pay[k] = r2((acc.pay[k] ?? 0) + v)
       for (const [k, v] of Object.entries(p.int)) acc.int[k] = r2((acc.int[k] ?? 0) + v)
@@ -564,7 +567,7 @@ export function summarize(l: Ledger): PathSummary {
   const fundsNote =
     funds === 'green'
       ? 'Cash never goes below zero in the first five years.'
-      : `Cash is short in ${monthsShort} of the first 60 months; the most borrowed at once is $${Math.round(peakGap).toLocaleString()}.`
+      : `A cash funding gap in ${monthsShort} of the first 60 months; the most at once is $${Math.round(peakGap).toLocaleString()}.`
   return {
     firstYearCashFlow: r2(firstYearIncome - firstYearCosts),
     firstYearIncome,
