@@ -184,9 +184,10 @@ export const PATH_ASSUMPTIONS = {
    * `price` in 2027 dollars, `downShare` down and the rest on a loan. Insurance, fuel and
    * upkeep are already in your spending. ~265k miles and a misfire (your note, 21 Nov):
    * planned for the first months home, Sep 2027. Used, not new (your call, 21 Nov): ~$25k
-   * for a few-years-old three-row SUV, on a used-car loan at ~9%. MY ESTIMATES.
+   * for a few-years-old three-row SUV (MY ESTIMATE), paid in cash (your call, 21 Nov).
+   * The loan terms only matter if the down-payment lever is moved off cash.
    */
-  car: { replaceMonth: '2027-09' as string | null, price: 25000, downShare: 0.1, rate: 0.09, termMonths: 60 },
+  car: { replaceMonth: '2027-09' as string | null, price: 25000, downShare: 1, rate: 0.09, termMonths: 60 },
   /** Modelled emergencies: how many, the first month, months apart, and size (2027 dollars). Off by default. */
   emergencies: { count: 0, first: '2028-01', everyMonths: 24, size: 5000 },
 
@@ -817,7 +818,7 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
       }
       if (cr.replaceMonth && m === cr.replaceMonth && cr.price > 0) {
         const price = cr.price * infl
-        costs['Car — replacement, down payment'] = price * cr.downShare
+        costs[cr.downShare >= 1 ? 'Car — replacement, paid in cash' : 'Car — replacement, down payment'] = price * cr.downShare
         carLoan = price * (1 - cr.downShare)
         const r = cr.rate / 12
         carPmt = r > 0 ? (carLoan * r) / (1 - Math.pow(1 + r, -cr.termMonths)) : carLoan / cr.termMonths

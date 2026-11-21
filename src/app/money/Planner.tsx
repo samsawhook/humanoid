@@ -290,7 +290,7 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
           )}
         </Lever>
 
-        <Lever title="The Expedition" changed={isChanged('carReplace', 'carPrice', 'carDown')} onReset={() => reset('carReplace', 'carPrice', 'carDown')} hint={lv.carReplace ? `${Math.round(lv.carDown * 100)}% down, the rest over 5 years at ${Math.round(sc.a.car.rate * 100)}% (used-car rate). The car is not counted as an asset.` : 'Lasts the whole plan — no replacement modelled.'}>
+        <Lever title="The Expedition" changed={isChanged('carReplace', 'carPrice', 'carDown')} onReset={() => reset('carReplace', 'carPrice', 'carDown')} hint={lv.carReplace ? 'Used, paid in cash — no loan. If cash isn’t there that month, the shortfall shows as borrowed below. The car is not counted as an asset.' : 'Lasts the whole plan — no replacement modelled.'}>
           <div className="lv-row">
             <Seg value={!!lv.carReplace} options={[[true, 'Replace'], [false, 'Lasts']]} onChange={(v) => set('carReplace', v ? (base.carReplace ?? '2027-09') : null)} />
             {lv.carReplace && <Month value={lv.carReplace} onChange={(m) => set('carReplace', m)} label="Dies in" />}
@@ -298,7 +298,6 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
           {lv.carReplace && (
             <div className="lv-row">
               <Money value={lv.carPrice} onChange={(n) => set('carPrice', n)} step={1000} label="Used, price" />
-              <Seg value={lv.carDown} options={[[0.1, '10% down'], [0.25, '25%'], [1, 'Cash']]} onChange={(v) => set('carDown', v)} />
             </div>
           )}
         </Lever>
