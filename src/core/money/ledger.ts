@@ -64,7 +64,19 @@ export interface LedgerPoint {
   int: Record<string, number>
   /** P&L for the period: income, and costs by group (investing included as an outflow). */
   income: number
+  /** Inflows by source: Army & VA, everything else, and borrowed (loan proceeds — not income). */
+  inflow: { army: number; other: number; loans: number }
   out: Record<string, number>
+}
+
+/** Army and VA money: active-duty and drill pay, the bonus, VA disability, the GI Bill. */
+export const isArmy = (k: string) => /Military pay|active-duty|drill pay|Re-enlistment|VA disability|VA back pay|GI Bill/.test(k)
+export function inflowOf(pm: PathMonth | undefined): { army: number; other: number; loans: number } {
+  if (!pm) return { army: 0, other: 0, loans: 0 }
+  let army = 0
+  let other = 0
+  for (const [k, v] of Object.entries(pm.income)) isArmy(k) ? (army += v) : (other += v)
+  return { army: r2(army), other: r2(other), loans: r2(pm.borrowed ?? 0) }
 }
 
 /** Cost lines into the groups the cards use. */
@@ -391,6 +403,7 @@ export function buildLedger(path: PathKey | 'country' | Scenario): Ledger {
     }
     monthly.push({
       income: pm ? pm.totalIncome : 0,
+      inflow: inflowOf(pm),
       out,
       month: m,
       phase: pm?.phase ?? 'Deployed',
@@ -425,9 +438,10 @@ function thinPoints(monthly: LedgerPoint[]): LedgerPoint[] {
       points.push(p)
       return
     }
-    if (!acc) acc = { month: p.month, phase: p.phase, bal: p.bal, pay: { ...p.pay }, int: { ...p.int }, income: p.income, out: { ...p.out } }
+    if (!acc) acc = { month: p.month, phase: p.phase, bal: p.bal, pay: { ...p.pay }, int: { ...p.int }, income: p.income, inflow: { ...p.inflow }, out: { ...p.out } }
     else {
       acc.income = r2(acc.income + p.income)
+      acc.inflow = { army: r2(acc.inflow.army + p.inflow.army), other: r2(acc.inflow.other + p.inflow.other), loans: r2(acc.inflow.loans + p.inflow.loans) }
       for (const [k, v] of Object.entries(p.out)) acc.out[k] = r2((acc.out[k] ?? 0) + v)
       for (const [k, v] of Object.entries(p.pay)) acc.pay[k] = r2((acc.pay[k] ?? 0) + v)
       for (const [k, v] of Object.entries(p.int)) acc.int[k] = r2((acc.int[k] ?? 0) + v)
@@ -455,7 +469,7 @@ export function buildSommerLedger(sc: Scenario): Ledger {
   const monthly: LedgerPoint[] = months.map((pm) => {
     const out: Record<string, number> = {}
     for (const [k, v] of Object.entries(pm.costs)) out[pnlGroup(k)] = r2((out[pnlGroup(k)] ?? 0) + v)
-    return { month: pm.month, phase: pm.phase, income: pm.totalIncome, out, bal: { ...zero, savings: Math.max(0, pm.cash), gap: Math.max(0, -pm.cash) }, pay: {}, int: {} }
+    return { month: pm.month, phase: pm.phase, income: pm.totalIncome, inflow: inflowOf(pm), out, bal: { ...zero, savings: Math.max(0, pm.cash), gap: Math.max(0, -pm.cash) }, pay: {}, int: {} }
   })
   return {
     path: sc.id,

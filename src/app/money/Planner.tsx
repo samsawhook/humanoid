@@ -11,10 +11,10 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { buildLedger, buildSommerLedger, summarize, type GroupKey, type Ledger, type Side } from '@/core/money/ledger'
-import { emergencyMonths, reenlistOf, reshapeLadder, saleMonth } from '@/core/money/paths'
+import { emergencyMonths, reenlistOf, reshapeLadder, saleMonth, type PathMonth } from '@/core/money/paths'
 import { SCENARIOS, type Scenario } from '@/core/money/scenarios'
 import { VA_MONTHLY } from '@/core/money/returnBudget'
-import { AllView, Balances, ReviewHeader, type Period, type PlanGap, type ScenarioMeta } from './Outlook'
+import { AllView, Balances, type Period, type PlanGap, type ScenarioMeta } from './Outlook'
 import { PaydayCard } from './PaydayFocus'
 import { periodStatement } from '@/core/money/planStatement'
 
@@ -135,23 +135,25 @@ function solvency(l: Ledger) {
 
 // ── Small controls ───────────────────────────────────────────────────────────
 
-function Lever({ title, changed, onReset, children, hint }: { title: string; changed: boolean; onReset: () => void; children: React.ReactNode; hint?: string }) {
+/** One lever, folded to its title and current value; open it to change it. */
+function Lever({ title, value, changed, onReset, children, hint }: { title: string; value: string; changed: boolean; onReset: () => void; children: React.ReactNode; hint?: string }) {
   return (
-    <div className={`lever ${changed ? 'changed' : ''}`}>
-      <div className="lever-head">
-        <span>
+    <details className={`lever ${changed ? 'changed' : ''}`}>
+      <summary className="lever-head">
+        <span className="lever-title">
           {title}
           {changed && <i className="lever-dot" title="Changed from the scenario" />}
         </span>
-        {changed && (
-          <button className="linkish" onClick={onReset}>
-            reset
-          </button>
-        )}
-      </div>
+        <span className="lever-val">{value}</span>
+      </summary>
       <div className="lever-body">{children}</div>
       {hint && <div className="lever-hint">{hint}</div>}
-    </div>
+      {changed && (
+        <button className="linkish lever-reset" onClick={onReset}>
+          Reset to the scenario
+        </button>
+      )}
+    </details>
   )
 }
 
@@ -223,6 +225,200 @@ function loanSummary(ledger: Ledger): string {
   return parts
     ? `Direct Unsubsidized, 8.07%, only what each year needs: ${parts} (after the fee). ${usd0(owed)} owed when repayment starts ${first ? monLabel(first.month) : ''}; ${first ? usd0(first.costs['Law-school loans — Tiered Standard repayment']!) : ''}/mo on the Tiered Standard plan. Limit $50k a year, $200k in all; no Grad PLUS for new borrowers.`
     : 'No federal loans needed: cash stays above zero through school.'
+}
+
+// ── Results ──────────────────────────────────────────────────────────────────
+
+/** The numbers a decision turns on, from one run of the model. */
+function kpis(l: Ledger) {
+  const cashAt = cashAtOf(l)
+  const home = l.months.filter((m) => m.month >= l.homeMonth)
+  let low = home[0]!
+  for (const m of home) if (cashAt(m) < cashAt(low)) low = m
+  const short = home.filter((m) => cashAt(m) < -500)
+  const yr = (from: number) => home.slice(from, from + 12)
+  const net = (ms: PathMonth[]) => ms.reduce((t, m) => t + m.net, 0)
+  const y1 = yr(0)
+  // "Settled": the second year in the full-time job (the third year home if there is none).
+  const job = home.findIndex((m) => (m.income['Salary'] ?? 0) > 0 || (m.income['Practice revenue (fees billed)'] ?? 0) > 0)
+  const settledFrom = job >= 0 ? job + 12 : 24
+  const y3 = yr(settledFrom)
+  const y3Out = y3.reduce((t, m) => t + m.totalCosts, 0) / Math.max(1, y3.length)
+  const y3In = y3.reduce((t, m) => t + m.totalIncome, 0)
+  const saved = y3.reduce((t, m) => t + m.invested + m.net, 0)
+  const cash3 = y3.length ? cashAt(y3.at(-1)!) : 0
+  const bal = (p: { bal: Record<string, number> }, keys: string[]) => keys.reduce((t, k) => t + (p.bal[k] ?? 0), 0)
+  const CONSUMER = ['platinum', 'brightway', 'credit_one', 'citi', 'capital_one', 'avant', 'chase', 'caine', 'car', 'arrears', 'car_new']
+  const ALL = [...CONSUMER, 'student_loan', 'ut_loan', 'law_loans']
+  const consumerFree = l.points.find((p) => p.month >= l.homeMonth && bal(p, CONSUMER) <= 0.5)?.month ?? null
+  const allFree = l.points.find((p) => p.month >= l.homeMonth && bal(p, ALL) <= 0.5)?.month ?? null
+  const nwAt = (n: number) => {
+    const p = l.points.find((x) => x.month >= addMonthsLocal('2026-11', n)) ?? l.points.at(-1)!
+    return netWorthOfLedger(p, l)
+  }
+  const last = l.points.at(-1)!
+  const lawPeak = Math.max(0, ...l.months.map((m) => m.lawLoans ?? 0))
+  const lawPmt = l.months.find((m) => m.costs['Law-school loans — Tiered Standard repayment'])?.costs['Law-school loans — Tiered Standard repayment'] ?? 0
+  const borrowedY1 = y1.reduce((t, m) => t + (m.borrowed ?? 0), 0)
+  return {
+    settledLabel: y3.length ? `${monLabel(y3[0]!.month)} – ${monLabel(y3.at(-1)!.month)}` : '',
+    borrowedY1,
+    low: cashAt(low),
+    lowMonth: low.month,
+    monthsShort: short.length,
+    peakBorrow: Math.max(0, ...l.points.map((p) => p.bal.gap ?? 0)),
+    firstYear: net(y1),
+    monthly3: net(y3) / Math.max(1, y3.length),
+    runway: y3Out > 0 ? Math.max(0, cash3) / y3Out : 0,
+    savingsRate: y3In > 0 ? saved / y3In : 0,
+    consumerFree,
+    allFree,
+    nw5: nwAt(60),
+    nw10: nwAt(120),
+    nw20: nwAt(240),
+    retire20: bal(last, ['tsp']),
+    lawPeak,
+    lawPmt,
+  }
+}
+type Kpis = ReturnType<typeof kpis>
+
+function addMonthsLocal(m: string, n: number) {
+  const [y, mo] = m.split('-').map(Number)
+  const i = y! * 12 + (mo! - 1) + n
+  return `${Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, '0')}`
+}
+function netWorthOfLedger(p: { bal: Record<string, number> }, l: Ledger) {
+  const side = (sd: string) => l.accounts.filter((a) => GROUP_SIDE[a.group] === sd).reduce((t, a) => t + (p.bal[a.key] ?? 0), 0)
+  return side('asset') - side('debt')
+}
+const GROUP_SIDE: Record<string, string> = { cards: 'debt', mortgage: 'debt', student: 'debt', other: 'debt', tsp: 'asset', savings: 'asset', cash: 'asset', nth: 'asset', house: 'asset' }
+
+/**
+ * The dashboard: one tile per question a decision turns on, each coloured by how it reads,
+ * and — when levers are changed — how far they moved it from the scenario's own run.
+ */
+function KpiDash({ k, base, solv }: { k: Kpis; base: Kpis | null; solv: ReturnType<typeof solvency> }) {
+  const signed = (n: number) => `${n < 0 ? '−' : '+'}${usd0(Math.abs(n))}`
+  const kfmt = (n: number) => (Math.abs(n) >= 1e6 ? `${n < 0 ? '−' : ''}$${(Math.abs(n) / 1e6).toFixed(2)}M` : Math.abs(n) >= 1e5 ? `${n < 0 ? '−' : ''}$${Math.round(Math.abs(n) / 1000)}k` : usd0(n))
+  const delta = (cur: number, b: number | undefined, better: 'up' | 'down', fmt = signed) => {
+    if (base == null || b == null || Math.abs(cur - b) < 1) return null
+    const good = better === 'up' ? cur > b : cur < b
+    return <em className={good ? 'ok' : 'bad'}>{fmt(cur - b)} vs scenario</em>
+  }
+  const monthDelta = (cur: string | null, b: string | null | undefined) => {
+    if (base == null || cur === b) return null
+    if (!cur || !b) return <em className={cur ? 'ok' : 'bad'}>{cur ? 'sooner than scenario' : 'later than scenario'}</em>
+    const d = (Number(cur.slice(0, 4)) - Number(b.slice(0, 4))) * 12 + Number(cur.slice(5)) - Number(b.slice(5))
+    return <em className={d < 0 ? 'ok' : 'bad'}>{d < 0 ? `${-d} mo sooner` : `${d} mo later`}</em>
+  }
+  const tone = (v: number, warn: number, bad: number, higherBetter = true) => (higherBetter ? (v >= warn ? 'ok' : v >= bad ? 'warn' : 'bad') : v <= warn ? 'ok' : v <= bad ? 'warn' : 'bad')
+  const tiles: { t: string; v: string; sub: string; cls: string; d?: React.ReactNode; tip: string }[] = [
+    {
+      t: 'Cash holds?',
+      v: solv.light === 'green' ? 'Yes' : solv.light === 'yellow' ? 'Mostly' : 'No',
+      sub: k.monthsShort ? `${k.monthsShort} months more than $500 short` : 'Never more than $500 short',
+      cls: solv.light === 'green' ? 'ok' : solv.light === 'yellow' ? 'warn' : 'bad',
+      d: delta(k.monthsShort, base?.monthsShort, 'down', (n) => `${n > 0 ? '+' : ''}${n} mo`),
+      tip: 'Cash = checking + savings, less anything borrowed to cover a gap. Over the whole plan from the month you are home.',
+    },
+    {
+      t: 'Lowest cash',
+      v: kfmt(k.low),
+      sub: monLabel(k.lowMonth),
+      cls: tone(k.low, 0, -10000),
+      d: delta(k.low, base?.low, 'up'),
+      tip: 'The worst month for cash after you are home. Below zero is money you would have to borrow.',
+    },
+    {
+      t: 'Most borrowed',
+      v: kfmt(k.peakBorrow),
+      sub: k.peakBorrow ? 'at ~8% to cover gaps' : 'no gap borrowing',
+      cls: tone(k.peakBorrow, 0, 10000, false),
+      d: delta(k.peakBorrow, base?.peakBorrow, 'down'),
+      tip: 'The most the plan has to borrow at once — a credit line, a family loan or a private loan — beyond any student loans.',
+    },
+    {
+      t: 'First year home',
+      v: signed(k.firstYear),
+      sub: `${signed(k.firstYear / 12)}/mo average${k.borrowedY1 ? ` · before ${usd0(k.borrowedY1)} of loans` : ''}`,
+      cls: tone(k.firstYear, 0, -12000),
+      d: delta(k.firstYear, base?.firstYear, 'up'),
+      tip: 'Income less costs over the first twelve months home (costs include investing).',
+    },
+    {
+      t: 'Monthly margin, settled',
+      v: `${signed(k.monthly3)}/mo`,
+      sub: `2nd year in the job: ${k.settledLabel}`,
+      cls: tone(k.monthly3, 500, 0),
+      d: delta(k.monthly3, base?.monthly3, 'up'),
+      tip: 'Average income less costs a month in the second year of the full-time job (the third year home if there is none): the slack the plan runs on once settled.',
+    },
+    {
+      t: 'Emergency cushion',
+      v: `${k.runway.toFixed(1)} mo`,
+      sub: 'of costs in cash, end of the settled year',
+      cls: tone(k.runway, 3, 1),
+      d: delta(k.runway, base?.runway, 'up', (n) => `${n > 0 ? '+' : ''}${n.toFixed(1)} mo`),
+      tip: 'Cash at the end of the settled year divided by a month of costs. Three to six months is the usual target.',
+    },
+    {
+      t: 'Saving rate, settled',
+      v: `${Math.round(k.savingsRate * 100)}%`,
+      sub: 'of income invested or kept',
+      cls: tone(k.savingsRate, 0.15, 0.05),
+      d: delta(k.savingsRate * 100, base ? base.savingsRate * 100 : undefined, 'up', (n) => `${n > 0 ? '+' : ''}${n.toFixed(1)} pts`),
+      tip: '401(k), Nth and what is left over, as a share of income, in the settled year. 15% or more is the usual guide.',
+    },
+    {
+      t: 'Cards & loans clear',
+      v: k.consumerFree ? monLabel(k.consumerFree) : 'Not in 20 yrs',
+      sub: k.allFree ? `student loans too: ${monLabel(k.allFree)}` : 'student loans: not in 20 yrs',
+      cls: k.consumerFree && k.consumerFree <= '2030-12' ? 'ok' : k.consumerFree ? 'warn' : 'bad',
+      d: monthDelta(k.consumerFree, base?.consumerFree),
+      tip: 'When cards, Avant, Chase, the collection and any car loan are paid off; then when the student loans are too. Goldman and PSECU are held aside.',
+    },
+    ...(k.lawPeak > 0
+      ? [
+          {
+            t: 'Law-school loans',
+            v: kfmt(k.lawPeak),
+            sub: `owed at most; ${usd0(k.lawPmt)}/mo from repayment`,
+            cls: tone(k.lawPeak, 60000, 120000, false),
+            d: delta(k.lawPeak, base?.lawPeak, 'down'),
+            tip: 'Federal Direct Unsubsidized, only what each school year needs; interest accrues in school.',
+          },
+        ]
+      : []),
+    {
+      t: 'Net worth',
+      v: kfmt(k.nw10),
+      sub: `10 yr · 5 yr ${kfmt(k.nw5)} · 20 yr ${kfmt(k.nw20)}`,
+      cls: tone(k.nw10, 100000, 0),
+      d: delta(k.nw10, base?.nw10, 'up'),
+      tip: 'Assets less debts, from Nov 2026: 10 years shown large, 5 and 20 beside it.',
+    },
+    {
+      t: 'Retirement, 20 yr',
+      v: kfmt(k.retire20),
+      sub: 'TSP & 401(k)',
+      cls: tone(k.retire20, 250000, 100000),
+      d: delta(k.retire20, base?.retire20, 'up'),
+      tip: 'TSP, then the 401(k), at 6% a year — your 5% plus any match.',
+    },
+  ]
+  return (
+    <div className="pkpis">
+      {tiles.map((x) => (
+        <div key={x.t} className={`pkpi pkpi-${x.cls}`} title={x.tip}>
+          <span className="pkpi-t">{x.t}</span>
+          <b className="pkpi-v">{x.v}</b>
+          <small className="pkpi-sub">{x.sub}</small>
+          {x.d}
+        </div>
+      ))}
+    </div>
+  )
 }
 
 // ── Export ───────────────────────────────────────────────────────────────────
@@ -398,6 +594,13 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
   const ledger = useMemo(() => ledgerFor(apply(sc, lv), lv.who), [sc, JSON.stringify(lv)]) // eslint-disable-line react-hooks/exhaustive-deps
   const summary = useMemo(() => summarize(ledger), [ledger])
   const solv = useMemo(() => solvency(ledger), [ledger])
+  const k = useMemo(() => kpis(ledger), [ledger])
+  // The scenario's own run, for the same view, to show what the changed levers moved.
+  const leverChanges = Object.keys(changes).filter((x) => x !== 'who').length
+  const kBase = useMemo(
+    () => (leverChanges ? kpis(ledgerFor(apply(sc, { ...base, who: lv.who }), lv.who)) : null),
+    [sc, leverChanges, lv.who], // eslint-disable-line react-hooks/exhaustive-deps
+  )
   const meta = metas.find((m) => m.id === sc.id) ?? metas[0]!
 
   // Compare: every scenario with the same levers (only when asked — it runs fifteen models).
@@ -468,7 +671,7 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
       </div>
       <div className="levers">
         <Lever
-          title="Whose money"
+          title="Whose money" value={lv.who === 'sam' ? 'Sam' : lv.who === 'sommer' ? 'Sommer' : 'Combined'}
           changed={isChanged('who')}
           onReset={() => reset('who')}
           hint={
@@ -481,24 +684,24 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
         >
           <Seg value={lv.who} options={[['sam', 'Sam'], ['sommer', 'Sommer'], ['both', 'Combined']]} onChange={(v) => set('who', v)} />
         </Lever>
-        <Lever title="628 Chamberlain" changed={isChanged('houseSell', 'houseMonth')} onReset={() => reset('houseSell', 'houseMonth')} hint={lv.houseSell ? 'Sold at 11% costs; the mortgage is cleared from the proceeds. Sold while you live there, you rent in Corpus ($1,800/mo).' : 'Kept. Let out once you move out; you never move back in.'}>
+        <Lever title="628 Chamberlain" value={lv.houseSell ? `Sell ${monLabel(lv.houseMonth)}` : 'Keep'} changed={isChanged('houseSell', 'houseMonth')} onReset={() => reset('houseSell', 'houseMonth')} hint={lv.houseSell ? 'Sold at 11% costs; the mortgage is cleared from the proceeds. Sold while you live there, you rent in Corpus ($1,800/mo).' : 'Kept. Let out once you move out; you never move back in.'}>
           <Seg value={lv.houseSell} options={[[false, 'Keep'], [true, 'Sell']]} onChange={(v) => set('houseSell', v)} />
           {lv.houseSell && <Month value={lv.houseMonth} onChange={(m) => set('houseMonth', m)} label="Sell in" />}
         </Lever>
 
-        <Lever title="Re-enlistment bonus" changed={isChanged('bonus', 'bonusMonth')} onReset={() => reset('bonus', 'bonusMonth')} hint="One payment, 22% withheld. Many pay half up front — confirm with your retention NCO.">
+        <Lever title="Re-enlistment bonus" value={lv.bonus ? `${usd0(lv.bonus)} · ${monLabel(lv.bonusMonth)}` : 'None'} changed={isChanged('bonus', 'bonusMonth')} onReset={() => reset('bonus', 'bonusMonth')} hint="One payment, 22% withheld. Many pay half up front — confirm with your retention NCO.">
           <Money value={lv.bonus} onChange={(n) => set('bonus', n)} step={1000} />
           {lv.bonus > 0 && <Month value={lv.bonusMonth} onChange={(m) => set('bonusMonth', m)} label="Paid in" />}
         </Lever>
 
-        <Lever title="VA rating" changed={isChanged('va')} onReset={() => reset('va')} hint={`${usd0(VA_MONTHLY[lv.va] ?? 0)}/mo with a spouse and one child (more for each child), from ~4 months home; 10% until then, with back pay.`}>
+        <Lever title="VA rating" value={`${lv.va}% · ${usd0(VA_MONTHLY[lv.va] ?? 0)}/mo`} changed={isChanged('va')} onReset={() => reset('va')} hint={`${usd0(VA_MONTHLY[lv.va] ?? 0)}/mo with a spouse and one child (more for each child), from ~4 months home; 10% until then, with back pay.`}>
           <div className="lv-va">
             <input type="range" min={10} max={100} step={10} value={lv.va} onChange={(e) => set('va', Number(e.target.value))} aria-label="VA rating" />
             <b>{lv.va}%</b>
           </div>
         </Lever>
 
-        <Lever title="Children" changed={isChanged('child2', 'child3')} onReset={() => reset('child2', 'child3')} hint={`${kids} in all. Each costs childcare plus $250/mo under five, $500/mo from five, $1,500 at birth.`}>
+        <Lever title="Children" value={[lv.child2, lv.child3].filter((c): c is string => !!c).map(monLabel).join(', ') || 'No more'} changed={isChanged('child2', 'child3')} onReset={() => reset('child2', 'child3')} hint={`${kids} in all. Each costs childcare plus $250/mo under five, $500/mo from five, $1,500 at birth.`}>
           <div className="lv-row">
             <Seg value={!!lv.child2} options={[[true, 'Next child'], [false, 'None']]} onChange={(v) => set('child2', v ? (base.child2 ?? '2028-06') : null)} />
             {lv.child2 && <Month value={lv.child2} onChange={(m) => set('child2', m)} />}
@@ -511,7 +714,7 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
           )}
         </Lever>
 
-        <Lever title="The Expedition" changed={isChanged('carReplace', 'carPrice', 'carDown', 'carSommer')} onReset={() => reset('carReplace', 'carPrice', 'carDown', 'carSommer')} hint={lv.carReplace ? `Used, paid in cash — no loan.${lv.carSommer > 0 ? ` Sommer pays ${usd0(lv.carPrice * lv.carSommer)} from her savings (~$7.6k by Jul 2027); you pay ${usd0(lv.carPrice * (1 - lv.carSommer))}.` : ''} If your cash isn’t there that month, the shortfall shows as borrowed below. The car is not counted as an asset.` : 'Lasts the whole plan — no replacement modelled.'}>
+        <Lever title="The Expedition" value={lv.carReplace ? `${usd0(lv.carPrice)} · ${monLabel(lv.carReplace)}${lv.carSommer ? ' · split' : ''}` : 'Lasts'} changed={isChanged('carReplace', 'carPrice', 'carDown', 'carSommer')} onReset={() => reset('carReplace', 'carPrice', 'carDown', 'carSommer')} hint={lv.carReplace ? `Used, paid in cash — no loan.${lv.carSommer > 0 ? ` Sommer pays ${usd0(lv.carPrice * lv.carSommer)} from her savings (~$7.6k by Jul 2027); you pay ${usd0(lv.carPrice * (1 - lv.carSommer))}.` : ''} If your cash isn’t there that month, the shortfall shows as borrowed below. The car is not counted as an asset.` : 'Lasts the whole plan — no replacement modelled.'}>
           <div className="lv-row">
             <Seg value={!!lv.carReplace} options={[[true, 'Replace'], [false, 'Lasts']]} onChange={(v) => set('carReplace', v ? (base.carReplace ?? '2027-09') : null)} />
             {lv.carReplace && <Month value={lv.carReplace} onChange={(m) => set('carReplace', m)} label="Dies in" />}
@@ -530,7 +733,7 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
         </Lever>
 
         <Lever
-          title="Emergencies"
+          title="Emergencies" value={lv.emergCount ? `${lv.emergCount} × ${usd0(lv.emergSize)}` : 'None'}
           changed={isChanged('emergCount', 'emergFirst', 'emergEvery', 'emergSize')}
           onReset={() => reset('emergCount', 'emergFirst', 'emergEvery', 'emergSize')}
           hint={lv.emergCount ? `${lv.emergCount} × ${usd0(lv.emergSize)}: ${shocks.slice(0, 4).map(monLabel).join(', ')}${shocks.length > 4 ? '…' : ''}. Paid from cash.` : 'None modelled. Slide to stress-test: a roof, a transmission, a hospital bill.'}
@@ -566,6 +769,7 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
 
         <Lever
           title={isLaw ? 'Attorney job' : sc.path === 'night' ? 'Day job' : sc.a.macc.selfEmployed ? 'Your practice' : 'The job'}
+          value={`${monLabel(lv.jobStart)} · ${usd0(lv.jobSalary)}${lv.signing ? ` + ${usd0(lv.signing)}` : ''}`}
           changed={isChanged('jobStart', 'jobSalary', 'signing')}
           onReset={() => reset('jobStart', 'jobSalary', 'signing')}
           hint={`Starts ${monLabel(lv.jobStart)} at ${usd0(lv.jobSalary)}${sc.a.macc.selfEmployed && !isLaw ? ' profit' : ''} a year; the raises after follow the scenario's ladder, scaled to this start.${lv.signing ? ` Signing bonus with the first pay, 22% withheld.` : ''}`}
@@ -583,7 +787,7 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
 
         {isLaw && (
           <Lever
-            title="Work during law school"
+            title="Work during law school" value={lv.partTime ? `${usd0(lv.partTime)}/mo` : 'None'}
             changed={isChanged('partTime', 'partTimeFrom')}
             onReset={() => reset('partTime', 'partTimeFrom')}
             hint={lv.partTime ? `Sep–May from ${monLabel(lv.partTimeFrom)}, taxed as wages. ~15 hrs/wk at $20 is about $1,300/mo.` : 'None. Texas Tech advises 1Ls not to work; many 2Ls and 3Ls clerk part-time.'}
@@ -600,7 +804,7 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
 
         {isLaw && (
           <Lever
-            title="Law-school loans"
+            title="Law-school loans" value={lv.lawLoans ? 'Federal' : 'None'}
             changed={isChanged('lawLoans')}
             onReset={() => reset('lawLoans')}
             hint={
@@ -615,7 +819,7 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
 
         {isLaw && (
           <Lever
-            title="Law summers"
+            title="Law summers" value={`${usd0(lv.summer1L)} / ${usd0(lv.summer2L)}`}
             changed={isChanged('summer1L', 'summer2L')}
             onReset={() => reset('summer1L', 'summer2L')}
             hint="Paid Jun–Aug, 22% withheld. Texas big firms pay 1Ls and 2Ls alike, ~$4,327/week; mid-size ~$2,000–2,500 (estimate)."
@@ -644,28 +848,31 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
         <AllView ledgers={all.ledgers} summaries={all.summaries} metas={metas} />
       ) : (
         <>
-          <div className={`solvency lq-${solv.light}`}>
-            <i className="bdot" />
-            <div>
-              <b>
-                {solv.light === 'green'
-                  ? 'Solvent the whole way'
-                  : solv.firstBelow === solv.lastBelow
-                    ? `Cash runs short in ${monLabel(solv.firstBelow!)}`
-                    : `Cash runs short between ${monLabel(solv.firstBelow!)} and ${monLabel(solv.lastBelow!)}`}
-              </b>
-              <span>
-                Lowest cash {usd0(solv.low.value)} in {monLabel(solv.low.month)}
-                {solv.peak > 0 && <> · most borrowed at once {usd0(solv.peak)} (at ~8%)</>}
-              </span>
-            </div>
+          <div className="results-head">
+            <h3>Results</h3>
+            <span className="sub" style={{ margin: 0 }}>
+              <strong>{ledger.label}</strong> ·{' '}
+              {lv.who === 'both' ? 'Combined — your money and Sommer’s' : lv.who === 'sam' ? 'Sam — your side only' : 'Sommer — her side only'}
+              {leverChanges ? ` · ${leverChanges} lever${leverChanges === 1 ? '' : 's'} changed — deltas vs the scenario` : ''}
+            </span>
           </div>
-          <Export sc={sc} lv={lv} base={base} ledger={ledger} solv={solv} />
-          <p className="sub" style={{ margin: '10px 0 8px' }}>
-            <strong>{ledger.label}.</strong>{' '}
-            {lv.who === 'both' ? 'Combined — your money and Sommer’s.' : lv.who === 'sam' ? 'Sam — your income and your expenses only.' : 'Sommer — her income and her expenses only.'}
-          </p>
-          <ReviewHeader meta={meta} summary={summary} planGaps={planGaps} />
+          <KpiDash k={k} base={kBase} solv={solv} />
+          <div className="results-foot">
+            <details className="depends">
+              <summary>What this depends on ({meta.dependsOn.length + planGaps.length})</summary>
+              <ul>
+                {meta.dependsOn.map((d) => (
+                  <li key={d}>{d}</li>
+                ))}
+                {planGaps.map((g) => (
+                  <li key={g.label + g.date}>
+                    Before you&rsquo;re home: {g.label} — {usd0(g.amount)} not covered ({g.date})
+                  </li>
+                ))}
+              </ul>
+            </details>
+            <Export sc={sc} lv={lv} base={base} ledger={ledger} solv={solv} />
+          </div>
           <Balances ledger={ledger} groups={groups} card={(p: Period) => <PeriodCard ledger={ledger} p={p} />} />
         </>
       )}

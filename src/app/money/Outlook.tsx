@@ -292,6 +292,8 @@ export interface Period {
   months: string[]
   phase: string
   income: number
+  /** Inflows by source; loans are cash in but not income. */
+  inflow: { army: number; other: number; loans: number }
   out: Record<string, number>
   start: BalMap
   end: BalMap
@@ -334,7 +336,7 @@ export function periodsOf(ledger: Ledger, groups: Group[], span: number): Period
   for (const p of ledger.points) {
     if (p.month > last) break
     const covered = ledger.months.filter((m) => m.month > prevMonth && m.month <= p.month).map((m) => m.month)
-    if (p.income === 0 && Object.keys(p.out).length === 0) {
+    if (p.income === 0 && p.inflow.loans === 0 && Object.keys(p.out).length === 0) {
       prev = p.bal
       prevMonth = p.month
       continue
@@ -342,11 +344,12 @@ export function periodsOf(ledger: Ledger, groups: Group[], span: number): Period
     const k = keyOf(p.month)
     let per = out.at(-1)
     if (!per || per.key !== k) {
-      per = { key: k, label: unit === 'month' ? monLabel(k) : k, months: [], phase: p.phase, income: 0, out: {}, start: prev, end: p.bal, assets: 0, debts: 0, byGroup: {} }
+      per = { key: k, label: unit === 'month' ? monLabel(k) : k, months: [], phase: p.phase, income: 0, inflow: { army: 0, other: 0, loans: 0 }, out: {}, start: prev, end: p.bal, assets: 0, debts: 0, byGroup: {} }
       out.push(per)
     }
     per.months.push(...covered)
     per.income += p.income
+    per.inflow = { army: per.inflow.army + p.inflow.army, other: per.inflow.other + p.inflow.other, loans: per.inflow.loans + p.inflow.loans }
     for (const [g, v] of Object.entries(p.out)) per.out[g] = (per.out[g] ?? 0) + v
     per.end = p.bal
     per.phase = p.phase
@@ -368,7 +371,14 @@ export function periodsOf(ledger: Ledger, groups: Group[], span: number): Period
 function PnlChart({ periods, groups, selected, onSelect }: { periods: Period[]; groups: Group[]; selected: string | null; onSelect: (k: string) => void }) {
   if (!periods.length) return null
   const outTotal = (p: Period) => Object.values(p.out).reduce((t, v) => t + v, 0)
-  const max = Math.max(1, ...periods.map((p) => Math.max(p.income, outTotal(p), Math.abs(cashNet(p.end)), cashHand(p.end))))
+  const inTotal = (p: Period) => p.income + p.inflow.loans
+  const max = Math.max(1, ...periods.map((p) => Math.max(inTotal(p), outTotal(p), Math.abs(cashNet(p.end)), cashHand(p.end))))
+  const INFLOW: { key: 'army' | 'other' | 'loans'; label: string; color: string }[] = [
+    { key: 'army', label: 'Army & VA', color: '#6f8f4e' },
+    { key: 'other', label: 'Non-Army income', color: '#c9d3df' },
+    { key: 'loans', label: 'Loans (borrowed)', color: '#e0b13a' },
+  ]
+  const inflowShown = INFLOW.filter((f) => periods.some((p) => p.inflow[f.key] > 0.5))
   const W = 1000
   const H = 300
   const top = 16
@@ -415,13 +425,22 @@ function PnlChart({ periods, groups, selected, onSelect }: { periods: Period[]; 
           return (
             <g key={p.key} className={`pnl-col ${selected === p.key ? 'on' : ''}`} onClick={() => onSelect(p.key)}>
               <title>
-                {`${p.label}\nIncome ${usd0(p.income)}\n` +
+                {`${p.label}\n` +
+                  inflowShown.map((f) => `${f.label} ${usd0(p.inflow[f.key])}`).join('\n') +
+                  '\n' +
                   present.map((g) => `${g} −${usd0(p.out[g] ?? 0)}`).join('\n') +
                   `\nNet ${net < 0 ? '−' : '+'}${usd0(Math.abs(net))}` +
                   `\nCash, no new debt ${usd0(cashNet(p.end))}\nCash on hand ${usd0(cashHand(p.end))}`}
               </title>
               <rect x={52 + i * bw} y={top - 10} width={bw} height={H - 30} className="pnl-hit" />
-              <rect x={x} y={mid - y(p.income)} width={w} height={Math.max(0.5, y(p.income))} rx={2} fill="#c9d3df" opacity={0.9} />
+              {(() => {
+                let up = mid
+                return inflowShown.map((f) => {
+                  const h = y(p.inflow[f.key])
+                  up -= h
+                  return <rect key={f.key} x={x} y={up} width={w} height={Math.max(0, h - 0.6)} fill={f.color} opacity={0.92} />
+                })
+              })()}
               {present.map((g) => {
                 const h = y(p.out[g] ?? 0)
                 const r = <rect key={g} x={x} y={down} width={w} height={Math.max(0, h - 0.6)} fill={PNL_COLOR[g]} />
@@ -493,7 +512,12 @@ function PnlChart({ periods, groups, selected, onSelect }: { periods: Period[]; 
         <text x={52} y={H2 - 6} className="pnl-axis">Assets above the line, debts below (own scale) · net worth ●</text>
       </svg>
       <div className="split-legend">
-        <span><i className="swatch-dot" style={{ background: '#c9d3df' }} />Income</span>
+        {inflowShown.map((f) => (
+          <span key={f.key}>
+            <i className="swatch-dot" style={{ background: f.color }} />
+            {f.label}
+          </span>
+        ))}
         {present.map((g) => (
           <span key={g}>
             <i className="swatch-dot" style={{ background: PNL_COLOR[g] }} />
@@ -531,7 +555,8 @@ function PeriodTable({ periods, selected, onSelect }: { periods: Period[]; selec
         <thead>
           <tr>
             <th>Period</th>
-            <th>Income</th>
+            <th title="Army & VA / everything else">Income</th>
+            <th title="Student-loan proceeds: cash in, not income">Borrowed</th>
             <th>Costs</th>
             <th>Net</th>
             <th title="Checking + savings, less anything borrowed">Cash — no new debt</th>
@@ -548,7 +573,8 @@ function PeriodTable({ periods, selected, onSelect }: { periods: Period[]; selec
                 <button className="linkish">{p.label}</button>
                 <div className="cf-phase">{p.phase}</div>
               </td>
-              <td>{usd0(p.income)}</td>
+              <td title={`Army & VA ${usd0(p.inflow.army)} · other ${usd0(p.inflow.other)}`}>{usd0(p.income)}</td>
+              <td>{p.inflow.loans ? usd0(p.inflow.loans) : '—'}</td>
               <td>{usd0(out(p))}</td>
               <td className={p.income - out(p) < 0 ? 'neg' : 'ok'}>{s(p.income - out(p))}</td>
               <td className={cashNet(p.end) < 0 ? 'neg' : ''}>{s(cashNet(p.end))}</td>
@@ -629,12 +655,6 @@ export function Balances({ ledger, groups, card }: { ledger: Ledger; groups: Gro
             </button>
           ))}
         </div>
-      </div>
-      <div className="nw-tiles">
-        <div><span>Net worth today</span><b>{usd0(nw0)}</b></div>
-        <div><span>Net worth {monLabel(end.month)}</span><b>{usd0(nw1)}</b></div>
-        <div><span>Change</span><b className={nw1 >= nw0 ? 'ok' : 'bad'}>{nw1 >= nw0 ? '+' : '−'}{usd0(Math.abs(nw1 - nw0))}</b></div>
-        <div><span>Debt {monLabel(end.month)}</span><b>{usd0(sideTotal(end, 'debt'))}</b><small>from {usd0(sideTotal(opening, 'debt'))}</small></div>
       </div>
       <PnlChart periods={periods} groups={groups} selected={sel?.key ?? null} onSelect={pick} />
       {card && (
