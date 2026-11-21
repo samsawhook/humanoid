@@ -14,7 +14,9 @@ import { buildLedger, buildSommerLedger, summarize, type GroupKey, type Ledger, 
 import { emergencyMonths, reenlistOf, saleMonth } from '@/core/money/paths'
 import { SCENARIOS, type Scenario } from '@/core/money/scenarios'
 import { VA_MONTHLY } from '@/core/money/returnBudget'
-import { AllView, Balances, ReviewHeader, Scenarios, type PlanGap, type ScenarioMeta } from './Outlook'
+import { AllView, Balances, ReviewHeader, type Period, type PlanGap, type ScenarioMeta } from './Outlook'
+import { PaydayCard } from './PaydayFocus'
+import { periodStatement } from '@/core/money/planStatement'
 
 type Group = { key: GroupKey; label: string; side: Side }
 type A = Scenario['a']
@@ -90,19 +92,21 @@ function apply(sc: Scenario, l: Levers): Scenario {
   return { ...sc, a }
 }
 
-const cashOf = (p: { bal: Record<string, number> }) => (p.bal.checking ?? 0) + (p.bal.savings ?? 0) - (p.bal.gap ?? 0)
+const r2 = (n: number) => Math.round(n * 100) / 100
+const cashOfBal = (b: Record<string, number>) => (b.checking ?? 0) + (b.savings ?? 0) - (b.gap ?? 0)
+const cashOfP = (p: { bal: Record<string, number> }) => (p.bal.checking ?? 0) + (p.bal.savings ?? 0) - (p.bal.gap ?? 0)
 
 /** Solvency over the whole plan, from the month you are home. */
 function solvency(l: Ledger) {
   const home = l.points.filter((p) => p.month >= l.homeMonth)
   let low = home[0]!
-  for (const p of home) if (cashOf(p) < cashOf(low)) low = p
-  const below = home.filter((p) => cashOf(p) < -0.5)
+  for (const p of home) if (cashOfP(p) < cashOfP(low)) low = p
+  const below = home.filter((p) => cashOfP(p) < -0.5)
   const peak = Math.max(0, ...l.points.map((p) => p.bal.gap ?? 0))
   const firstBelow = below[0]?.month ?? null
   const lastBelow = below.at(-1)?.month ?? null
   const light: 'green' | 'yellow' | 'red' = peak > 25000 ? 'red' : below.length ? 'yellow' : 'green'
-  return { low: { value: cashOf(low), month: low.month }, peak, firstBelow, lastBelow, light }
+  return { low: { value: cashOfP(low), month: low.month }, peak, firstBelow, lastBelow, light }
 }
 
 // ── Small controls ───────────────────────────────────────────────────────────
@@ -157,6 +161,27 @@ function Seg<T extends string | number | boolean>({ value, options, onChange }: 
         </button>
       ))}
     </div>
+  )
+}
+
+/** A period of the plan in the paycheck card's format. */
+function PeriodCard({ ledger, p }: { ledger: Ledger; p: Period }) {
+  const months = ledger.months.filter((m) => p.months.includes(m.month))
+  const st = periodStatement(p.label, months, p.start, p.end, { of: (g) => ledger.accounts.filter((a) => a.group === g).map((a) => a.key) })
+  const n = months.length
+  return (
+    <PaydayCard
+      st={st}
+      tag={p.phase}
+      title={p.label}
+      subtitle={n === 1 ? 'One month' : `${n} months, added up`}
+      showActuals={false}
+      checkingBefore={r2(cashOfBal(p.start))}
+      checkingAfter={r2(cashOfBal(p.end))}
+      savings={0}
+      short={0}
+      spendable=""
+    />
   )
 }
 
@@ -419,8 +444,7 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
             {lv.who === 'both' ? 'Combined — your money and Sommer’s.' : lv.who === 'sam' ? 'Sam — your income and your expenses only.' : 'Sommer — her income and her expenses only.'}
           </p>
           <ReviewHeader meta={meta} summary={summary} planGaps={planGaps} />
-          <Balances ledger={ledger} groups={groups} />
-          <Scenarios ledger={ledger} groups={groups} />
+          <Balances ledger={ledger} groups={groups} card={(p: Period) => <PeriodCard ledger={ledger} p={p} />} />
         </>
       )}
     </section>

@@ -7,7 +7,7 @@
  * this component only switches between paths, spans and accounts.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { TrendChart, type TrendSeries } from '@/components/TrendChart'
 import { Planner } from './Planner'
 import type { AccountDef, GroupKey, Ledger, LedgerPoint, PathSummary, Side } from '@/core/money/ledger'
@@ -280,34 +280,79 @@ const PNL_COLOR: Record<string, string> = {
   Other: '#7d848f',
 }
 
-/**
- * P&L over the timeline: income up, costs down (stacked by category), net as a dot.
- * Monthly for a year or eighteen months, quarterly for three to five years, yearly beyond.
- */
-function PnlChart({ points, months }: { points: LedgerPoint[]; months: number }) {
-  const unit: 'month' | 'quarter' | 'year' = months <= 18 ? 'month' : months <= 60 ? 'quarter' : 'year'
-  type Period = { label: string; income: number; out: Record<string, number>; cash: number }
-  const periods: Period[] = []
+type BalMap = Record<string, number>
+const cashNet = (b: BalMap) => (b.checking ?? 0) + (b.savings ?? 0) - (b.gap ?? 0)
+const cashHand = (b: BalMap) => (b.checking ?? 0) + (b.savings ?? 0)
+
+/** One column of the chart and one row of the table: a month, a quarter or a year. */
+export interface Period {
+  key: string
+  label: string
+  /** The path months it covers. */
+  months: string[]
+  phase: string
+  income: number
+  out: Record<string, number>
+  start: BalMap
+  end: BalMap
+  assets: number
+  debts: number
+}
+
+/** Monthly for up to 18 months, quarterly to five years, yearly beyond. */
+export function periodsOf(ledger: Ledger, groups: Group[], span: number): Period[] {
+  const unit: 'month' | 'quarter' | 'year' = span <= 18 ? 'month' : span <= 60 ? 'quarter' : 'year'
   const keyOf = (m: string) => {
     const y = m.slice(0, 4)
     const mo = Number(m.slice(5, 7))
     return unit === 'month' ? m : unit === 'quarter' ? `${y} Q${Math.ceil(mo / 3)}` : y
   }
-  for (const p of points.filter((x) => x.income > 0 || Object.keys(x.out).length)) {
-    const k = keyOf(p.month)
-    let per = periods.at(-1)
-    if (!per || per.label !== k) {
-      per = { label: k, income: 0, out: {}, cash: 0 }
-      periods.push(per)
+  const last = (() => {
+    const [y, m] = [2026, 11 + span]
+    return `${y + Math.floor((m - 1) / 12)}-${String(((m - 1) % 12) + 1).padStart(2, '0')}`
+  })()
+  const sideTotal = (b: BalMap, side: Side) =>
+    groups.filter((g) => g.side === side).reduce((t, g) => t + ledger.accounts.filter((a) => a.group === g.key).reduce((u, a) => u + (b[a.key] ?? 0), 0), 0)
+  const out: Period[] = []
+  let prev: BalMap = ledger.opening
+  let prevMonth = '2026-10'
+  for (const p of ledger.points) {
+    if (p.month > last) break
+    const covered = ledger.months.filter((m) => m.month > prevMonth && m.month <= p.month).map((m) => m.month)
+    if (p.income === 0 && Object.keys(p.out).length === 0) {
+      prev = p.bal
+      prevMonth = p.month
+      continue
     }
-    // Cash at the end of the period: checking + savings, less anything borrowed.
-    per.cash = (p.bal.checking ?? 0) + (p.bal.savings ?? 0) - (p.bal.gap ?? 0)
+    const k = keyOf(p.month)
+    let per = out.at(-1)
+    if (!per || per.key !== k) {
+      per = { key: k, label: unit === 'month' ? monLabel(k) : k, months: [], phase: p.phase, income: 0, out: {}, start: prev, end: p.bal, assets: 0, debts: 0 }
+      out.push(per)
+    }
+    per.months.push(...covered)
     per.income += p.income
     for (const [g, v] of Object.entries(p.out)) per.out[g] = (per.out[g] ?? 0) + v
+    per.end = p.bal
+    per.phase = p.phase
+    per.assets = sideTotal(p.bal, 'asset')
+    per.debts = sideTotal(p.bal, 'debt')
+    prev = p.bal
+    prevMonth = p.month
   }
+  return out
+}
+
+/**
+ * P&L over the timeline: income up, costs down (stacked by category), net as a dot, and
+ * cash at each period's end two ways — net of anything borrowed (the plan without new
+ * debt) and on hand (with the gaps borrowed). Below, on its own scale, debts and assets.
+ * Click a column for that period's card.
+ */
+function PnlChart({ periods, selected, onSelect }: { periods: Period[]; selected: string | null; onSelect: (k: string) => void }) {
   if (!periods.length) return null
   const outTotal = (p: Period) => Object.values(p.out).reduce((t, v) => t + v, 0)
-  const max = Math.max(1, ...periods.map((p) => Math.max(p.income, outTotal(p), Math.abs(p.cash))))
+  const max = Math.max(1, ...periods.map((p) => Math.max(p.income, outTotal(p), Math.abs(cashNet(p.end)), cashHand(p.end))))
   const W = 1000
   const H = 300
   const top = 16
@@ -318,14 +363,19 @@ function PnlChart({ points, months }: { points: LedgerPoint[]; months: number })
   const groupsOrder = ['Home', 'Wife & Kids', 'Personal', 'Car', 'Tech', 'Debt', 'Taxes', 'Investing', 'School & moves', 'Emergencies', 'Other']
   const present = groupsOrder.filter((g) => periods.some((p) => (p.out[g] ?? 0) > 0))
   const fmt = (n: number) => (Math.abs(n) >= 100000 ? `$${Math.round(n / 1000)}k` : usd0(n))
-  const label = (k: string) => (unit === 'month' ? monLabel(k).replace(' 20', ' ’') : k)
   const step = Math.ceil(periods.length / 12)
+  const xs = periods.map((_, i) => 52 + i * bw + bw / 2)
+  // The balances panel: debts and assets on their own scale.
+  const H2 = 150
+  const max2 = Math.max(1, ...periods.map((p) => Math.max(p.assets, p.debts)))
+  const y2 = (v: number) => 14 + (1 - v / max2) * (H2 - 34)
+  const path = (vals: number[], yf: (v: number) => number) => vals.map((v, i) => `${i ? 'L' : 'M'}${xs[i]},${yf(v)}`).join(' ')
   return (
     <figure className="pnl">
       <figcaption className="fig-title">
-        Profit & loss — {unit === 'month' ? 'monthly' : unit === 'quarter' ? 'quarterly' : 'yearly'} · income up, costs down, net ● · cash at period end ◆
+        Profit & loss — {periods[0]!.key.includes('Q') ? 'quarterly' : periods[0]!.key.length === 4 ? 'yearly' : 'monthly'} · click a column for its card
       </figcaption>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Profit and loss by period">
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Profit and loss and cash by period">
         <line x1={50} x2={W - 6} y1={mid} y2={mid} stroke="var(--muted)" strokeWidth={1} />
         {[-1, -0.5, 0.5, 1].map((f) => (
           <g key={f}>
@@ -342,13 +392,14 @@ function PnlChart({ points, months }: { points: LedgerPoint[]; months: number })
           let down = mid
           const net = p.income - outTotal(p)
           return (
-            <g key={p.label}>
+            <g key={p.key} className={`pnl-col ${selected === p.key ? 'on' : ''}`} onClick={() => onSelect(p.key)}>
               <title>
-                {`${label(p.label)}\nIncome ${usd0(p.income)}\n` +
+                {`${p.label}\nIncome ${usd0(p.income)}\n` +
                   present.map((g) => `${g} −${usd0(p.out[g] ?? 0)}`).join('\n') +
                   `\nNet ${net < 0 ? '−' : '+'}${usd0(Math.abs(net))}` +
-                  `\nCash at end ${p.cash < 0 ? '−' : ''}${usd0(Math.abs(p.cash))}`}
+                  `\nCash, no new debt ${usd0(cashNet(p.end))}\nCash on hand ${usd0(cashHand(p.end))}`}
               </title>
+              <rect x={52 + i * bw} y={top - 10} width={bw} height={H - 30} className="pnl-hit" />
               <rect x={x} y={mid - y(p.income)} width={w} height={Math.max(0.5, y(p.income))} rx={2} fill="#c9d3df" opacity={0.9} />
               {present.map((g) => {
                 const h = y(p.out[g] ?? 0)
@@ -359,37 +410,37 @@ function PnlChart({ points, months }: { points: LedgerPoint[]; months: number })
               <circle cx={x + w / 2} cy={mid - y(net)} r={Math.max(2.5, Math.min(5, bw / 6))} fill={net >= 0 ? '#3fc56b' : '#e66767'} stroke="var(--panel)" strokeWidth={1.5} />
               {i % step === 0 && (
                 <text x={x + w / 2} y={H - 6} textAnchor="middle" className="pnl-axis">
-                  {label(p.label)}
+                  {p.label.replace(' 20', ' ’')}
                 </text>
               )}
             </g>
           )
         })}
-        {(() => {
-          // Cash at the end of each period, on the same dollar scale: the solvency check.
-          const xs = periods.map((_, i) => 52 + i * bw + bw / 2)
-          const ys = periods.map((p) => mid - y(p.cash))
-          return (
-            <g>
-              <polyline points={xs.map((x, i) => `${x},${ys[i]}`).join(' ')} fill="none" stroke="#2fa4a9" strokeWidth={2} strokeLinejoin="round" />
-              {periods.map((p, i) => (
-                <rect
-                  key={p.label}
-                  x={xs[i]! - 3.5}
-                  y={ys[i]! - 3.5}
-                  width={7}
-                  height={7}
-                  transform={`rotate(45 ${xs[i]} ${ys[i]})`}
-                  fill={p.cash < 0 ? '#e5534b' : '#2fa4a9'}
-                  stroke="var(--panel)"
-                  strokeWidth={1.2}
-                >
-                  <title>{`${label(p.label)} — cash at end ${p.cash < 0 ? '−' : ''}${usd0(Math.abs(p.cash))}`}</title>
-                </rect>
-              ))}
-            </g>
-          )
-        })()}
+        <path d={path(periods.map((p) => cashHand(p.end)), (v) => mid - y(v))} fill="none" stroke="#8fd3d6" strokeWidth={1.6} strokeDasharray="5 4" pointerEvents="none" />
+        <path d={path(periods.map((p) => cashNet(p.end)), (v) => mid - y(v))} fill="none" stroke="#2fa4a9" strokeWidth={2} pointerEvents="none" />
+        {periods.map((p, i) => {
+          const v = cashNet(p.end)
+          const yy = mid - y(v)
+          return <rect key={p.key} x={xs[i]! - 3.5} y={yy - 3.5} width={7} height={7} transform={`rotate(45 ${xs[i]} ${yy})`} fill={v < 0 ? '#e5534b' : '#2fa4a9'} stroke="var(--panel)" strokeWidth={1.2} pointerEvents="none" />
+        })}
+      </svg>
+      <svg viewBox={`0 0 ${W} ${H2}`} role="img" aria-label="Debts and assets by period" className="pnl-bal">
+        {[0, 0.5, 1].map((f) => (
+          <g key={f}>
+            <line x1={50} x2={W - 6} y1={y2(f * max2)} y2={y2(f * max2)} stroke="var(--grid)" strokeWidth={0.6} />
+            <text x={46} y={y2(f * max2) + 4} textAnchor="end" className="pnl-axis">
+              {fmt(f * max2)}
+            </text>
+          </g>
+        ))}
+        {periods.map((p, i) => (
+          <rect key={p.key} x={52 + i * bw} y={0} width={bw} height={H2 - 18} className={`pnl-hit ${selected === p.key ? 'on' : ''}`} onClick={() => onSelect(p.key)}>
+            <title>{`${p.label}\nAssets ${usd0(p.assets)}\nDebts ${usd0(p.debts)}\nNet worth ${usd0(p.assets - p.debts)}`}</title>
+          </rect>
+        ))}
+        <path d={path(periods.map((p) => p.assets), y2)} fill="none" stroke="#3fc56b" strokeWidth={2} pointerEvents="none" />
+        <path d={path(periods.map((p) => p.debts), y2)} fill="none" stroke="#d55181" strokeWidth={2} pointerEvents="none" />
+        <text x={52} y={H2 - 4} className="pnl-axis">Debts and assets, end of each period (own scale)</text>
       </svg>
       <div className="split-legend">
         <span><i className="swatch-dot" style={{ background: '#c9d3df' }} />Income</span>
@@ -399,14 +450,60 @@ function PnlChart({ points, months }: { points: LedgerPoint[]; months: number })
             {g}
           </span>
         ))}
-        <span><i className="swatch-dot" style={{ background: '#3fc56b', borderRadius: '50%' }} />Net (red below zero)</span>
-        <span><i className="swatch-dot" style={{ background: '#2fa4a9', transform: 'rotate(45deg)' }} />Cash at period end (red below zero)</span>
+        <span><i className="swatch-dot" style={{ background: '#3fc56b', borderRadius: '50%' }} />Net</span>
+        <span><i className="swatch-line" style={{ background: '#2fa4a9' }} />Cash — no new debt (red below zero)</span>
+        <span><i className="swatch-line dashed" style={{ borderColor: '#8fd3d6' }} />Cash on hand — gaps borrowed</span>
+        <span><i className="swatch-line" style={{ background: '#3fc56b' }} />Assets</span>
+        <span><i className="swatch-line" style={{ background: '#d55181' }} />Debts</span>
       </div>
     </figure>
   )
 }
 
-export function Balances({ ledger, groups }: { ledger: Ledger; groups: Group[] }) {
+/** The periods as a table: click a row for its card. */
+function PeriodTable({ periods, selected, onSelect }: { periods: Period[]; selected: string | null; onSelect: (k: string) => void }) {
+  const out = (p: Period) => Object.values(p.out).reduce((t, v) => t + v, 0)
+  const s = (n: number) => `${n < 0 ? '−' : ''}${usd0(Math.abs(n))}`
+  return (
+    <div className="tablewrap">
+      <table className="baltable cf periods">
+        <thead>
+          <tr>
+            <th>Period</th>
+            <th>Income</th>
+            <th>Costs</th>
+            <th>Net</th>
+            <th title="Checking + savings, less anything borrowed">Cash — no new debt</th>
+            <th title="Checking + savings; gaps borrowed">Cash on hand</th>
+            <th>Assets</th>
+            <th>Debts</th>
+            <th>Net worth</th>
+          </tr>
+        </thead>
+        <tbody>
+          {periods.map((p) => (
+            <tr key={p.key} className={`acc ${selected === p.key ? 'on' : ''}`} onClick={() => onSelect(p.key)}>
+              <td>
+                <button className="linkish">{p.label}</button>
+                <div className="cf-phase">{p.phase}</div>
+              </td>
+              <td>{usd0(p.income)}</td>
+              <td>{usd0(out(p))}</td>
+              <td className={p.income - out(p) < 0 ? 'neg' : 'ok'}>{s(p.income - out(p))}</td>
+              <td className={cashNet(p.end) < 0 ? 'neg' : ''}>{s(cashNet(p.end))}</td>
+              <td>{usd0(cashHand(p.end))}</td>
+              <td>{usd0(p.assets)}</td>
+              <td>{usd0(p.debts)}</td>
+              <td className={p.assets - p.debts < 0 ? 'neg' : ''}>{s(p.assets - p.debts)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+export function Balances({ ledger, groups, card }: { ledger: Ledger; groups: Group[]; card?: (p: Period) => React.ReactNode }) {
   const [span, setSpan] = useState('5y')
   const [open, setOpen] = useState<string | null>(null)
   // The mortgage and the house dwarf everything else; off by default, one tap to add.
@@ -418,6 +515,14 @@ export function Balances({ ledger, groups }: { ledger: Ledger; groups: Group[] }
     return `${y + Math.floor((m - 1) / 12)}-${String(((m - 1) % 12) + 1).padStart(2, '0')}`
   })()
   const pts = ledger.points.filter((p) => p.month <= lastMonth)
+  const periods = periodsOf(ledger, groups, months)
+  const [selKey, setSel] = useState<string | null>(null)
+  const sel = periods.find((p) => p.key === selKey) ?? null
+  const pickRef = useRef<HTMLDivElement>(null)
+  const pick = (k: string) => {
+    setSel(k)
+    requestAnimationFrame(() => pickRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
   const accs = ledger.accounts
   const opening: Bal = { bal: ledger.opening }
 
@@ -470,7 +575,13 @@ export function Balances({ ledger, groups }: { ledger: Ledger; groups: Group[] }
         <div><span>Change</span><b className={nw1 >= nw0 ? 'ok' : 'bad'}>{nw1 >= nw0 ? '+' : '−'}{usd0(Math.abs(nw1 - nw0))}</b></div>
         <div><span>Debt {monLabel(end.month)}</span><b>{usd0(sideTotal(end, 'debt'))}</b><small>from {usd0(sideTotal(opening, 'debt'))}</small></div>
       </div>
-      <PnlChart points={pts} months={months} />
+      <PnlChart periods={periods} selected={sel?.key ?? null} onSelect={pick} />
+      {card && (
+        <div className="period-pick" ref={pickRef}>
+          <PeriodTable periods={periods} selected={sel?.key ?? null} onSelect={pick} />
+          <div className="period-card">{sel ? card(sel) : <p className="sub">Click a column in the chart, or a row, for that period&rsquo;s card.</p>}</div>
+        </div>
+      )}
       <div className="bal-charts">
         <figure>
           <figcaption className="fig-title">Debts</figcaption>

@@ -69,7 +69,7 @@ export interface LedgerPoint {
 
 /** Cost lines into the groups the cards use. */
 export const PNL_GROUPS = ['Home', 'Wife & Kids', 'Personal', 'Car', 'Tech', 'Debt', 'Taxes', 'Investing', 'School & moves', 'Emergencies', 'Other'] as const
-function pnlGroup(k: string): (typeof PNL_GROUPS)[number] {
+export function pnlGroup(k: string): (typeof PNL_GROUPS)[number] {
   if (/Taxes|Self-employment/.test(k)) return 'Taxes'
   if (/^Car —/.test(k)) return 'Car'
   if (/^Sommer — her bills/.test(k)) return 'Home'
@@ -95,6 +95,8 @@ export interface Ledger {
   homeMonth: string
   /** The path model's first twelve months home: income and costs. */
   yearAhead: PathMonth[]
+  /** Every month of the path model, income and costs line by line (from Dec 2026). */
+  months: PathMonth[]
 }
 
 const r2 = (n: number) => Math.round(n * 100) / 100
@@ -407,7 +409,7 @@ export function buildLedger(path: PathKey | 'country' | Scenario): Ledger {
   const points = thinPoints(monthly)
 
   const yearAhead = proj.months.filter((m) => m.month >= homeMonth && m.month <= addMonths(homeMonth, 11))
-  return { path: sc ? sc.id : (path as string), label: proj.label, accounts: ACCOUNTS, opening, points, homeMonth, yearAhead }
+  return { path: sc ? sc.id : (path as string), label: proj.label, accounts: ACCOUNTS, opening, points, homeMonth, yearAhead, months: proj.months }
 }
 
 /** Monthly for five years, then a point a year with that year's payments summed. */
@@ -460,6 +462,7 @@ export function buildSommerLedger(sc: Scenario): Ledger {
     points: thinPoints(monthly),
     homeMonth,
     yearAhead: months.filter((m) => m.month >= homeMonth && m.month <= addMonths(homeMonth, 11)),
+    months,
   }
 }
 

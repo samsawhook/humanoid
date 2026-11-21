@@ -708,7 +708,7 @@ function Total({ label, amount, gross, note, strong }: { label: string; amount: 
   )
 }
 
-function PaydayCard({
+export function PaydayCard({
   st,
   tag,
   title,
@@ -960,7 +960,9 @@ function PaydayCard({
         {maxing && <MaxingBox m={maxing} />}
       </Section>
 
-      <Section sec={savingSec} gross={g} spendable={spendable} showActuals={false} sign={savingSec.total < 0 ? '−' : '+'} bar={false} bench={bx('cash')} extra={savingGlance} />
+      {(savingSec.lines.length > 0 || savings > 0.005) && (
+        <Section sec={savingSec} gross={g} spendable={spendable} showActuals={false} sign={savingSec.total < 0 ? '−' : '+'} bar={false} bench={bx('cash')} extra={savingGlance} />
+      )}
 
       <Section sec={netCashTied} gross={g} spendable={spendable} showActuals={false} sign={netCashTied.total < 0 ? '−' : '+'} bar={false} extra={cashGlance}>
       {mode !== 'sommer' && (() => {

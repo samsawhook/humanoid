@@ -728,3 +728,18 @@ body:has(nav.rail) main { margin-left: 60px; }
 .solvency.lq-yellow { border-left-color: #e0b13a; } .solvency.lq-yellow .bdot { background: #e0b13a; }
 .solvency.lq-red { border-left-color: #e5534b; } .solvency.lq-red .bdot { background: #e5534b; }
 .lv-lab { font-size: 12px; color: var(--muted); min-width: 62px; }
+/* Planner chart: clickable periods, cash lines, the balances panel */
+.pnl-hit { fill: transparent; cursor: pointer; }
+.pnl-col:hover .pnl-hit, .pnl-hit:hover { fill: rgba(255,255,255,0.035); }
+.pnl-col.on .pnl-hit, .pnl-hit.on { fill: rgba(122,162,255,0.10); }
+.pnl-col { cursor: pointer; }
+.pnl-bal { margin-top: 4px; }
+.swatch-line { display: inline-block; width: 16px; height: 0; border-top: 2px solid; margin-right: 6px; vertical-align: middle; }
+.swatch-line[style*="background"] { height: 2px; border: 0; }
+.swatch-line.dashed { border-top-style: dashed; }
+.period-pick { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(330px, 1fr); gap: 14px; align-items: start; margin: 12px 0 16px; scroll-margin-top: 12px; }
+.period-pick .tablewrap { max-height: 720px; overflow: auto; }
+.period-card .pcard { margin: 0; }
+.baltable.periods tr.on td { background: rgba(122,162,255,0.10); }
+.baltable.periods tr { cursor: pointer; }
+@media (max-width: 900px) { .period-pick { grid-template-columns: 1fr; } }

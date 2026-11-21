@@ -3,7 +3,7 @@ import { buildLedger, buildSommerLedger } from '@/core/money/ledger'
 import { SCENARIOS } from '@/core/money/scenarios'
 
 const sc = SCENARIOS.find((s) => s.id === 'cpa_mid')!
-const cash = (p: { bal: Record<string, number> }) => p.bal.checking + p.bal.savings - p.bal.gap
+const cash = (p: { bal: Record<string, number> }) => (p.bal.checking ?? 0) + (p.bal.savings ?? 0) - (p.bal.gap ?? 0)
 const at = (l: ReturnType<typeof buildLedger>, m: string) => l.points.find((p) => p.month >= m)!
 
 describe('planner: Sam, Sommer, Combined', () => {
