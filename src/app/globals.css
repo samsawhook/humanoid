@@ -681,3 +681,12 @@ body:has(nav.rail) main { margin-left: 60px; }
 .lq-green { border-left-color: #3fc56b; } .lq-green .bdot { background: #3fc56b; }
 .lq-yellow { border-left-color: #e0b13a; } .lq-yellow .bdot { background: #e0b13a; }
 .lq-red { border-left-color: #e5534b; } .lq-red .bdot { background: #e5534b; }
+
+/* Net cash at a glance, in the folded summary */
+.cash-glance { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 6px; padding: 4px 8px; border-radius: 8px; border-left: 3px solid #8a93a3; background: var(--panel-2); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.cash-glance .bdot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #8a93a3; }
+.cash-glance .neg { color: #e5534b; } .cash-glance .pos { color: #3fc56b; }
+.cash-glance .cg-why { margin-left: auto; color: var(--muted, #8a93a3); font-size: 11.5px; }
+.cash-glance.lq-green { border-left-color: #3fc56b; } .cash-glance.lq-green .bdot { background: #3fc56b; }
+.cash-glance.lq-yellow { border-left-color: #e0b13a; } .cash-glance.lq-yellow .bdot { background: #e0b13a; }
+.cash-glance.lq-red { border-left-color: #e5534b; } .cash-glance.lq-red .bdot { background: #e5534b; }

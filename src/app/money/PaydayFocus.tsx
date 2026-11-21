@@ -459,6 +459,17 @@ function BenchHeader() {
 }
 
 /** What is still to go out of checking this paycheck: budget not yet seen, plus the savings transfer. */
+/** Below this, the cash at the end of a paycheck is a thin cushion: one surprise bill. */
+const CASH_CUSHION = 500
+
+/** Red: overdrawn overall. Yellow: an account dips or the cushion is thin. Green: covered. */
+function cashLight(end: number, anyNegative: boolean): { cls: 'red' | 'yellow' | 'green'; label: string; why: string } {
+  if (end < 0) return { cls: 'red', label: 'overdrawn', why: 'Cash ends below zero — overdraft fees.' }
+  if (anyNegative) return { cls: 'yellow', label: 'one account dips', why: 'An account ends negative; the others cover it only if you move money.' }
+  if (end < CASH_CUSHION) return { cls: 'yellow', label: `thin — under ${usd(CASH_CUSHION).replace(".00", "")}`, why: `Ends with less than ${usd(CASH_CUSHION)} — one surprise bill from overdrawn.` }
+  return { cls: 'green', label: 'covered', why: `Ends with ${usd(CASH_CUSHION)} or more.` }
+}
+
 function stillToGo(st: PaycheckStatement): number {
   const out = [...st.spending.flatMap((x) => x.lines), ...st.investing.lines.filter((l) => l.key !== 'tsp' && l.key !== 'retirement')].filter(
     (l) => !l.nonCash && l.amount > 0,
@@ -618,9 +629,12 @@ function Section({
   bench,
   lineBench,
   compactLines = false,
+  extra,
   children,
 }: {
   children?: React.ReactNode
+  /** Shown in the folded summary, under the name and amount. */
+  extra?: React.ReactNode
   sec: StatementSection
   gross: number
   spendable: string
@@ -663,6 +677,7 @@ function Section({
         </div>
         {(bench !== undefined || lineBench) && <BenchStrip b={bench} />}
         </div>
+        {extra}
         {bar && sec.total > 0 && (
           <BudgetBar amount={budget || sec.total} gross={gross} spent={spentAll} showPaid={showActuals} color={color} />
         )}
@@ -808,6 +823,30 @@ function PaydayCard({
     }
     return { ...st.netCash, lines }
   })()
+  // Cash at a glance, in the folded Net cash line: start → change → end, with a light.
+  const cashGlance = (() => {
+    const savStart = r2(savings - (st.netCash.lines.find((l) => l.key === 'savings')?.amount ?? 0))
+    const accts: { start: number; end: number }[] = []
+    if (mode !== 'sommer') accts.push({ start: checkingBefore, end: checkingAfter }, { start: savStart, end: savings })
+    if (mode !== 'sam' && hers) accts.push({ start: hers.checkingStart, end: hers.checkingEnd }, { start: hers.savingsStart, end: hers.savingsEnd })
+    const start = r2(accts.reduce((t, a) => t + a.start, 0))
+    const end = r2(accts.reduce((t, a) => t + a.end, 0))
+    const light = cashLight(end, accts.some((a) => a.end < -0.005))
+    return (
+      <div className={`cash-glance lq-${light.cls}`} title={light.why}>
+        <i className="bdot" />
+        <span>Start {usd(start)}</span>
+        <span className={end - start < 0 ? 'neg' : 'pos'}>
+          {end - start < 0 ? '−' : '+'}
+          {usd(Math.abs(end - start))}
+        </span>
+        <span>
+          End <b>{usd(end)}</b>
+        </span>
+        <span className="cg-why">{light.label}</span>
+      </div>
+    )
+  })()
   const bx = (k: string) => (benchRows ? (benchRows.find((r) => r.key === k) ?? undefined) : undefined)
   return (
     <article className={`pcard${wide ? ' pcard-wide' : ''}${bench ? ' pcard-bench' : ''}`}>
@@ -877,7 +916,7 @@ function PaydayCard({
         {maxing && <MaxingBox m={maxing} />}
       </Section>
 
-      <Section sec={netCashTied} gross={g} spendable={spendable} showActuals={false} sign={st.netCash.total < 0 ? '−' : '+'} bar={false} bench={bx('cash')}>
+      <Section sec={netCashTied} gross={g} spendable={spendable} showActuals={false} sign={st.netCash.total < 0 ? '−' : '+'} bar={false} bench={bx('cash')} extra={cashGlance}>
       {mode !== 'sommer' && (() => {
         const d = (k: string) => st.netCash.lines.find((l) => l.key === k)?.amount ?? 0
         // The cash walk for checking: where it starts, what comes in, what has gone, what is
