@@ -83,9 +83,11 @@ function monthsBetween(a: string, b: string) {
 
 const COST_GROUPS: [RegExp, string][] = [
   [/Taxes/, 'Taxes'],
-  [/Mortgage|New home|Rent in|Corpus house|cost premium|Rural extras|countryside|Home upgrade/, 'Home'],
+  [/Mortgage|New home|Rent in|Corpus house|cost premium|Rural extras|countryside|Home upgrade|Sommer — her bills/, 'Home'],
   [/Family support|Children|New baby/, 'Wife & Kids'],
-  [/Your spending|Tricare|VA waived/, 'Personal'],
+  [/Your spending|Tricare|VA waived|Sommer — her fun/, 'Personal'],
+  [/^Car —/, 'Car'],
+  [/^Emergency/, 'Emergencies'],
   [/Debt payments|UT loan/, 'Debt payments'],
   [/Nth/, 'Nth — your business'],
   [/401\(k\)/, 'Investing (401k)'],

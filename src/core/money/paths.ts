@@ -186,6 +186,14 @@ export const PATH_ASSUMPTIONS = {
    * planned for the first months home, Sep 2027. Used, cheap, and paid in cash — no loans
    * (your calls, 21 Nov): ~$10k for an older, higher-mileage three-row SUV. MY ESTIMATE.
    */
+  /**
+   * Sommer's side, from the month you are home (planner toggle, on by default). Her
+   * back-home numbers (20 Nov): $63k, $4,200/mo take-home; her bills $2,500 (utilities,
+   * wifi, gas for the one car, groceries, dog, Amazon, baby); what is left split half fun
+   * money, half saved — so the household gains her savings. Grows with inflation. On the
+   * law paths she is assumed to find equal work after each move — CHECK: Lubbock may pay less.
+   */
+  sommer: { included: true, takeHome: 4200, bills: 2500, fun: 850 },
   /** `sommerShare`: the part Sommer pays from her savings (planner toggle; 0 = all yours). */
   car: { sommerShare: 0, replaceMonth: '2027-09' as string | null, price: 10000, downShare: 1, rate: 0.09, termMonths: 60 },
   /** Modelled emergencies: how many, the first month, months apart, and size (2027 dollars). Off by default. */
@@ -804,6 +812,13 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
         }
       }
 
+      // Sommer's side: her pay in, her bills and fun money out; the rest is her saving.
+      if (a.sommer.included) {
+        income['Sommer — take-home pay'] = a.sommer.takeHome * infl
+        costs['Sommer — her bills (utilities, groceries, gas, baby…)'] = a.sommer.bills * infl
+        costs['Sommer — her fun money'] = a.sommer.fun * infl
+      }
+
       // Sold while you still live in it: the family rents in Corpus.
       const inChamberlain =
         key === 'macc' ? !upgraded && !inCountry : key === 'law' ? monthIndex(m) < monthIndex(law.schoolStart) : monthIndex(m) < monthIndex(a.night.move)
@@ -817,9 +832,12 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
         costs['Car — replacement loan'] = due
       }
       if (cr.replaceMonth && m === cr.replaceMonth && cr.price > 0) {
-        // Sommer's share comes from her savings: not on your side.
-        const price = cr.price * infl * (1 - cr.sommerShare)
+        // Sommer's share comes from her savings: on your side only when her side is not modelled.
+        const full = cr.price * infl
+        const hers = full * cr.sommerShare
+        const price = full - hers
         costs[cr.downShare >= 1 ? `Car — replacement, paid in cash${cr.sommerShare > 0 ? ` (your ${Math.round((1 - cr.sommerShare) * 100)}%)` : ''}` : 'Car — replacement, down payment'] = price * cr.downShare
+        if (a.sommer.included && hers > 0) costs['Car — replacement, Sommer’s share (her savings)'] = hers
         carLoan = price * (1 - cr.downShare)
         const r = cr.rate / 12
         carPmt = r > 0 ? (carLoan * r) / (1 - Math.pow(1 + r, -cr.termMonths)) : carLoan / cr.termMonths

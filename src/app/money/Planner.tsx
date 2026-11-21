@@ -26,6 +26,7 @@ const STORE = 'planner-v1'
 
 /** Every lever, as values. A scenario's own assumptions give the starting set. */
 interface Levers {
+  withSommer: boolean
   houseSell: boolean
   houseMonth: string
   bonus: number
@@ -50,6 +51,7 @@ function baseLevers(sc: Scenario): Levers {
   const sale = saleMonth(sc.path, a)
   const bonus = reenlistOf(sc.path, a)
   return {
+    withSommer: a.sommer.included,
     houseSell: !!sale,
     houseMonth: sale ?? a.law.schoolStart,
     bonus: bonus?.bonus ?? 0,
@@ -74,6 +76,7 @@ function apply(sc: Scenario, l: Levers): Scenario {
   const a: A = {
     ...sc.a,
     houseSaleMonth: l.houseSell ? l.houseMonth : null,
+    sommer: { ...sc.a.sommer, included: l.withSommer },
     law: { ...sc.a.law, house: l.houseSell ? 'sell' : 'rent', summerGross: { '2028': l.summer1L, '2029': l.summer2L } },
     reenlist: { bonus: l.bonus, month: l.bonusMonth },
     vaRating: l.va,
@@ -262,6 +265,18 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
         </span>
       </div>
       <div className="levers">
+        <Lever
+          title="Whose money"
+          changed={isChanged('withSommer')}
+          onReset={() => reset('withSommer')}
+          hint={
+            lv.withSommer
+              ? 'The household: Sommer’s $4,200/mo take-home in; her bills ($2,500) and fun money ($850) out — her other $850 is saved. From the month you’re home.'
+              : 'Your side only: her pay, bills and savings left out — but childcare and the children’s costs stay on your side.'
+          }
+        >
+          <Seg value={lv.withSommer} options={[[true, 'Household — with Sommer'], [false, 'Your side only']]} onChange={(v) => set('withSommer', v)} />
+        </Lever>
         <Lever title="628 Chamberlain" changed={isChanged('houseSell', 'houseMonth')} onReset={() => reset('houseSell', 'houseMonth')} hint={lv.houseSell ? 'Sold at 11% costs; the mortgage is cleared from the proceeds. Sold while you live there, you rent in Corpus ($1,800/mo).' : 'Kept. Let out once you move out; you never move back in.'}>
           <Seg value={lv.houseSell} options={[[false, 'Keep'], [true, 'Sell']]} onChange={(v) => set('houseSell', v)} />
           {lv.houseSell && <Month value={lv.houseMonth} onChange={(m) => set('houseMonth', m)} label="Sell in" />}
@@ -393,7 +408,8 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
             </div>
           </div>
           <p className="sub" style={{ margin: '10px 0 8px' }}>
-            <strong>{ledger.label}.</strong> Your side of the money: Sommer&rsquo;s pay and her savings are not in these numbers.
+            <strong>{ledger.label}.</strong>{' '}
+            {lv.withSommer ? 'The household — your money and Sommer’s, from the month you’re home.' : 'Your side of the money only: Sommer’s pay and savings are left out.'}
           </p>
           <ReviewHeader meta={meta} summary={summary} planGaps={planGaps} />
           <Balances ledger={ledger} groups={groups} />
