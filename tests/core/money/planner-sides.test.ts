@@ -31,3 +31,28 @@ describe('planner: Sam, Sommer, Combined', () => {
     }
   })
 })
+
+describe('Sommer home when childcare comes within $1,500 of her take-home', () => {
+  const law = SCENARIOS.find((s) => s.id === 'law_ttu')!
+  const months = buildLedger(law).months
+  const at = (m: string) => months.find((x) => x.month === m)!
+
+  it('in Austin with three under five she works part-time, with no childcare', () => {
+    const m = at('2031-03')
+    expect(m.costs['Children under 5 (care costs; Sommer home, no childcare)']).toBeGreaterThan(0)
+    expect(m.costs['Children under 5 (childcare & care)']).toBeUndefined()
+    expect(m.income['Sommer — part-time pay']).toBeCloseTo(m.income['Sommer — take-home pay'] ?? 4200 * 1.03 ** 3.6 * 0.5, -3)
+    expect(m.income['Sommer — take-home pay']).toBeUndefined()
+  })
+
+  it('in Lubbock with two under five she keeps working', () => {
+    const m = at('2029-03')
+    expect(m.income['Sommer — take-home pay']).toBeGreaterThan(0)
+    expect(m.costs['Children under 5 (childcare & care)']).toBeGreaterThan(0)
+  })
+
+  it('off, she always works', () => {
+    const off = buildLedger({ ...law, a: { ...law.a, sommer: { ...law.a.sommer, homeRule: false } } }).months
+    expect(off.find((x) => x.month === '2031-03')!.income['Sommer — take-home pay']).toBeGreaterThan(0)
+  })
+})

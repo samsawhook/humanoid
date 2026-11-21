@@ -15,9 +15,9 @@ describe('law vs MAcc paths', () => {
     }
   })
 
-  it('has law borrowing more at its low point than MAcc', () => {
-    const low = (p: typeof law) => Math.min(...p.months.map((m) => m.cash))
-    expect(low(law)).toBeLessThan(low(macc))
+  it('has law borrowing more than MAcc, once its student loans are counted', () => {
+    const borrowed = (p: typeof law) => -Math.min(0, ...p.months.map((m) => m.cash)) + Math.max(0, ...p.months.map((m) => m.lawLoans))
+    expect(borrowed(law)).toBeGreaterThan(borrowed(macc))
   })
 
   it('pays Nth every month after homecoming in both paths', () => {
@@ -34,8 +34,8 @@ describe('law vs MAcc paths', () => {
   it('runs night law in Houston: a salary throughout, and far less borrowing than full-time law', () => {
     const night = projectPath('night')
     expect(night.months).toHaveLength(240)
-    const low = (p: typeof law) => Math.min(...p.months.map((m) => m.cash))
-    expect(low(night)).toBeGreaterThan(low(law))
+    const borrowed = (p: typeof law) => -Math.min(0, ...p.months.map((m) => m.cash)) + Math.max(0, ...p.months.map((m) => m.lawLoans))
+    expect(borrowed(night)).toBeLessThan(borrowed(law) / 2)
     expect(night.months.find((m) => m.month === '2029-03')!.income['Salary']).toBeGreaterThan(0)
     expect(night.months.find((m) => m.month === '2029-03')!.income['GI Bill housing (MHA, part-time)']).toBeGreaterThan(0)
   })

@@ -192,8 +192,15 @@ export const PATH_ASSUMPTIONS = {
    * wifi, gas for the one car, groceries, dog, Amazon, baby); what is left split half fun
    * money, half saved — so the household gains her savings. Grows with inflation. On the
    * law paths she is assumed to find equal work after each move — CHECK: Lubbock may pay less.
+   *
+   * `homeRule` (your call, 21 Nov): in any month home where childcare comes within
+   * `homeMargin` ($1,500) of her take-home, she does not work — no childcare, no pay, no fun
+   * money; her household bills are still paid (by you, on your side). `partTimeShare`
+   * (your call, 21 Nov): those months she works part-time — about 20 hours a week, around
+   * your schedule so no paid childcare — for that share of her full-time take-home; half of
+   * what is left after her bills is fun money, the rest saved, as now. 0 = not at all.
    */
-  sommer: { included: true, takeHome: 4200, bills: 2500, fun: 850 },
+  sommer: { included: true, takeHome: 4200, bills: 2500, fun: 850, homeRule: true, homeMargin: 1500, partTimeShare: 0.5 },
   /** A signing bonus with the first full-time job: paid with the first month's pay, 22% withheld. Planner lever. */
   signingBonus: 0,
   /** `sommerShare`: the part Sommer pays from her savings (planner toggle; 0 = all yours). */
@@ -517,10 +524,18 @@ export function sommerPath(key: PathKey, a = PATH_ASSUMPTIONS): PathMonth[] {
   for (const m of ['2026-11', ...proj.months.map((x) => x.month)]) {
     const infl = monthIndex(m) < monthIndex(homeMonth) ? 1 : Math.pow(1 + a.inflation, (monthIndex(m) - monthIndex(homeMonth)) / 12)
     const home = monthIndex(m) >= monthIndex(homeMonth)
-    const income: Record<string, number> = { 'Sommer — take-home pay': r2(a.sommer.takeHome * infl) }
+    // Home with the children (the rule above): you pay her household bills; no pay, no fun money.
+    const samRow = proj.months.find((x) => x.month === m)
+    const atHome = !!samRow && 'Sommer at home — her household bills' in samRow.costs
+    const pt = r2(a.sommer.takeHome * infl * a.sommer.partTimeShare)
+    const fromSam = atHome ? r2(samRow!.costs['Sommer at home — her household bills']!) : 0
+    const income: Record<string, number> = atHome
+      ? { ...(pt > 0 ? { 'Sommer — part-time pay': pt } : {}), ...(fromSam > 0 ? { 'From Sam — household bills while home with the kids': fromSam } : {}) }
+      : { 'Sommer — take-home pay': r2(a.sommer.takeHome * infl) }
+    const ptFun = r2(Math.max(0, pt - a.sommer.bills * infl) / 2)
     const costs: Record<string, number> = {
       'Sommer — her bills (utilities, groceries, gas, baby…)': r2(a.sommer.bills * infl),
-      'Sommer — her fun money': r2(a.sommer.fun * infl),
+      ...(atHome ? (ptFun > 0 ? { 'Sommer — her fun money': ptFun } : {}) : { 'Sommer — her fun money': r2(a.sommer.fun * infl) }),
     }
     if (home) {
       income['From Sam — her spending & extras'] = r2(a.familySupportMonthly * infl)
@@ -532,7 +547,7 @@ export function sommerPath(key: PathKey, a = PATH_ASSUMPTIONS): PathMonth[] {
     saved = r2(saved + totalIncome - totalCosts)
     out.push({
       month: m,
-      phase: home ? 'Home' : 'Deployed',
+      phase: atHome ? (pt > 0 ? 'Part-time, home with the kids' : 'Home with the kids') : home ? 'Working' : 'Deployed',
       income,
       costs,
       totalIncome,
@@ -899,15 +914,29 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
 
       // The children, one by one.
       let under5 = 0
+      let care = 0
       let school = 0
       let births = 0
       for (const b of a.family.births) {
         const age = monthIndex(m) - monthIndex(b)
         if (age === 0) births += a.family.birthCost * infl
-        if (age >= 0 && age < 60) under5 += (a.family.childcare[loc]! + a.family.under5Other) * infl
-        else if (age >= 60 && age < 216) school += a.family.schoolAge * infl
+        if (age >= 0 && age < 60) {
+          under5 += a.family.under5Other * infl
+          care += a.family.childcare[loc]! * infl
+        } else if (age >= 60 && age < 216) school += a.family.schoolAge * infl
       }
-      if (under5 > 0) costs['Children under 5 (childcare & care)'] = under5
+      // Sommer stays home when childcare would take nearly all her pay.
+      const herPay = a.sommer.takeHome * infl
+      const sommerHome = a.sommer.homeRule && care > 0 && care >= herPay - a.sommer.homeMargin * infl
+      // Part-time pay those months, and what of her bills it does not cover.
+      const ptPay = herPay * a.sommer.partTimeShare
+      const ptFun = Math.max(0, ptPay - a.sommer.bills * infl) / 2
+      if (sommerHome) {
+        if (under5 > 0) costs['Children under 5 (care costs; Sommer home, no childcare)'] = under5
+        // On your side: whatever of her household bills her part-time pay does not cover.
+        const short = Math.max(0, a.sommer.bills * infl - ptPay)
+        if (!a.sommer.included) costs['Sommer at home — her household bills'] = short
+      } else if (under5 + care > 0) costs['Children under 5 (childcare & care)'] = under5 + care
       if (school > 0) costs['Children 5-17'] = school
       if (births > 0) costs['New baby'] = births
 
@@ -998,9 +1027,14 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
 
       // Sommer's side: her pay in, her bills and fun money out; the rest is her saving.
       if (a.sommer.included) {
-        income['Sommer — take-home pay'] = a.sommer.takeHome * infl
+        if (!sommerHome) {
+          income['Sommer — take-home pay'] = a.sommer.takeHome * infl
+          costs['Sommer — her fun money'] = a.sommer.fun * infl
+        } else if (ptPay > 0) {
+          income['Sommer — part-time pay'] = ptPay
+          if (ptFun > 0) costs['Sommer — her fun money'] = ptFun
+        }
         costs['Sommer — her bills (utilities, groceries, gas, baby…)'] = a.sommer.bills * infl
-        costs['Sommer — her fun money'] = a.sommer.fun * infl
       }
 
       // Sold while you still live in it: the family rents in Corpus.

@@ -87,7 +87,7 @@ export const PNL_GROUPS = ['Home', 'Wife & Kids', 'Personal', 'Car', 'Tech', 'De
 export function pnlGroup(k: string): (typeof PNL_GROUPS)[number] {
   if (/Taxes|Self-employment/.test(k)) return 'Taxes'
   if (/^Car —/.test(k)) return 'Car'
-  if (/^Sommer — her bills/.test(k)) return 'Home'
+  if (/^Sommer — her bills|^Sommer at home/.test(k)) return 'Home'
   if (/^Sommer — her fun|^Her spending/.test(k)) return 'Personal'
   if (/^Emergency/.test(k)) return 'Emergencies'
   if (/Mortgage|New home|Rent in|Corpus house|cost premium|Rural extras|countryside|Home upgrade/.test(k)) return 'Home'

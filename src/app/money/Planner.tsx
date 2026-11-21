@@ -55,6 +55,8 @@ interface Levers {
   partTimeFrom: string
   lawLoans: boolean
   firmBar: boolean
+  sommerHome: boolean
+  sommerPT: number
 }
 
 export function baseLevers(sc: Scenario): Levers {
@@ -87,6 +89,8 @@ export function baseLevers(sc: Scenario): Levers {
     partTimeFrom: a.law.partTime.from,
     lawLoans: a.law.loans.enabled,
     firmBar: a.law.firmPaysBar,
+    sommerHome: a.sommer.homeRule,
+    sommerPT: a.sommer.partTimeShare,
   }
 }
 
@@ -94,7 +98,7 @@ export function apply(sc: Scenario, l: Levers): Scenario {
   const a: A = {
     ...sc.a,
     houseSaleMonth: l.houseSell ? l.houseMonth : null,
-    sommer: { ...sc.a.sommer, included: l.who === 'both' },
+    sommer: { ...sc.a.sommer, included: l.who === 'both', homeRule: l.sommerHome, partTimeShare: l.sommerPT },
     law: {
       ...sc.a.law,
       house: l.houseSell ? 'sell' : 'rent',
@@ -237,6 +241,19 @@ function PeriodCard({ ledger, p }: { ledger: Ledger; p: Period }) {
       spendable=""
     />
   )
+}
+
+/** When the home rule puts Sommer at home, from the model's own months. */
+function homeMonths(ledger: Ledger): string {
+  const ms = ledger.months.filter((m) => 'Sommer at home — her household bills' in m.costs || 'Children under 5 (care costs; Sommer home, no childcare)' in m.costs).map((m) => m.month)
+  if (!ms.length) return 'On this path it never triggers.'
+  const runs: [string, string][] = []
+  for (const m of ms) {
+    const r = runs.at(-1)
+    if (r && addMonthsLocal(r[1], 1) === m) r[1] = m
+    else runs.push([m, m])
+  }
+  return `On this path: ${runs.map(([a, b]) => (a === b ? monLabel(a) : `${monLabel(a)} – ${monLabel(b)}`)).join(', ')}.`
 }
 
 /** The federal loans as borrowed: per school year, owed at repayment, and the payment. */
@@ -469,6 +486,8 @@ const LEVER_LABEL: Record<keyof Levers, string> = {
   partTimeFrom: 'Part-time from',
   lawLoans: 'Federal law-school loans',
   firmBar: 'Firm pays bar costs',
+  sommerHome: 'Sommer home when childcare ≈ her pay',
+  sommerPT: 'Sommer part-time share',
 }
 
 const q = (v: string | number) => (typeof v === 'number' ? String(Math.round(v * 100) / 100) : /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
@@ -711,6 +730,21 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
         >
           <Seg value={lv.who} options={[['sam', 'Sam'], ['sommer', 'Sommer'], ['both', 'Combined']]} onChange={(v) => set('who', v)} />
         </Lever>
+        <Lever
+          title="Sommer & the kids"
+          value={lv.sommerHome ? (lv.sommerPT ? `Part-time when care ≈ pay` : 'Home when care ≈ pay') : 'Always works'}
+          changed={isChanged('sommerHome', 'sommerPT')}
+          onReset={() => reset('sommerHome', 'sommerPT')}
+          hint={
+            lv.sommerHome
+              ? `Any month childcare comes within $1,500 of her take-home, she leaves full-time work: no childcare.${lv.sommerPT ? ` She works part-time (~20 hrs/wk around your schedule) for ${Math.round(lv.sommerPT * 100)}% of her pay.` : ' No pay.'} ${homeMonths(ledger)}`
+              : 'She works full-time throughout and childcare is paid for every child under five.'
+          }
+        >
+          <Seg value={lv.sommerHome} options={[[true, 'Home when care ≈ pay'], [false, 'Always works']]} onChange={(v) => set('sommerHome', v)} />
+          {lv.sommerHome && <Seg value={lv.sommerPT} options={[[0.5, 'Part-time (half pay)'], [0.25, 'A little'], [0, 'Not at all']]} onChange={(v) => set('sommerPT', v)} />}
+        </Lever>
+
         <Lever title="628 Chamberlain" value={lv.houseSell ? `Sell ${monLabel(lv.houseMonth)}` : 'Keep'} changed={isChanged('houseSell', 'houseMonth')} onReset={() => reset('houseSell', 'houseMonth')} hint={lv.houseSell ? 'Sold at 11% costs; the mortgage is cleared from the proceeds. Sold while you live there, you rent in Corpus ($1,800/mo).' : 'Kept. Let out once you move out; you never move back in.'}>
           <Seg value={lv.houseSell} options={[[false, 'Keep'], [true, 'Sell']]} onChange={(v) => set('houseSell', v)} />
           {lv.houseSell && <Month value={lv.houseMonth} onChange={(m) => set('houseMonth', m)} label="Sell in" />}
