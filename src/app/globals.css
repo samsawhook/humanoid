@@ -690,3 +690,5 @@ body:has(nav.rail) main { margin-left: 60px; }
 .cash-glance.lq-green { border-left-color: #3fc56b; } .cash-glance.lq-green .bdot { background: #3fc56b; }
 .cash-glance.lq-yellow { border-left-color: #e0b13a; } .cash-glance.lq-yellow .bdot { background: #e0b13a; }
 .cash-glance.lq-red { border-left-color: #e5534b; } .cash-glance.lq-red .bdot { background: #e5534b; }
+.cash-glance .cg-plan { color: var(--muted); }
+.cash-glance.cg-saving { border-left-color: #2fa4a9; }

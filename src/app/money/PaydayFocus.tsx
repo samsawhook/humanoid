@@ -211,6 +211,7 @@ function pct(n: number, gross: number) {
  * neutral greys. Checked with the dataviz validator against the card surface.
  */
 export const CAT_COLOR: Record<string, string> = {
+  saving: '#2fa4a9',
   deductions: '#6b7280',
   home: '#3987e5',
   car: '#d95926',
@@ -519,7 +520,7 @@ function Line({
           {l.date && <span className="ln-dim"> · {nice(l.date)}</span>}
         </div>
         <div className={`ln-amt${l.nonCash ? ' ln-dim' : ''}`}>
-          {l.nonCash ? `(${usd(l.amount)})` : usd(l.amount)}
+          {l.key.startsWith('rec_') ? `${l.key === 'rec_plan' ? '' : l.amount < 0 ? '− ' : '+ '}${l.key === 'rec_plan' ? usd(l.amount) : usd(Math.abs(l.amount))}` : l.nonCash ? `(${usd(l.amount)})` : usd(l.amount)}
           {!l.nonCash && <span className="ln-pct">{pct(l.amount, gross)}</span>}
           {showActuals && !l.nonCash && l.spent !== undefined && <OutLeft budget={l.amount} out={l.spent} />}
         </div>
@@ -762,8 +763,19 @@ function PaydayCard({
   const priorTxns = ACTUALS.filter((a) => a.payday === st.payday && a.beforeStart)
   const prior = r2(priorTxns.reduce((t, a) => t + a.amount, 0))
   const samPayIn = r2(st.takeHome - (st.gross.lines.find((l) => l.key === 'w_pay')?.amount ?? 0))
+  // Saving is its own section: your savings transfer and (Sommer / Combined) hers.
+  const isSaving = (l: StatementLine) => l.key === 'savings' || l.key === 'w_savings'
+  const savingSec: StatementSection = (() => {
+    const lines = st.netCash.lines.filter(isSaving).map((l) => ({ ...l, label: l.key === 'w_savings' ? 'Sommer — to her savings' : 'To savings (buffer)' }))
+    return { key: 'saving', label: 'Saving', lines, total: r2(lines.reduce((t, l) => t + l.amount, 0)) }
+  })()
+  const planCash = r2(st.netCash.total - savingSec.total)
+  const herCheckingChange = hers && mode !== 'sam' ? r2(hers.checkingEnd - hers.checkingStart) : 0
   const netCashTied = (() => {
-    if (mode === 'sommer') return st.netCash
+    if (mode === 'sommer') {
+      const lines: StatementLine[] = [{ key: 'w_checking', label: 'Sommer — change to checking', amount: herCheckingChange, txns: [], note: 'Her pay and what you send, less everything she pays out.' }]
+      return { key: 'cash', label: 'Cash', lines, total: herCheckingChange }
+    }
     const savingsLine = st.netCash.lines.find((l) => l.key === 'savings')
     const checking = r2(checkingAfter - checkingBefore)
     // Her savings (Combined) are not in your accounts: leave them out of the tie.
@@ -778,63 +790,65 @@ function PaydayCard({
     const deposit = live ? depositFor(st.payday) : null
     const payDiff = deposit != null ? r2(deposit - samPayIn) : 0
     const gap = r2(st.netCash.total - checking - (savingsLine?.amount ?? 0) - hers - over + payDiff + prior)
-    const lines: StatementLine[] = [
-      { key: 'checking', label: `Change to checking (${usd(checkingBefore)} → ${usd(checkingAfter)})`, amount: checking, txns: [] },
-      ...st.netCash.lines.filter((l) => l.key !== 'checking'),
+    // The headline is what your cash actually did; the plan's figure and why it differs
+    // follow as a reconciliation (memo lines, not added again).
+    const actualLines: StatementLine[] = [
+      { key: 'checking', label: `${mode === 'both' ? 'Sam — c' : 'C'}hange to checking (${usd(checkingBefore)} → ${usd(checkingAfter)})`, amount: checking, txns: [] },
+      ...(mode === 'both' ? [{ key: 'w_checking', label: 'Sommer — change to checking', amount: herCheckingChange, txns: [] as Actual[] }] : []),
+      ...st.netCash.lines.filter((l) => l.key !== 'checking' && !isSaving(l)),
     ]
-    if (over > 0.005) {
-      lines.push({
-        key: 'over_budget',
-        label: `Spent over budget so far — ${overLines.map((l) => `${l.label.split(' — ')[0]} ${usd(l.spent! - l.amount)}`).join(', ')}`,
-        amount: over,
-        txns: [],
-        note: 'Already gone from checking but beyond what the plan set aside, so the plan’s cash figure is this much higher than the bank’s.',
-      })
-    }
-    if (prior > 0.005) {
-      lines.push({
-        key: 'before_start',
-        label: `Paid before this pay landed — ${priorTxns.map((a) => `${a.description} ${usd(a.amount)}`).join(', ')}`,
-        amount: -prior,
-        txns: [],
-        note: 'Counted in this paycheck’s budget, but it left checking before the start balance.',
-      })
-    }
-    if (Math.abs(payDiff) > 0.005) {
-      lines.push({
-        key: 'pay_diff',
-        label: `DFAS paid ${usd(deposit!)} — ${usd(Math.abs(payDiff))} ${payDiff > 0 ? 'more' : 'less'} than the model's ${usd(samPayIn)}`,
-        amount: -payDiff,
-        txns: [],
-        note: 'The deposit on the statement against the plan’s estimate of this paycheck.',
-      })
-    }
-    if (Math.abs(gap) > 0.005) {
-      lines.push({
-        key: 'unexplained',
-        label:
-          gap < 0
-            ? `Bank shows ${usd(-gap)} more than the records explain — not yet explained`
-            : `Bank shows ${usd(gap)} less than the records explain — not yet explained`,
-        amount: gap,
-        txns: [],
-        note: 'Usually a charge that has not posted yet, or one the records do not have. Send a screenshot and it gets matched.',
-      })
-    }
-    return { ...st.netCash, lines }
+    const rec = (key: string, label: string, amount: number, note?: string): StatementLine => ({ key: `rec_${key}`, label, amount: r2(amount), txns: [], note, nonCash: true })
+    const recLines: StatementLine[] = []
+    const diffs: StatementLine[] = []
+    if (prior > 0.005)
+      diffs.push(rec('before_start', `Paid before this pay landed — ${priorTxns.map((a) => `${a.description} ${usd(a.amount)}`).join(', ')}`, prior, 'Counted in this paycheck’s budget, but it left checking before the start balance.'))
+    if (Math.abs(payDiff) > 0.005)
+      diffs.push(rec('pay_diff', `DFAS paid ${usd(deposit!)} — ${usd(Math.abs(payDiff))} ${payDiff > 0 ? 'more' : 'less'} than the model's ${usd(samPayIn)}`, payDiff, 'The deposit on the statement against the plan’s estimate of this paycheck.'))
+    if (over > 0.005)
+      diffs.push(rec('over_budget', `Spent over budget so far — ${overLines.map((l) => `${l.label.split(' — ')[0]} ${usd(l.spent! - l.amount)}`).join(', ')}`, -over, 'Gone from checking beyond what the plan set aside.'))
+    if (Math.abs(gap) > 0.005)
+      diffs.push(rec('unexplained', gap < 0 ? 'Bank shows more than the records explain — not yet explained' : 'Bank shows less than the records explain — not yet explained', -gap, 'Usually a charge that has not posted yet, or one the records do not have. Send a screenshot and it gets matched.'))
+    if (diffs.length) recLines.push(rec('plan', 'The plan’s change in cash for this paycheck', planCash, 'Pay minus every budgeted line and the saving, as planned.'), ...diffs)
+    const total = r2(actualLines.reduce((t, l) => t + (l.nonCash ? 0 : l.amount), 0))
+    return { key: 'cash', label: 'Cash', lines: [...actualLines, ...recLines], total }
   })()
   // Cash at a glance, in the folded Net cash line: start → change → end, with a light.
+  // Cash at a glance (checking): start, the planned change, the actual change, end, and a light.
   const cashGlance = (() => {
-    const savStart = r2(savings - (st.netCash.lines.find((l) => l.key === 'savings')?.amount ?? 0))
     const accts: { start: number; end: number }[] = []
-    if (mode !== 'sommer') accts.push({ start: checkingBefore, end: checkingAfter }, { start: savStart, end: savings })
-    if (mode !== 'sam' && hers) accts.push({ start: hers.checkingStart, end: hers.checkingEnd }, { start: hers.savingsStart, end: hers.savingsEnd })
+    if (mode !== 'sommer') accts.push({ start: checkingBefore, end: checkingAfter })
+    if (mode !== 'sam' && hers) accts.push({ start: hers.checkingStart, end: hers.checkingEnd })
     const start = r2(accts.reduce((t, a) => t + a.start, 0))
     const end = r2(accts.reduce((t, a) => t + a.end, 0))
+    const actual = r2(end - start)
     const light = cashLight(end, accts.some((a) => a.end < -0.005))
+    const signed = (v: number) => `${v < 0 ? '−' : '+'}${usd(Math.abs(v))}`
+    const differs = Math.abs(actual - planCash) > 0.005
     return (
       <div className={`cash-glance lq-${light.cls}`} title={light.why}>
         <i className="bdot" />
+        <span>Start {usd(start)}</span>
+        {differs && <span className="cg-plan">Planned {signed(planCash)}</span>}
+        <span className={actual < 0 ? 'neg' : 'pos'}>
+          {differs ? 'Actual ' : ''}
+          {signed(actual)}
+        </span>
+        <span>
+          End <b>{usd(end)}</b>
+        </span>
+        <span className="cg-why">{light.label}</span>
+      </div>
+    )
+  })()
+  // Saving at a glance: start, in, end.
+  const savingGlance = (() => {
+    const accts: { start: number; end: number }[] = []
+    if (mode !== 'sommer') accts.push({ start: r2(savings - (st.netCash.lines.find((l) => l.key === 'savings')?.amount ?? 0)), end: savings })
+    if (mode !== 'sam' && hers) accts.push({ start: hers.savingsStart, end: hers.savingsEnd })
+    const start = r2(accts.reduce((t, a) => t + a.start, 0))
+    const end = r2(accts.reduce((t, a) => t + a.end, 0))
+    return (
+      <div className="cash-glance cg-saving">
         <span>Start {usd(start)}</span>
         <span className={end - start < 0 ? 'neg' : 'pos'}>
           {end - start < 0 ? '−' : '+'}
@@ -843,9 +857,15 @@ function PaydayCard({
         <span>
           End <b>{usd(end)}</b>
         </span>
-        <span className="cg-why">{light.label}</span>
       </div>
     )
+  })()
+  // Net worth change: the balance sheet, with cash as it actually moved (checking + saving).
+  const netWorthSec: StatementSection = (() => {
+    const cashNow = r2(netCashTied.total + savingSec.total)
+    const lines = st.balanceSheet.lines.map((l) => (l.key === 'bs_cash' ? { ...l, amount: cashNow } : l))
+    const total = r2(lines.filter((l) => !l.nonCash).reduce((t, l) => t + l.amount, 0))
+    return { ...st.balanceSheet, label: 'Net worth change (approx.)', lines, total }
   })()
   const bx = (k: string) => (benchRows ? (benchRows.find((r) => r.key === k) ?? undefined) : undefined)
   return (
@@ -916,7 +936,9 @@ function PaydayCard({
         {maxing && <MaxingBox m={maxing} />}
       </Section>
 
-      <Section sec={netCashTied} gross={g} spendable={spendable} showActuals={false} sign={st.netCash.total < 0 ? '−' : '+'} bar={false} bench={bx('cash')} extra={cashGlance}>
+      <Section sec={savingSec} gross={g} spendable={spendable} showActuals={false} sign={savingSec.total < 0 ? '−' : '+'} bar={false} bench={bx('cash')} extra={savingGlance} />
+
+      <Section sec={netCashTied} gross={g} spendable={spendable} showActuals={false} sign={netCashTied.total < 0 ? '−' : '+'} bar={false} extra={cashGlance}>
       {mode !== 'sommer' && (() => {
         const d = (k: string) => st.netCash.lines.find((l) => l.key === k)?.amount ?? 0
         // The cash walk for checking: where it starts, what comes in, what has gone, what is
@@ -1080,8 +1102,14 @@ function PaydayCard({
         )
       })()}
       </Section>
-      <Section sec={st.balanceSheet} gross={g} spendable={spendable} showActuals={false} sign="+" bar={false} />
-      <Total label="Net worth change (approx.)" amount={st.balanceSheet.total} gross={g} strong />
+      <Section
+        sec={netWorthSec}
+        gross={g}
+        spendable={spendable}
+        showActuals={false}
+        sign={netWorthSec.total < 0 ? '−' : '+'}
+        bar={false}
+      />
       {short > 0 && <div className="chip chip-over" style={{ marginTop: 8 }}>{usd(short)} of bills can&rsquo;t be covered by this paycheck</div>}
       </div>
       </div>
