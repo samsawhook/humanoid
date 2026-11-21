@@ -183,11 +183,10 @@ export const PATH_ASSUMPTIONS = {
    * The 2013 Expedition: replaced in `replaceMonth` (null: it lasts the whole plan) at
    * `price` in 2027 dollars, `downShare` down and the rest on a loan. Insurance, fuel and
    * upkeep are already in your spending. ~265k miles and a misfire (your note, 21 Nov):
-   * planned for the first months home, Sep 2027. Used, not new (your call, 21 Nov): ~$25k
-   * for a few-years-old three-row SUV (MY ESTIMATE), paid in cash (your call, 21 Nov).
-   * The loan terms only matter if the down-payment lever is moved off cash.
+   * planned for the first months home, Sep 2027. Used, cheap, and paid in cash — no loans
+   * (your calls, 21 Nov): ~$10k for an older, higher-mileage three-row SUV. MY ESTIMATE.
    */
-  car: { replaceMonth: '2027-09' as string | null, price: 25000, downShare: 1, rate: 0.09, termMonths: 60 },
+  car: { replaceMonth: '2027-09' as string | null, price: 10000, downShare: 1, rate: 0.09, termMonths: 60 },
   /** Modelled emergencies: how many, the first month, months apart, and size (2027 dollars). Off by default. */
   emergencies: { count: 0, first: '2028-01', everyMonths: 24, size: 5000 },
 
