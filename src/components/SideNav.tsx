@@ -52,61 +52,16 @@ const MONEY: Item[] = [
       </>,
     ),
   },
-  {
-    href: '/#briefing',
-    label: 'Briefing & detail',
-    icon: svg(
-      <>
-        <rect x="5" y="4.5" width="14" height="17" rx="2" />
-        <path d="M9 3h6v3H9z" />
-        <path d="M8.5 11h7M8.5 14.5h7M8.5 18h4" />
-      </>,
-    ),
-  },
 ]
 
 const PAGES: Item[] = [
   {
-    href: '/overview',
-    label: 'Overview',
+    href: '/todo',
+    label: 'To-do',
     icon: svg(
       <>
-        <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" />
-        <rect x="13.5" y="3.5" width="7" height="7" rx="1.5" />
-        <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" />
-        <rect x="13.5" y="13.5" width="7" height="7" rx="1.5" />
-      </>,
-    ),
-  },
-  {
-    href: '/tree',
-    label: 'Goals',
-    icon: svg(
-      <>
-        <circle cx="12" cy="12" r="8.5" />
-        <circle cx="12" cy="12" r="5" />
-        <circle cx="12" cy="12" r="1.5" />
-      </>,
-    ),
-  },
-  {
-    href: '/plan',
-    label: 'Law & MAcc',
-    icon: svg(
-      <>
-        <path d="M2.5 9 12 4.5 21.5 9 12 13.5 2.5 9Z" />
-        <path d="M6.5 11v4.5c1.5 1.5 3.4 2.2 5.5 2.2s4-.7 5.5-2.2V11" />
-        <path d="M21.5 9v5" />
-      </>,
-    ),
-  },
-  {
-    href: '/week',
-    label: 'This week',
-    icon: svg(
-      <>
-        <path d="M9 6.5h11M9 12h11M9 17.5h11" />
-        <path d="m3.5 6.5 1.3 1.3 2.2-2.6M3.5 12l1.3 1.3 2.2-2.6M3.5 17.5l1.3 1.3 2.2-2.6" />
+        <rect x="4" y="4" width="16" height="16" rx="3" />
+        <path d="m8 12 2.5 2.5L16 9" />
       </>,
     ),
   },
@@ -117,6 +72,17 @@ const PAGES: Item[] = [
       <>
         <rect x="3.5" y="5" width="17" height="15.5" rx="2" />
         <path d="M3.5 10h17M8 3v4M16 3v4" />
+      </>,
+    ),
+  },
+  {
+    href: '/archive',
+    label: 'Archive',
+    icon: svg(
+      <>
+        <rect x="3.5" y="4.5" width="17" height="4.5" rx="1" />
+        <path d="M5 9v10.5h14V9" />
+        <path d="M10 13h4" />
       </>,
     ),
   },
