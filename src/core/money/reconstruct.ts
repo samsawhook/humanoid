@@ -78,7 +78,7 @@ export const NOV1_TXNS: Txn[] = [
   T('2026-11-09', 10.62, 'Museum (an outing)', 'personal', 'Personal local (PX, food, shopping, outings)'),
   // The cost of sending the $500 to Nth by wire — investing, not personal (your call, 19 Nov).
   T('2026-11-05', 30.0, 'Wells Fargo wire fee — the Nth transfer', 'invest', 'Nth — wire fee'),
-  T('2026-11-09', 25.0, 'Brightway (Mastercard ending 28)', 'debt', 'Card minimums — open accounts'),
+  T('2026-11-09', 25.0, 'Brightway — minimum', 'debt', 'Card minimums — open accounts'),
   T('2026-11-10', 47.0, 'Online transfer to WF Platinum card', 'debt', 'Card minimums — open accounts'),
   T('2026-11-05', 500.0, 'Wire to Bank of America (Nth / Falconer)', 'invest', 'Nth Venture — your business (wire)'),
 ]

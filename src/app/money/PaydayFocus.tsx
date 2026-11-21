@@ -1,5 +1,5 @@
 import type { Allocation } from '@/core/money/allocation'
-import { EARLY_PAY_BUSINESS_DAYS } from '@/core/money/statements'
+import { EARLY_PAY_BUSINESS_DAYS, depositFor } from '@/core/money/statements'
 import { BUCKETS } from '@/core/money/briefing'
 import { ACTUALS, ACTUALS_AS_OF, actualsFor, spentOn, type Actual } from '@/core/money/actuals'
 import { PAYMENT_INFO, scheduledFor, CHECKING, SAVINGS, type PaymentInfo, type Scheduled } from '@/core/money/execution'
@@ -742,6 +742,11 @@ function PaydayCard({
   const benchRows = bench ? benchmarkRows(st, mode === 'sam' ? 'sam' : 'household') : null
   // Net cash that ties to the walk: checking's change is end − start (bank-anchored), and any
   // gap from what the records explain is shown as its own line, never blended in.
+  // Your take-home only: her pay (Combined) lands in her account, not yours.
+  // Paid toward this paycheck's lines before its pay landed: already out of the start balance.
+  const priorTxns = ACTUALS.filter((a) => a.payday === st.payday && a.beforeStart)
+  const prior = r2(priorTxns.reduce((t, a) => t + a.amount, 0))
+  const samPayIn = r2(st.takeHome - (st.gross.lines.find((l) => l.key === 'w_pay')?.amount ?? 0))
   const netCashTied = (() => {
     if (mode === 'sommer') return st.netCash
     const savingsLine = st.netCash.lines.find((l) => l.key === 'savings')
@@ -754,7 +759,10 @@ function PaydayCard({
       (l) => !l.nonCash && l.amount > 0 && (l.spent ?? 0) > l.amount + 0.005,
     )
     const over = r2(overLines.reduce((t, l) => t + (l.spent! - l.amount), 0))
-    const gap = r2(st.netCash.total - checking - (savingsLine?.amount ?? 0) - hers - over)
+    // DFAS rarely pays the modelled cent: the difference is in checking, so it gets its own line.
+    const deposit = live ? depositFor(st.payday) : null
+    const payDiff = deposit != null ? r2(deposit - samPayIn) : 0
+    const gap = r2(st.netCash.total - checking - (savingsLine?.amount ?? 0) - hers - over + payDiff + prior)
     const lines: StatementLine[] = [
       { key: 'checking', label: `Change to checking (${usd(checkingBefore)} → ${usd(checkingAfter)})`, amount: checking, txns: [] },
       ...st.netCash.lines.filter((l) => l.key !== 'checking'),
@@ -766,6 +774,24 @@ function PaydayCard({
         amount: over,
         txns: [],
         note: 'Already gone from checking but beyond what the plan set aside, so the plan’s cash figure is this much higher than the bank’s.',
+      })
+    }
+    if (prior > 0.005) {
+      lines.push({
+        key: 'before_start',
+        label: `Paid before this pay landed — ${priorTxns.map((a) => `${a.description} ${usd(a.amount)}`).join(', ')}`,
+        amount: -prior,
+        txns: [],
+        note: 'Counted in this paycheck’s budget, but it left checking before the start balance.',
+      })
+    }
+    if (Math.abs(payDiff) > 0.005) {
+      lines.push({
+        key: 'pay_diff',
+        label: `DFAS paid ${usd(deposit!)} — ${usd(Math.abs(payDiff))} ${payDiff > 0 ? 'more' : 'less'} than the model's ${usd(samPayIn)}`,
+        amount: -payDiff,
+        txns: [],
+        note: 'The deposit on the statement against the plan’s estimate of this paycheck.',
       })
     }
     if (Math.abs(gap) > 0.005) {
@@ -858,13 +884,13 @@ function PaydayCard({
         // still to go, and where it ends. On the live paycheck, "now" is the bank's own number.
         const end = checkingAfter
         const start = checkingBefore
-        // Your checking only: her pay (Combined) lands in her account, not yours.
-        const payIn = r2(st.takeHome - (st.gross.lines.find((l) => l.key === 'w_pay')?.amount ?? 0))
+        const deposit = live ? depositFor(st.payday) : null
+        const payIn = deposit ?? samPayIn
         const plannedOut = r2(start + payIn - end)
         const out = [...st.spending.flatMap((x) => x.lines), ...st.investing.lines.filter((l) => l.key !== 'tsp' && l.key !== 'retirement')].filter(
           (l) => !l.nonCash && l.amount > 0,
         )
-        const gone = r2(out.reduce((t, l) => t + (l.spent ?? 0), 0))
+        const gone = r2(out.reduce((t, l) => t + (l.spent ?? 0), 0) - prior)
         const remaining = stillToGo(st)
         const bankNow = live ? ACTUALS_AS_OF.availableBalance : null
         const bankEnd = bankNow != null ? r2(bankNow - remaining) : null
@@ -889,7 +915,12 @@ function PaydayCard({
               <table>
                 <tbody>
                   <Row k="Start — before this pay lands" v={start} />
-                  <Row k="Pay in" v={payIn} sign="+ " />
+                  <Row
+                    k="Pay in"
+                    v={payIn}
+                    sign="+ "
+                    note={deposit != null && Math.abs(deposit - samPayIn) > 0.005 ? `The deposit; the model had ${usd(samPayIn)}.` : undefined}
+                  />
                   {bankNow != null ? (
                     <>
                       <Row k="Gone out so far" v={gone} sign="− " />

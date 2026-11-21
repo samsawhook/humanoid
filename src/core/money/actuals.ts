@@ -38,6 +38,12 @@ export interface Actual {
   sub?: string
   /** scheduledDate of the paycheck whose money it came out of. */
   payday: LocalDate
+  /**
+   * Paid toward this paycheck's line before its pay landed, so already out of the balance
+   * the card starts from (this month's card minimums, paid 9–10 Nov). Counts against the
+   * line's budget; not counted again as going out of checking.
+   */
+  beforeStart?: boolean
   status: 'posted' | 'pending'
 }
 
@@ -54,17 +60,19 @@ export const ACTUALS: Actual[] = [
   {
     date: '2026-11-09',
     amount: 25,
-    description: 'Brightway (Mastercard ending 28)',
+    description: 'Brightway — minimum',
     lineKey: 'card_minimums_open',
     payday: '2026-11-15',
+    beforeStart: true,
     status: 'posted',
   },
   {
     date: '2026-11-10',
     amount: 47,
-    description: 'Online transfer to WF Platinum card',
+    description: 'WF Platinum — transfer',
     lineKey: 'card_minimums_open',
     payday: '2026-11-15',
+    beforeStart: true,
     status: 'posted',
   },
   {
@@ -107,7 +115,15 @@ export const ACTUALS: Actual[] = [
     description: 'T-Mobile — October bill, past due',
     lineKey: 'tmobile_past_due',
     payday: '2026-11-15',
-    status: 'pending',
+    status: 'posted',
+  },
+  {
+    date: '2026-11-16',
+    amount: 28,
+    description: 'WF Platinum card — autopay',
+    lineKey: 'card_minimums_open',
+    payday: '2026-11-15',
+    status: 'posted',
   },
   {
     date: '2026-11-17',
@@ -131,7 +147,7 @@ export const ACTUALS: Actual[] = [
     description: 'Florist — anniversary flowers',
     oneOffKey: 'anniversary_flowers',
     payday: '2026-11-15',
-    status: 'pending',
+    status: 'posted',
   },
   {
     date: '2026-11-18',
@@ -140,7 +156,7 @@ export const ACTUALS: Actual[] = [
     lineKey: 'living_deployed',
     sub: 'personal_local',
     payday: '2026-11-15',
-    status: 'pending',
+    status: 'posted',
   },
   {
     date: '2026-11-18',
@@ -149,22 +165,14 @@ export const ACTUALS: Actual[] = [
     lineKey: 'living_deployed',
     sub: 'personal_local',
     payday: '2026-11-15',
-    status: 'pending',
+    status: 'posted',
   },
   {
-    date: '2026-11-18',
-    amount: 74,
-    description: 'GEICO — policy start ($74 hold, still counted on 21 Nov)',
-    oneOffKey: 'geico_start',
-    payday: '2026-11-15',
-    status: 'pending',
-  },
-  {
-    // Posted 19 Nov. The bank still counts the $74 hold too: 845.14 − 74.77 − 107.04 = 663.33,
-    // the balance on 21 Nov. Expect the $74 hold to drop off and $74 to come back.
+    // Posted 19 Nov. The 18 Nov $74 "hold" was never a second charge: the bank's daily
+    // balances (12–19 Nov statement, 21 Nov) show only this one.
     date: '2026-11-19',
     amount: 74.77,
-    description: 'GEICO — policy start, posted (the $74 hold should drop off)',
+    description: 'GEICO — policy start',
     oneOffKey: 'geico_start',
     payday: '2026-11-15',
     status: 'posted',

@@ -95,7 +95,18 @@ export const DFAS_PAYCHECKS: { date: LocalDate; amount: number; payday: 'first' 
   { date: '2026-10-01', amount: 3957.59, payday: 'first' },
   { date: '2026-10-15', amount: 3491.26, payday: 'fifteenth' },
   { date: '2026-10-30', amount: 4005.1, payday: 'first' }, // 1 Nov, a Sunday
+  { date: '2026-11-13', amount: 3491.26, payday: 'fifteenth' }, // 15 Nov, a Sunday (21 Nov screenshots)
 ]
+
+/** The DFAS deposit that paid a scheduled payday, if it has landed (within a week before it). */
+export function depositFor(payday: LocalDate): number | null {
+  const t = Date.parse(payday)
+  const d = DFAS_PAYCHECKS.find((p) => {
+    const days = (t - Date.parse(p.date)) / 86400000
+    return days >= 0 && days <= 7
+  })
+  return d ? d.amount : null
+}
 
 /**
  * Every DFAS direct deposit on the statements, including the odd ones (back-pay pieces,
@@ -184,7 +195,7 @@ export function overdraftDips(days: DailyBalance[] = CHECKING_DAILY): Dip[] {
 export function observedFirstShare(): number {
   const pairs: [number, number][] = [
     [3957.59, 3491.26], // Oct 1 / Oct 15
-    [4005.1, 3491.26], // Nov 1 / Oct 15 (the Nov 15 cheque is not yet on a statement)
+    [4005.1, 3491.26], // Nov 1 / Nov 15
   ]
   const shares = pairs.map(([a, b]) => a / (a + b))
   return Math.round((shares.reduce((s, x) => s + x, 0) / shares.length) * 1000) / 1000
