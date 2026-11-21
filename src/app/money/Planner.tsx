@@ -206,6 +206,130 @@ function PeriodCard({ ledger, p }: { ledger: Ledger; p: Period }) {
   )
 }
 
+// ── Export ───────────────────────────────────────────────────────────────────
+
+const LEVER_LABEL: Record<keyof Levers, string> = {
+  who: 'Whose money',
+  houseSell: 'Sell 628 Chamberlain',
+  houseMonth: 'Sale month',
+  bonus: 'Re-enlistment bonus',
+  bonusMonth: 'Bonus month',
+  va: 'VA rating %',
+  child2: 'Next child',
+  child3: 'Third child',
+  carReplace: 'Car replaced',
+  carPrice: 'Car price',
+  carDown: 'Car down share',
+  carSommer: 'Car — Sommer share',
+  emergCount: 'Emergencies',
+  emergFirst: 'First emergency',
+  emergEvery: 'Months between',
+  emergSize: 'Emergency size',
+  summer1L: '1L summer',
+  summer2L: '2L summer',
+  jobStart: 'Job starts',
+  jobSalary: 'Starting salary',
+  signing: 'Signing bonus',
+  partTime: 'Part-time in school $/mo',
+  partTimeFrom: 'Part-time from',
+}
+
+const q = (v: string | number) => (typeof v === 'number' ? String(Math.round(v * 100) / 100) : /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
+
+/** Every month, every line: one row a month, one column a line. */
+function toCsv(ledger: Ledger): string {
+  const ins = [...new Set(ledger.months.flatMap((m) => Object.keys(m.income)))]
+  const outs = [...new Set(ledger.months.flatMap((m) => Object.keys(m.costs)))]
+  const head = ['Month', 'Phase', 'Income', 'Costs', 'Net', 'Cash (no new debt)', 'Debt (excl. mortgages)', 'Net worth', ...ins.map((k) => `In: ${k}`), ...outs.map((k) => `Out: ${k}`)]
+  // Cash as the chart shows it (the ledger's, which holds Sommer's savings in Combined) where there is a point.
+  const cashAt = (m: (typeof ledger.months)[number]) => {
+    const p = ledger.points.find((x) => x.month === m.month)
+    return p ? cashOfP(p) : m.cash
+  }
+  const rows = ledger.months.map((m) => [m.month, m.phase, m.totalIncome, m.totalCosts, m.net, cashAt(m), m.debt, m.netWorth, ...ins.map((k) => m.income[k] ?? 0), ...outs.map((k) => m.costs[k] ?? 0)])
+  return [head, ...rows].map((r) => r.map(q).join(',')).join('\n')
+}
+
+/** A plain-text brief: the scenario, the levers, the results, a yearly table and the first 18 months home. */
+function toBrief(sc: Scenario, lv: Levers, base: Levers, ledger: Ledger, solv: ReturnType<typeof solvency>): string {
+  const fmt = (v: unknown) => (typeof v === 'number' ? (Math.abs(v) >= 1000 ? usd0(v) : String(v)) : v === null ? 'none' : String(v))
+  const levers = (Object.keys(LEVER_LABEL) as (keyof Levers)[]).map(
+    (k) => `- ${LEVER_LABEL[k]}: ${fmt(lv[k])}${JSON.stringify(lv[k]) !== JSON.stringify(base[k]) ? ` (changed; scenario: ${fmt(base[k])})` : ''}`,
+  )
+  const years = new Map<string, { inc: number; out: number; cash: number; debt: number; nw: number }>()
+  for (const m of ledger.months) {
+    const y = m.month.slice(0, 4)
+    const e = years.get(y) ?? { inc: 0, out: 0, cash: 0, debt: 0, nw: 0 }
+    e.inc += m.totalIncome
+    e.out += m.totalCosts
+    e.cash = cashOfP(ledger.points.find((x) => x.month >= m.month) ?? { bal: {} })
+    e.debt = m.debt
+    e.nw = m.netWorth
+    years.set(y, e)
+  }
+  const row = (cells: (string | number)[]) => `| ${cells.map((c) => (typeof c === 'number' ? usd0(c) : c)).join(' | ')} |`
+  const home = ledger.months.filter((m) => m.month >= ledger.homeMonth).slice(0, 18)
+  return [
+    `# Money planner — ${ledger.label}`,
+    `Scenario id: ${sc.id}. Home: ${monLabel(ledger.homeMonth)}. Exported ${new Date().toISOString().slice(0, 10)}.`,
+    '',
+    '## Levers',
+    ...levers,
+    '',
+    '## Result',
+    `- Solvency: ${solv.light}. Lowest cash ${usd0(solv.low.value)} in ${monLabel(solv.low.month)}; most borrowed at once ${usd0(solv.peak)}.`,
+    solv.firstBelow ? `- Cash below zero from ${monLabel(solv.firstBelow)} to ${monLabel(solv.lastBelow!)}.` : '- Cash never below zero.',
+    '',
+    '## By year (cash = checking + savings less anything borrowed; debt excludes mortgages)',
+    row(['Year', 'Income', 'Costs', 'Net', 'Cash, Dec', 'Debt, Dec', 'Net worth, Dec']),
+    row(['---', '---', '---', '---', '---', '---', '---']),
+    ...[...years.entries()].map(([y, e]) => row([y, e.inc, e.out, e.inc - e.out, e.cash, e.debt, e.nw])),
+    '',
+    '## First 18 months home, line by line',
+    ...home.map(
+      (m) =>
+        `- ${monLabel(m.month)} (${m.phase}): in ${usd0(m.totalIncome)} [${Object.entries(m.income).map(([k, v]) => `${k} ${usd0(v)}`).join('; ')}] · out ${usd0(m.totalCosts)} [${Object.entries(m.costs).map(([k, v]) => `${k} ${usd0(v)}`).join('; ')}] · cash ${usd0(cashOfP(ledger.points.find((x) => x.month >= m.month) ?? { bal: {} }))}`,
+    ),
+  ].join('\n')
+}
+
+function Export({ sc, lv, base, ledger, solv }: { sc: Scenario; lv: Levers; base: Levers; ledger: Ledger; solv: ReturnType<typeof solvency> }) {
+  const [copied, setCopied] = useState(false)
+  const download = () => {
+    const blob = new Blob([toCsv(ledger)], { type: 'text/csv' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `planner-${sc.id}-${lv.who}.csv`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+  const copy = async () => {
+    const text = toBrief(sc, lv, base, ledger, solv)
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      const t = document.createElement('textarea')
+      t.value = text
+      document.body.appendChild(t)
+      t.select()
+      document.execCommand('copy')
+      t.remove()
+    }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2500)
+  }
+  return (
+    <div className="export-row">
+      <button className="btn-ghost" onClick={download}>
+        Download CSV — every month, every line
+      </button>
+      <button className="btn-ghost" onClick={copy}>
+        {copied ? 'Copied — paste it to Claude' : 'Copy for Claude'}
+      </button>
+    </div>
+  )
+}
+
 // ── The planner ──────────────────────────────────────────────────────────────
 
 export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; groups: Group[]; planGaps: PlanGap[] }) {
@@ -494,6 +618,7 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
               </span>
             </div>
           </div>
+          <Export sc={sc} lv={lv} base={base} ledger={ledger} solv={solv} />
           <p className="sub" style={{ margin: '10px 0 8px' }}>
             <strong>{ledger.label}.</strong>{' '}
             {lv.who === 'both' ? 'Combined — your money and Sommer’s.' : lv.who === 'sam' ? 'Sam — your income and your expenses only.' : 'Sommer — her income and her expenses only.'}

@@ -743,3 +743,4 @@ body:has(nav.rail) main { margin-left: 60px; }
 .baltable.periods tr.on td { background: rgba(122,162,255,0.10); }
 .baltable.periods tr { cursor: pointer; }
 @media (max-width: 900px) { .period-pick { grid-template-columns: 1fr; } }
+.export-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; }
