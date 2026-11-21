@@ -748,11 +748,26 @@ function PaydayCard({
     const checking = r2(checkingAfter - checkingBefore)
     // Her savings (Combined) are not in your accounts: leave them out of the tie.
     const hers = st.netCash.lines.filter((l) => l.key.startsWith('w_')).reduce((t, l) => t + l.amount, 0)
-    const gap = r2(st.netCash.total - checking - (savingsLine?.amount ?? 0) - hers)
+    // Spending beyond a line's budget has already left checking but is not in the plan's
+    // cash figure: its own line, so the unexplained gap is only what the bank alone shows.
+    const overLines = [...st.spending.flatMap((x) => x.lines), ...st.investing.lines.filter((l) => l.key !== 'tsp' && l.key !== 'retirement')].filter(
+      (l) => !l.nonCash && l.amount > 0 && (l.spent ?? 0) > l.amount + 0.005,
+    )
+    const over = r2(overLines.reduce((t, l) => t + (l.spent! - l.amount), 0))
+    const gap = r2(st.netCash.total - checking - (savingsLine?.amount ?? 0) - hers - over)
     const lines: StatementLine[] = [
       { key: 'checking', label: `Change to checking (${usd(checkingBefore)} → ${usd(checkingAfter)})`, amount: checking, txns: [] },
       ...st.netCash.lines.filter((l) => l.key !== 'checking'),
     ]
+    if (over > 0.005) {
+      lines.push({
+        key: 'over_budget',
+        label: `Spent over budget so far — ${overLines.map((l) => `${l.label.split(' — ')[0]} ${usd(l.spent! - l.amount)}`).join(', ')}`,
+        amount: over,
+        txns: [],
+        note: 'Already gone from checking but beyond what the plan set aside, so the plan’s cash figure is this much higher than the bank’s.',
+      })
+    }
     if (Math.abs(gap) > 0.005) {
       lines.push({
         key: 'unexplained',
