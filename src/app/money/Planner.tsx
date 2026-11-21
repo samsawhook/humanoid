@@ -11,7 +11,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { buildLedger, buildSommerLedger, summarize, type GroupKey, type Ledger, type Side } from '@/core/money/ledger'
-import { emergencyMonths, reenlistOf, saleMonth } from '@/core/money/paths'
+import { emergencyMonths, reenlistOf, reshapeLadder, saleMonth } from '@/core/money/paths'
 import { SCENARIOS, type Scenario } from '@/core/money/scenarios'
 import { VA_MONTHLY } from '@/core/money/returnBudget'
 import { AllView, Balances, ReviewHeader, type Period, type PlanGap, type ScenarioMeta } from './Outlook'
@@ -48,9 +48,14 @@ interface Levers {
   emergSize: number
   summer1L: number
   summer2L: number
+  jobStart: string
+  jobSalary: number
+  signing: number
+  partTime: number
+  partTimeFrom: string
 }
 
-function baseLevers(sc: Scenario): Levers {
+export function baseLevers(sc: Scenario): Levers {
   const a = sc.a
   const sale = saleMonth(sc.path, a)
   const bonus = reenlistOf(sc.path, a)
@@ -73,15 +78,31 @@ function baseLevers(sc: Scenario): Levers {
     emergSize: a.emergencies.size,
     summer1L: a.law.summerGross['2028'] ?? 0,
     summer2L: a.law.summerGross['2029'] ?? 0,
+    jobStart: sc.path === 'law' ? a.law.jobStart : a.macc.jobStart,
+    jobSalary: Math.round(sc.path === 'law' ? a.law.salary[0]![1] : a.macc.salary[0]![1] * (sc.path === 'night' ? a.night.dayJobScale : 1)),
+    signing: a.signingBonus,
+    partTime: a.law.partTime.monthly,
+    partTimeFrom: a.law.partTime.from,
   }
 }
 
-function apply(sc: Scenario, l: Levers): Scenario {
+export function apply(sc: Scenario, l: Levers): Scenario {
   const a: A = {
     ...sc.a,
     houseSaleMonth: l.houseSell ? l.houseMonth : null,
     sommer: { ...sc.a.sommer, included: l.who === 'both' },
-    law: { ...sc.a.law, house: l.houseSell ? 'sell' : 'rent', summerGross: { '2028': l.summer1L, '2029': l.summer2L } },
+    law: {
+      ...sc.a.law,
+      house: l.houseSell ? 'sell' : 'rent',
+      summerGross: { '2028': l.summer1L, '2029': l.summer2L },
+      partTime: { monthly: l.partTime, from: l.partTimeFrom },
+      ...(sc.path === 'law' ? { jobStart: l.jobStart, salary: reshapeLadder(sc.a.law.salary, l.jobStart, l.jobSalary) } : {}),
+    },
+    macc:
+      sc.path === 'law'
+        ? sc.a.macc
+        : { ...sc.a.macc, jobStart: l.jobStart, salary: reshapeLadder(sc.a.macc.salary, l.jobStart, l.jobSalary / (sc.path === 'night' ? sc.a.night.dayJobScale : 1)) },
+    signingBonus: l.signing,
     reenlist: { bonus: l.bonus, month: l.bonusMonth },
     vaRating: l.va,
     vaMonthly: VA_MONTHLY[l.va] ?? sc.a.vaMonthly,
@@ -391,6 +412,40 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
             </>
           )}
         </Lever>
+
+        <Lever
+          title={isLaw ? 'Attorney job' : sc.path === 'night' ? 'Day job' : sc.a.macc.selfEmployed ? 'Your practice' : 'The job'}
+          changed={isChanged('jobStart', 'jobSalary', 'signing')}
+          onReset={() => reset('jobStart', 'jobSalary', 'signing')}
+          hint={`Starts ${monLabel(lv.jobStart)} at ${usd0(lv.jobSalary)}${sc.a.macc.selfEmployed && !isLaw ? ' profit' : ''} a year; the raises after follow the scenario's ladder, scaled to this start.${lv.signing ? ` Signing bonus with the first pay, 22% withheld.` : ''}`}
+        >
+          <div className="lv-row">
+            <Month value={lv.jobStart} onChange={(m) => set('jobStart', m)} label="Starts" />
+          </div>
+          <div className="lv-row">
+            <Money value={lv.jobSalary} onChange={(n) => set('jobSalary', n)} step={1000} label={sc.a.macc.selfEmployed && !isLaw ? 'Profit / yr' : 'Salary / yr'} />
+          </div>
+          <div className="lv-row">
+            <Money value={lv.signing} onChange={(n) => set('signing', n)} step={1000} label="Signing bonus" />
+          </div>
+        </Lever>
+
+        {isLaw && (
+          <Lever
+            title="Work during law school"
+            changed={isChanged('partTime', 'partTimeFrom')}
+            onReset={() => reset('partTime', 'partTimeFrom')}
+            hint={lv.partTime ? `Sep–May from ${monLabel(lv.partTimeFrom)}, taxed as wages. ~15 hrs/wk at $20 is about $1,300/mo.` : 'None. Texas Tech advises 1Ls not to work; many 2Ls and 3Ls clerk part-time.'}
+          >
+            <Seg value={lv.partTime > 0} options={[[false, 'None'], [true, 'Part-time']]} onChange={(v) => set('partTime', v ? 1300 : 0)} />
+            {lv.partTime > 0 && (
+              <div className="lv-row">
+                <Money value={lv.partTime} onChange={(n) => set('partTime', n)} step={100} label="$/mo" />
+                <Month value={lv.partTimeFrom} onChange={(m) => set('partTimeFrom', m)} label="From" />
+              </div>
+            )}
+          </Lever>
+        )}
 
         {isLaw && (
           <Lever

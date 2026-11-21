@@ -194,6 +194,8 @@ export const PATH_ASSUMPTIONS = {
    * law paths she is assumed to find equal work after each move — CHECK: Lubbock may pay less.
    */
   sommer: { included: true, takeHome: 4200, bills: 2500, fun: 850 },
+  /** A signing bonus with the first full-time job: paid with the first month's pay, 22% withheld. Planner lever. */
+  signingBonus: 0,
   /** `sommerShare`: the part Sommer pays from her savings (planner toggle; 0 = all yours). */
   car: { sommerShare: 0, replaceMonth: '2027-09' as string | null, price: 10000, downShare: 1, rate: 0.09, termMonths: 60 },
   /** Modelled emergencies: how many, the first month, months apart, and size (2027 dollars). Off by default. */
@@ -235,6 +237,11 @@ export const PATH_ASSUMPTIONS = {
     reenlistBonus: 10000,
     reenlistMonth: '2027-09',
     bookStipendAnnual: 1000,
+    /**
+     * Part-time work during the school year (Sep–May; summers have their own jobs), from
+     * `from`. Off by default — Texas Tech advises 1Ls not to work. Planner lever.
+     */
+    partTime: { monthly: 0, from: '2028-08' },
     /**
      * Summers, consistent with the planning case (a mid-size firm or a Big 4 tax practice,
      * not BigLaw): ~10 weeks at ~$2,000 a week after 1L, ~$2,500 after 2L. Texas big firms
@@ -398,6 +405,13 @@ export interface PathMonth {
   businessValue: number
   /** The replacement car's loan, if one is running. */
   carLoan: number
+}
+
+/** A pay ladder moved to start in `start` and scaled so its first rung is `first`. */
+export function reshapeLadder(anchors: Anchor[], start: string, first: number): Anchor[] {
+  const shift = monthIndex(start) - monthIndex(anchors[0]![0])
+  const scale = first / anchors[0]![1]
+  return anchors.map(([m, v]) => [addMonths(m, shift), Math.round(v * scale)] as Anchor)
 }
 
 /** The month 628 Chamberlain is sold on this path, or null if it is kept. */
@@ -681,6 +695,10 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
             income['Summer law job'] = summer / 3
             summerTax = (summer / 3) * 0.22
           }
+          if (law.partTime.monthly > 0 && monthIndex(m) >= monthIndex(law.partTime.from) && (monthNo >= 9 || monthNo <= 5)) {
+            income['Part-time work during school'] = law.partTime.monthly * infl
+            taxableWages += law.partTime.monthly * infl
+          }
           costs[`Rent in ${law.school.city}`] = law.school.monthlyFamilyRent * infl
           if (m === law.schoolStart) costs[`Moving to ${law.school.city}`] = law.movingCost
           if (law.spouseIncomeLostMonthly > 0)
@@ -752,6 +770,10 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
         if (macc.cpaMonths.includes(m)) costs['CPA review & exam fees'] = macc.cpaCost / macc.cpaMonths.length
       }
 
+      if (salary > 0 && jobMonths === 0 && a.signingBonus > 0) {
+        income['Signing bonus'] = a.signingBonus
+        summerTax += a.signingBonus * 0.22
+      }
       const selfEmployed = key === 'macc' && !!macc.selfEmployed
       // A sole proprietor's 'salary' is the practice's profit. Revenue runs higher: the
       // practice keeps ~65¢ of each dollar billed, the rest is its costs.
