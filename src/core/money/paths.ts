@@ -258,7 +258,7 @@ export const PATH_ASSUMPTIONS = {
      * and for a six-month grace period; interest accrues throughout (unsubsidized). Then the
      * Tiered Standard plan: 10, 15, 20 or 25 years by balance (<$25k, <$50k, <$100k, more),
      * or RAP (1–10% of AGI). Borrowed: only what each school year needs to keep cash above
-     * zero, rounded up to $1,000 — not the maximum. Each year is also capped at Texas Tech
+     * zero — the last year through bar study to the first paycheck — rounded up to $1,000, not the maximum. Each year is also capped at Texas Tech
      * Law's cost of attendance, $48,239 for 2026–27 (tuition $27,532 + living $20,707, Law
      * Viewbook), rising with inflation: veterans' education benefits have not counted as
      * "other aid" against that since 2009, so the GI Bill does not reduce it. MY READING of
@@ -447,7 +447,10 @@ function lawLoanPlan(a: typeof PATH_ASSUMPTIONS): Record<string, number> {
   let total = 0
   for (let y = Number(a.law.schoolStart.slice(0, 4)); `${y}-08` <= a.law.schoolEnd; y++) {
     const startMonth = `${y}-08`
-    const endMonth = `${y + 1}-07` < a.law.schoolEnd ? `${y + 1}-07` : a.law.schoolEnd
+    // The final year carries you to the first paycheck: students budget the last
+    // disbursement to cover bar study (within the same yearly limits).
+    const last = `${y + 1}-07` >= a.law.schoolEnd
+    const endMonth = last ? addMonths(a.law.jobStart, -1) : `${y + 1}-07`
     const before = dry.months.find((m) => m.month === addMonths(startMonth, -1))
     const year = dry.months.filter((m) => m.month >= startMonth && m.month <= endMonth)
     // Lowest cash in the year without the loan, as it would stand with the earlier years' loans.
