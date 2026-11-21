@@ -297,9 +297,24 @@ export interface Period {
   end: BalMap
   assets: number
   debts: number
+  /** End-of-period balance by group (assets and debts), for the blocks. */
+  byGroup: Record<string, number>
 }
 
 /** Monthly for up to 18 months, quarterly to five years, yearly beyond. */
+/** Colours for the assets / debts blocks: one per kind, none shared between the two sides. */
+const BAL_COLOR: Record<string, string> = {
+  house: '#4f86e8',
+  tsp: '#9085e9',
+  savings: '#2fa4a9',
+  cash: '#8fd3d6',
+  nth: '#c98500',
+  mortgage: '#d95926',
+  student: '#d55181',
+  cards: '#e5534b',
+  other: '#9c6b52',
+}
+
 export function periodsOf(ledger: Ledger, groups: Group[], span: number): Period[] {
   const unit: 'month' | 'quarter' | 'year' = span <= 18 ? 'month' : span <= 60 ? 'quarter' : 'year'
   const keyOf = (m: string) => {
@@ -327,7 +342,7 @@ export function periodsOf(ledger: Ledger, groups: Group[], span: number): Period
     const k = keyOf(p.month)
     let per = out.at(-1)
     if (!per || per.key !== k) {
-      per = { key: k, label: unit === 'month' ? monLabel(k) : k, months: [], phase: p.phase, income: 0, out: {}, start: prev, end: p.bal, assets: 0, debts: 0 }
+      per = { key: k, label: unit === 'month' ? monLabel(k) : k, months: [], phase: p.phase, income: 0, out: {}, start: prev, end: p.bal, assets: 0, debts: 0, byGroup: {} }
       out.push(per)
     }
     per.months.push(...covered)
@@ -337,6 +352,7 @@ export function periodsOf(ledger: Ledger, groups: Group[], span: number): Period
     per.phase = p.phase
     per.assets = sideTotal(p.bal, 'asset')
     per.debts = sideTotal(p.bal, 'debt')
+    per.byGroup = Object.fromEntries(groups.map((g) => [g.key, ledger.accounts.filter((a) => a.group === g.key).reduce((u, a) => u + (p.bal[a.key] ?? 0), 0)]))
     prev = p.bal
     prevMonth = p.month
   }
@@ -349,7 +365,7 @@ export function periodsOf(ledger: Ledger, groups: Group[], span: number): Period
  * debt) and on hand (with the gaps borrowed). Below, on its own scale, debts and assets.
  * Click a column for that period's card.
  */
-function PnlChart({ periods, selected, onSelect }: { periods: Period[]; selected: string | null; onSelect: (k: string) => void }) {
+function PnlChart({ periods, groups, selected, onSelect }: { periods: Period[]; groups: Group[]; selected: string | null; onSelect: (k: string) => void }) {
   if (!periods.length) return null
   const outTotal = (p: Period) => Object.values(p.out).reduce((t, v) => t + v, 0)
   const max = Math.max(1, ...periods.map((p) => Math.max(p.income, outTotal(p), Math.abs(cashNet(p.end)), cashHand(p.end))))
@@ -365,10 +381,15 @@ function PnlChart({ periods, selected, onSelect }: { periods: Period[]; selected
   const fmt = (n: number) => (Math.abs(n) >= 100000 ? `$${Math.round(n / 1000)}k` : usd0(n))
   const step = Math.ceil(periods.length / 12)
   const xs = periods.map((_, i) => 52 + i * bw + bw / 2)
-  // The balances panel: debts and assets on their own scale.
-  const H2 = 150
-  const max2 = Math.max(1, ...periods.map((p) => Math.max(p.assets, p.debts)))
-  const y2 = (v: number) => 14 + (1 - v / max2) * (H2 - 34)
+  // The balances panel, on its own scale: assets as blocks above the line, debts below,
+  // each stacked by kind, and net worth as a line.
+  const H2 = 230
+  const mid2 = 14 + (H2 - 40) / 2
+  const half2 = (H2 - 40) / 2
+  const max2 = Math.max(1, ...periods.map((p) => Math.max(p.assets, p.debts, Math.abs(p.assets - p.debts))))
+  const y2v = (v: number) => (v / max2) * half2
+  const assetGroups = groups.filter((g) => g.side === 'asset' && periods.some((p) => (p.byGroup[g.key] ?? 0) > 0.5))
+  const debtGroups = groups.filter((g) => g.side === 'debt' && periods.some((p) => (p.byGroup[g.key] ?? 0) > 0.5))
   const path = (vals: number[], yf: (v: number) => number) => vals.map((v, i) => `${i ? 'L' : 'M'}${xs[i]},${yf(v)}`).join(' ')
   return (
     <figure className="pnl">
@@ -424,23 +445,52 @@ function PnlChart({ periods, selected, onSelect }: { periods: Period[]; selected
           return <rect key={p.key} x={xs[i]! - 3.5} y={yy - 3.5} width={7} height={7} transform={`rotate(45 ${xs[i]} ${yy})`} fill={v < 0 ? '#e5534b' : '#2fa4a9'} stroke="var(--panel)" strokeWidth={1.2} pointerEvents="none" />
         })}
       </svg>
-      <svg viewBox={`0 0 ${W} ${H2}`} role="img" aria-label="Debts and assets by period" className="pnl-bal">
-        {[0, 0.5, 1].map((f) => (
+      <svg viewBox={`0 0 ${W} ${H2}`} role="img" aria-label="Assets, debts and net worth by period" className="pnl-bal">
+        <line x1={50} x2={W - 6} y1={mid2} y2={mid2} stroke="var(--muted)" strokeWidth={1} />
+        {[-1, -0.5, 0.5, 1].map((f) => (
           <g key={f}>
-            <line x1={50} x2={W - 6} y1={y2(f * max2)} y2={y2(f * max2)} stroke="var(--grid)" strokeWidth={0.6} />
-            <text x={46} y={y2(f * max2) + 4} textAnchor="end" className="pnl-axis">
-              {fmt(f * max2)}
+            <line x1={50} x2={W - 6} y1={mid2 - f * half2} y2={mid2 - f * half2} stroke="var(--grid)" strokeWidth={0.6} />
+            <text x={46} y={mid2 - f * half2 + 4} textAnchor="end" className="pnl-axis">
+              {f < 0 ? '−' : ''}
+              {fmt(Math.abs(f * max2))}
             </text>
           </g>
         ))}
-        {periods.map((p, i) => (
-          <rect key={p.key} x={52 + i * bw} y={0} width={bw} height={H2 - 18} className={`pnl-hit ${selected === p.key ? 'on' : ''}`} onClick={() => onSelect(p.key)}>
-            <title>{`${p.label}\nAssets ${usd0(p.assets)}\nDebts ${usd0(p.debts)}\nNet worth ${usd0(p.assets - p.debts)}`}</title>
-          </rect>
-        ))}
-        <path d={path(periods.map((p) => p.assets), y2)} fill="none" stroke="#3fc56b" strokeWidth={2} pointerEvents="none" />
-        <path d={path(periods.map((p) => p.debts), y2)} fill="none" stroke="#d55181" strokeWidth={2} pointerEvents="none" />
-        <text x={52} y={H2 - 4} className="pnl-axis">Debts and assets, end of each period (own scale)</text>
+        {periods.map((p, i) => {
+          const x = 52 + i * bw + bw * 0.15
+          const w = bw * 0.7
+          let up = mid2
+          let down = mid2
+          return (
+            <g key={p.key} className={`pnl-col ${selected === p.key ? 'on' : ''}`} onClick={() => onSelect(p.key)}>
+              <title>
+                {`${p.label}\n` +
+                  assetGroups.map((g) => `${g.label} ${usd0(p.byGroup[g.key] ?? 0)}`).join('\n') +
+                  `\nAssets ${usd0(p.assets)}\n` +
+                  debtGroups.map((g) => `${g.label} −${usd0(p.byGroup[g.key] ?? 0)}`).join('\n') +
+                  `\nDebts −${usd0(p.debts)}\nNet worth ${p.assets - p.debts < 0 ? '−' : ''}${usd0(Math.abs(p.assets - p.debts))}`}
+              </title>
+              <rect x={52 + i * bw} y={0} width={bw} height={H2 - 22} className="pnl-hit" />
+              {assetGroups.map((g) => {
+                const h = y2v(p.byGroup[g.key] ?? 0)
+                up -= h
+                return <rect key={g.key} x={x} y={up} width={w} height={Math.max(0, h - 0.6)} fill={BAL_COLOR[g.key]} />
+              })}
+              {debtGroups.map((g) => {
+                const h = y2v(p.byGroup[g.key] ?? 0)
+                const r = <rect key={g.key} x={x} y={down} width={w} height={Math.max(0, h - 0.6)} fill={BAL_COLOR[g.key]} />
+                down += h
+                return r
+              })}
+            </g>
+          )
+        })}
+        <path d={path(periods.map((p) => p.assets - p.debts), (v) => mid2 - y2v(v))} fill="none" stroke="#f2f4f7" strokeWidth={2.2} pointerEvents="none" />
+        {periods.map((p, i) => {
+          const v = p.assets - p.debts
+          return <circle key={p.key} cx={xs[i]} cy={mid2 - y2v(v)} r={3.2} fill={v < 0 ? '#e5534b' : '#f2f4f7'} stroke="var(--panel)" strokeWidth={1.2} pointerEvents="none" />
+        })}
+        <text x={52} y={H2 - 6} className="pnl-axis">Assets above the line, debts below (own scale) · net worth ●</text>
       </svg>
       <div className="split-legend">
         <span><i className="swatch-dot" style={{ background: '#c9d3df' }} />Income</span>
@@ -453,8 +503,19 @@ function PnlChart({ periods, selected, onSelect }: { periods: Period[]; selected
         <span><i className="swatch-dot" style={{ background: '#3fc56b', borderRadius: '50%' }} />Net</span>
         <span><i className="swatch-line" style={{ background: '#2fa4a9' }} />Cash — no new debt (red below zero)</span>
         <span><i className="swatch-line dashed" style={{ borderColor: '#8fd3d6' }} />Cash on hand — gaps borrowed</span>
-        <span><i className="swatch-line" style={{ background: '#3fc56b' }} />Assets</span>
-        <span><i className="swatch-line" style={{ background: '#d55181' }} />Debts</span>
+        {assetGroups.map((g) => (
+          <span key={g.key}>
+            <i className="swatch-dot" style={{ background: BAL_COLOR[g.key] }} />
+            {g.label}
+          </span>
+        ))}
+        {debtGroups.map((g) => (
+          <span key={g.key}>
+            <i className="swatch-dot" style={{ background: BAL_COLOR[g.key] }} />
+            {g.label}
+          </span>
+        ))}
+        <span><i className="swatch-line" style={{ background: '#f2f4f7' }} />Net worth</span>
       </div>
     </figure>
   )
@@ -575,7 +636,7 @@ export function Balances({ ledger, groups, card }: { ledger: Ledger; groups: Gro
         <div><span>Change</span><b className={nw1 >= nw0 ? 'ok' : 'bad'}>{nw1 >= nw0 ? '+' : '−'}{usd0(Math.abs(nw1 - nw0))}</b></div>
         <div><span>Debt {monLabel(end.month)}</span><b>{usd0(sideTotal(end, 'debt'))}</b><small>from {usd0(sideTotal(opening, 'debt'))}</small></div>
       </div>
-      <PnlChart periods={periods} selected={sel?.key ?? null} onSelect={pick} />
+      <PnlChart periods={periods} groups={groups} selected={sel?.key ?? null} onSelect={pick} />
       {card && (
         <div className="period-pick" ref={pickRef}>
           <PeriodTable periods={periods} selected={sel?.key ?? null} onSelect={pick} />
