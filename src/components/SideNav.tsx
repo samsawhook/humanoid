@@ -31,24 +31,13 @@ const MONEY: Item[] = [
     ),
   },
   {
-    href: '/#scenarios',
-    label: 'Return scenarios',
+    href: '/#planner',
+    label: 'Planner',
     icon: svg(
       <>
-        <path d="M12 21v-7" />
-        <path d="M12 14 6 8M12 14l6-6" />
-        <path d="M3.5 8.5 6 6l2.5 2.5M15.5 8.5 18 6l2.5 2.5" />
-      </>,
-    ),
-  },
-  {
-    href: '/#balances',
-    label: 'Balance sheet',
-    icon: svg(
-      <>
-        <path d="M12 4v16M7 20h10" />
-        <path d="M5 7h14" />
-        <path d="M5 7 2.5 13a2.6 2.6 0 0 0 5 0L5 7ZM19 7l-2.5 6a2.6 2.6 0 0 0 5 0L19 7Z" />
+        <path d="M3.5 19.5h17" />
+        <path d="M5 16l4-5 3.5 3 6.5-8" />
+        <path d="M16 6h3v3" />
       </>,
     ),
   },

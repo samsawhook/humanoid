@@ -1,0 +1,398 @@
+'use client'
+
+/**
+ * The planner: return scenarios and the balance sheet in one place, with levers.
+ *
+ * Pick a scenario, move a lever, and the twenty-year model (paths.ts → ledger.ts) runs
+ * again in the browser. Each lever starts at the scenario's own assumption; anything you
+ * change is marked and can be reset. Every lever applies from the month you are home —
+ * the deployment months are the payday plan itself and do not move.
+ */
+
+import { useEffect, useMemo, useState } from 'react'
+import { buildLedger, summarize, type GroupKey, type Ledger, type Side } from '@/core/money/ledger'
+import { emergencyMonths, reenlistOf, saleMonth } from '@/core/money/paths'
+import { SCENARIOS, type Scenario } from '@/core/money/scenarios'
+import { VA_MONTHLY } from '@/core/money/returnBudget'
+import { AllView, Balances, ReviewHeader, Scenarios, type PlanGap, type ScenarioMeta } from './Outlook'
+
+type Group = { key: GroupKey; label: string; side: Side }
+type A = Scenario['a']
+
+const usd0 = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const monLabel = (m: string) => `${MON[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`
+const STORE = 'planner-v1'
+
+/** Every lever, as values. A scenario's own assumptions give the starting set. */
+interface Levers {
+  houseSell: boolean
+  houseMonth: string
+  bonus: number
+  bonusMonth: string
+  va: number
+  child2: string | null
+  child3: string | null
+  carReplace: string | null
+  carPrice: number
+  carDown: number
+  emergCount: number
+  emergFirst: string
+  emergEvery: number
+  emergSize: number
+  summer1L: number
+  summer2L: number
+}
+
+function baseLevers(sc: Scenario): Levers {
+  const a = sc.a
+  const sale = saleMonth(sc.path, a)
+  const bonus = reenlistOf(sc.path, a)
+  return {
+    houseSell: !!sale,
+    houseMonth: sale ?? a.law.schoolStart,
+    bonus: bonus?.bonus ?? 0,
+    bonusMonth: bonus?.month ?? a.law.reenlistMonth,
+    va: a.vaRating,
+    child2: a.family.births[1] ?? null,
+    child3: a.family.births[2] ?? null,
+    carReplace: a.car.replaceMonth,
+    carPrice: a.car.price,
+    carDown: a.car.downShare,
+    emergCount: a.emergencies.count,
+    emergFirst: a.emergencies.first,
+    emergEvery: a.emergencies.everyMonths,
+    emergSize: a.emergencies.size,
+    summer1L: a.law.summerGross['2028'] ?? 0,
+    summer2L: a.law.summerGross['2029'] ?? 0,
+  }
+}
+
+function apply(sc: Scenario, l: Levers): Scenario {
+  const a: A = {
+    ...sc.a,
+    houseSaleMonth: l.houseSell ? l.houseMonth : null,
+    law: { ...sc.a.law, house: l.houseSell ? 'sell' : 'rent', summerGross: { '2028': l.summer1L, '2029': l.summer2L } },
+    reenlist: { bonus: l.bonus, month: l.bonusMonth },
+    vaRating: l.va,
+    vaMonthly: VA_MONTHLY[l.va] ?? sc.a.vaMonthly,
+    family: { ...sc.a.family, births: [sc.a.family.births[0]!, ...[l.child2, l.child3].filter((b): b is string => !!b)].sort() },
+    car: { ...sc.a.car, replaceMonth: l.carReplace, price: l.carPrice, downShare: l.carDown },
+    emergencies: { count: l.emergCount, first: l.emergFirst, everyMonths: l.emergEvery, size: l.emergSize },
+  }
+  return { ...sc, a }
+}
+
+const cashOf = (p: { bal: Record<string, number> }) => (p.bal.checking ?? 0) + (p.bal.savings ?? 0) - (p.bal.gap ?? 0)
+
+/** Solvency over the whole plan, from the month you are home. */
+function solvency(l: Ledger) {
+  const home = l.points.filter((p) => p.month >= l.homeMonth)
+  let low = home[0]!
+  for (const p of home) if (cashOf(p) < cashOf(low)) low = p
+  const below = home.filter((p) => cashOf(p) < -0.5)
+  const peak = Math.max(0, ...l.points.map((p) => p.bal.gap ?? 0))
+  const firstBelow = below[0]?.month ?? null
+  const lastBelow = below.at(-1)?.month ?? null
+  const light: 'green' | 'yellow' | 'red' = peak > 25000 ? 'red' : below.length ? 'yellow' : 'green'
+  return { low: { value: cashOf(low), month: low.month }, peak, firstBelow, lastBelow, light }
+}
+
+// ── Small controls ───────────────────────────────────────────────────────────
+
+function Lever({ title, changed, onReset, children, hint }: { title: string; changed: boolean; onReset: () => void; children: React.ReactNode; hint?: string }) {
+  return (
+    <div className={`lever ${changed ? 'changed' : ''}`}>
+      <div className="lever-head">
+        <span>
+          {title}
+          {changed && <i className="lever-dot" title="Changed from the scenario" />}
+        </span>
+        {changed && (
+          <button className="linkish" onClick={onReset}>
+            reset
+          </button>
+        )}
+      </div>
+      <div className="lever-body">{children}</div>
+      {hint && <div className="lever-hint">{hint}</div>}
+    </div>
+  )
+}
+
+function Money({ value, onChange, step = 500, label }: { value: number; onChange: (n: number) => void; step?: number; label?: string }) {
+  return (
+    <label className="lv-field">
+      {label && <span>{label}</span>}
+      <span className="lv-money">
+        $
+        <input type="number" inputMode="numeric" min={0} step={step} value={value} onChange={(e) => onChange(Math.max(0, Number(e.target.value) || 0))} />
+      </span>
+    </label>
+  )
+}
+
+function Month({ value, onChange, label, min = '2027-07' }: { value: string; onChange: (m: string) => void; label?: string; min?: string }) {
+  return (
+    <label className="lv-field">
+      {label && <span>{label}</span>}
+      <input type="month" min={min} max="2046-11" value={value} onChange={(e) => e.target.value && onChange(e.target.value)} />
+    </label>
+  )
+}
+
+function Seg<T extends string | number | boolean>({ value, options, onChange }: { value: T; options: [T, string][]; onChange: (v: T) => void }) {
+  return (
+    <div className="seg seg-sm">
+      {options.map(([v, l]) => (
+        <button key={String(v)} className={v === value ? 'on' : ''} onClick={() => onChange(v)}>
+          {l}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ── The planner ──────────────────────────────────────────────────────────────
+
+export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; groups: Group[]; planGaps: PlanGap[] }) {
+  const [id, setId] = useState<string>('law_ttu')
+  const [compare, setCompare] = useState(false)
+  /** Changes per lever, kept across scenarios: what you set is what you are testing. */
+  const [changes, setChanges] = useState<Partial<Levers>>({})
+  useEffect(() => {
+    try {
+      const s = JSON.parse(localStorage.getItem(STORE) ?? 'null')
+      if (s?.id) setId(s.id)
+      if (s?.changes) setChanges(s.changes)
+    } catch {}
+  }, [])
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORE, JSON.stringify({ id, changes }))
+    } catch {}
+  }, [id, changes])
+
+  const sc = SCENARIOS.find((s) => s.id === id) ?? SCENARIOS[0]!
+  const base = useMemo(() => baseLevers(sc), [sc])
+  const lv: Levers = { ...base, ...changes }
+  const set = <K extends keyof Levers>(k: K, v: Levers[K]) =>
+    setChanges((c) => {
+      const n = { ...c, [k]: v }
+      if (JSON.stringify(v) === JSON.stringify(base[k])) delete n[k]
+      return n
+    })
+  const reset = (...ks: (keyof Levers)[]) =>
+    setChanges((c) => {
+      const n = { ...c }
+      for (const k of ks) delete n[k]
+      return n
+    })
+  const isChanged = (...ks: (keyof Levers)[]) => ks.some((k) => k in changes)
+  const nChanged = Object.keys(changes).length
+
+  const ledger = useMemo(() => buildLedger(apply(sc, lv)), [sc, JSON.stringify(lv)]) // eslint-disable-line react-hooks/exhaustive-deps
+  const summary = useMemo(() => summarize(ledger), [ledger])
+  const solv = useMemo(() => solvency(ledger), [ledger])
+  const meta = metas.find((m) => m.id === sc.id) ?? metas[0]!
+
+  // Compare: every scenario with the same levers (only when asked — it runs fifteen models).
+  const all = useMemo(() => {
+    if (!compare) return null
+    const ls = SCENARIOS.map((s) => buildLedger(apply(s, { ...baseLevers(s), ...changes })))
+    return { ledgers: ls, summaries: Object.fromEntries(ls.map((l) => [l.path, summarize(l)])) }
+  }, [compare, JSON.stringify(changes)]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const isLaw = sc.path === 'law'
+  const kids = [lv.child2, lv.child3].filter(Boolean).length + 1
+  const shocks = emergencyMonths({ ...sc.a, emergencies: { count: lv.emergCount, first: lv.emergFirst, everyMonths: lv.emergEvery, size: lv.emergSize } })
+  const GL: Record<string, string> = { law: 'Law, full-time', evening: 'Law at night', cpa: 'MAcc → CPA' }
+
+  return (
+    <section className="outlook viz planner">
+      <h2 style={{ marginTop: 0 }}>Planner</h2>
+      <p className="sub" style={{ margin: '0 0 10px' }}>
+        Pick a scenario, then move the levers. Everything below — cash, debts, net worth, the month cards — reruns as you change them. Levers apply from{' '}
+        {monLabel(ledger.homeMonth)}, when you&rsquo;re home; the deployment months are the payday plan.
+      </p>
+
+      <div className="picker" role="group" aria-label="Scenario">
+        {(['law', 'evening', 'cpa'] as const).map((g) => (
+          <div className="picker-row" key={g}>
+            <span className="picker-label">{GL[g]}</span>
+            {metas
+              .filter((m) => m.group === g)
+              .map((m) => (
+                <button
+                  key={m.id}
+                  className={!compare && m.id === sc.id ? 'on' : ''}
+                  onClick={() => {
+                    setId(m.id)
+                    setCompare(false)
+                  }}
+                >
+                  {m.short}
+                </button>
+              ))}
+          </div>
+        ))}
+        <div className="picker-row">
+          <span className="picker-label" />
+          <button className={compare ? 'on' : ''} onClick={() => setCompare(!compare)}>
+            Compare all — same levers
+          </button>
+        </div>
+      </div>
+
+      <div className="levers-head">
+        <h3>Levers</h3>
+        <span className="sub" style={{ margin: 0 }}>
+          {nChanged ? (
+            <>
+              {nChanged} changed from the scenario ·{' '}
+              <button className="linkish" onClick={() => setChanges({})}>
+                reset all
+              </button>
+            </>
+          ) : (
+            'All at the scenario’s own assumptions'
+          )}
+        </span>
+      </div>
+      <div className="levers">
+        <Lever title="628 Chamberlain" changed={isChanged('houseSell', 'houseMonth')} onReset={() => reset('houseSell', 'houseMonth')} hint={lv.houseSell ? 'Sold at 11% costs; the mortgage is cleared from the proceeds. Sold while you live there, you rent in Corpus ($1,800/mo).' : 'Kept. Let out once you move out; you never move back in.'}>
+          <Seg value={lv.houseSell} options={[[false, 'Keep'], [true, 'Sell']]} onChange={(v) => set('houseSell', v)} />
+          {lv.houseSell && <Month value={lv.houseMonth} onChange={(m) => set('houseMonth', m)} label="Sell in" />}
+        </Lever>
+
+        <Lever title="Re-enlistment bonus" changed={isChanged('bonus', 'bonusMonth')} onReset={() => reset('bonus', 'bonusMonth')} hint="One payment, 22% withheld. Many pay half up front — confirm with your retention NCO.">
+          <Money value={lv.bonus} onChange={(n) => set('bonus', n)} step={1000} />
+          {lv.bonus > 0 && <Month value={lv.bonusMonth} onChange={(m) => set('bonusMonth', m)} label="Paid in" />}
+        </Lever>
+
+        <Lever title="VA rating" changed={isChanged('va')} onReset={() => reset('va')} hint={`${usd0(VA_MONTHLY[lv.va] ?? 0)}/mo with a spouse and one child (more for each child), from ~4 months home; 10% until then, with back pay.`}>
+          <div className="lv-va">
+            <input type="range" min={10} max={100} step={10} value={lv.va} onChange={(e) => set('va', Number(e.target.value))} aria-label="VA rating" />
+            <b>{lv.va}%</b>
+          </div>
+        </Lever>
+
+        <Lever title="Children" changed={isChanged('child2', 'child3')} onReset={() => reset('child2', 'child3')} hint={`${kids} in all. Each costs childcare plus $250/mo under five, $500/mo from five, $1,500 at birth.`}>
+          <div className="lv-row">
+            <Seg value={!!lv.child2} options={[[true, 'Next child'], [false, 'None']]} onChange={(v) => set('child2', v ? (base.child2 ?? '2028-06') : null)} />
+            {lv.child2 && <Month value={lv.child2} onChange={(m) => set('child2', m)} />}
+          </div>
+          {lv.child2 && (
+            <div className="lv-row">
+              <Seg value={!!lv.child3} options={[[true, 'Third'], [false, 'None']]} onChange={(v) => set('child3', v ? (base.child3 ?? '2030-08') : null)} />
+              {lv.child3 && <Month value={lv.child3} onChange={(m) => set('child3', m)} />}
+            </div>
+          )}
+        </Lever>
+
+        <Lever title="The Expedition" changed={isChanged('carReplace', 'carPrice', 'carDown')} onReset={() => reset('carReplace', 'carPrice', 'carDown')} hint={lv.carReplace ? `${Math.round(lv.carDown * 100)}% down, the rest over 5 years at 7%. The car is not counted as an asset.` : 'Lasts the whole plan — no replacement modelled.'}>
+          <div className="lv-row">
+            <Seg value={!!lv.carReplace} options={[[true, 'Replace'], [false, 'Lasts']]} onChange={(v) => set('carReplace', v ? (base.carReplace ?? '2030-06') : null)} />
+            {lv.carReplace && <Month value={lv.carReplace} onChange={(m) => set('carReplace', m)} label="Dies in" />}
+          </div>
+          {lv.carReplace && (
+            <div className="lv-row">
+              <Money value={lv.carPrice} onChange={(n) => set('carPrice', n)} step={1000} label="Replacement" />
+              <Seg value={lv.carDown} options={[[0.1, '10% down'], [0.25, '25%'], [1, 'Cash']]} onChange={(v) => set('carDown', v)} />
+            </div>
+          )}
+        </Lever>
+
+        <Lever
+          title="Emergencies"
+          changed={isChanged('emergCount', 'emergFirst', 'emergEvery', 'emergSize')}
+          onReset={() => reset('emergCount', 'emergFirst', 'emergEvery', 'emergSize')}
+          hint={lv.emergCount ? `${lv.emergCount} × ${usd0(lv.emergSize)}: ${shocks.slice(0, 4).map(monLabel).join(', ')}${shocks.length > 4 ? '…' : ''}. Paid from cash.` : 'None modelled. Slide to stress-test: a roof, a transmission, a hospital bill.'}
+        >
+          <div className="lv-va">
+            <span className="lv-lab">How many</span>
+            <input type="range" min={0} max={10} step={1} value={lv.emergCount} onChange={(e) => set('emergCount', Number(e.target.value))} aria-label="How many emergencies" />
+            <b>{lv.emergCount}</b>
+          </div>
+          {lv.emergCount > 0 && (
+            <>
+              <div className="lv-va">
+                <span className="lv-lab">Each</span>
+                <input type="range" min={1000} max={30000} step={1000} value={lv.emergSize} onChange={(e) => set('emergSize', Number(e.target.value))} aria-label="Size of each" />
+                <b>{usd0(lv.emergSize)}</b>
+              </div>
+              <div className="lv-row">
+                <Month value={lv.emergFirst} onChange={(m) => set('emergFirst', m)} label="First" />
+                <label className="lv-field">
+                  <span>Every</span>
+                  <select value={lv.emergEvery} onChange={(e) => set('emergEvery', Number(e.target.value))}>
+                    {[6, 12, 18, 24, 36, 48, 60].map((n) => (
+                      <option key={n} value={n}>
+                        {n < 12 ? `${n} mo` : `${n / 12} yr`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </>
+          )}
+        </Lever>
+
+        {isLaw && (
+          <Lever
+            title="Law summers"
+            changed={isChanged('summer1L', 'summer2L')}
+            onReset={() => reset('summer1L', 'summer2L')}
+            hint="Paid Jun–Aug, 22% withheld. Texas big firms pay 1Ls and 2Ls alike, ~$4,327/week; mid-size ~$2,000–2,500 (estimate)."
+          >
+            <Seg
+              value={lv.summer1L === 43000 && lv.summer2L === 43000 ? 'big' : lv.summer1L === 20000 && lv.summer2L === 25000 ? 'mid' : 'own'}
+              options={[
+                ['mid', 'Mid-size / Big 4'],
+                ['big', 'BigLaw'],
+                ['own', 'Own'],
+              ]}
+              onChange={(v) => {
+                if (v === 'big') setChanges((c) => ({ ...c, summer1L: 43000, summer2L: 43000 }))
+                if (v === 'mid') reset('summer1L', 'summer2L')
+              }}
+            />
+            <div className="lv-row">
+              <Money value={lv.summer1L} onChange={(n) => set('summer1L', n)} step={1000} label="1L, 2028" />
+              <Money value={lv.summer2L} onChange={(n) => set('summer2L', n)} step={1000} label="2L, 2029" />
+            </div>
+          </Lever>
+        )}
+      </div>
+
+      {compare && all ? (
+        <AllView ledgers={all.ledgers} summaries={all.summaries} metas={metas} />
+      ) : (
+        <>
+          <div className={`solvency lq-${solv.light}`}>
+            <i className="bdot" />
+            <div>
+              <b>
+                {solv.light === 'green'
+                  ? 'Solvent the whole way'
+                  : solv.firstBelow === solv.lastBelow
+                    ? `Cash runs short in ${monLabel(solv.firstBelow!)}`
+                    : `Cash runs short between ${monLabel(solv.firstBelow!)} and ${monLabel(solv.lastBelow!)}`}
+              </b>
+              <span>
+                Lowest cash {usd0(solv.low.value)} in {monLabel(solv.low.month)}
+                {solv.peak > 0 && <> · most borrowed at once {usd0(solv.peak)} (at ~8%)</>}
+              </span>
+            </div>
+          </div>
+          <p className="sub" style={{ margin: '10px 0 8px' }}>
+            <strong>{ledger.label}.</strong> Your side of the money: Sommer&rsquo;s pay and her savings are not in these numbers.
+          </p>
+          <ReviewHeader meta={meta} summary={summary} planGaps={planGaps} />
+          <Balances ledger={ledger} groups={groups} />
+          <Scenarios ledger={ledger} groups={groups} />
+        </>
+      )}
+    </section>
+  )
+}

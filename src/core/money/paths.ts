@@ -166,6 +166,28 @@ export const PATH_ASSUMPTIONS = {
   employee401k: 0.05,
   employer401k: 0.04,
 
+  // ── Planner levers. Every one applies from the month you are home. ──────────
+  /**
+   * Sell 628 Chamberlain in this month; null keeps it. (The law path's `house: 'sell'`
+   * means its move to Lubbock.) Sold while you still live in it, you rent in Corpus.
+   */
+  houseSaleMonth: null as string | null,
+  /** Family rent in Corpus if the house is sold while you still live there. MY ESTIMATE. */
+  corpusRent: 1800,
+  /**
+   * Re-enlistment bonus for any path; null keeps the path's own (law and night law: $10k,
+   * Sep 2027; the CPA routes: none). Taxed at 22%.
+   */
+  reenlist: null as null | { bonus: number; month: string },
+  /**
+   * The 2013 Expedition: replaced in `replaceMonth` (null: it lasts the whole plan) at
+   * `price` in 2027 dollars, `downShare` down and the rest on a loan. Insurance, fuel and
+   * upkeep are already in your spending. MY ESTIMATES: mid-2030, at 17 years old; $40k.
+   */
+  car: { replaceMonth: '2030-06' as string | null, price: 40000, downShare: 0.1, rate: 0.07, termMonths: 60 },
+  /** Modelled emergencies: how many, the first month, months apart, and size (2027 dollars). Off by default. */
+  emergencies: { count: 0, first: '2028-01', everyMonths: 24, size: 5000 },
+
   law: {
     school: LAW_SCHOOLS.find((s) => s.key === 'ttu')!,
     schoolStart: '2027-08',
@@ -202,8 +224,14 @@ export const PATH_ASSUMPTIONS = {
     reenlistBonus: 10000,
     reenlistMonth: '2027-09',
     bookStipendAnnual: 1000,
-    /** Big-market summers: a 1L stipend, then a 2L summer-associate position. MY ESTIMATE. */
-    summerGross: { '2028': 10000, '2029': 45000 } as Record<string, number>,
+    /**
+     * Summers, consistent with the planning case (a mid-size firm or a Big 4 tax practice,
+     * not BigLaw): ~10 weeks at ~$2,000 a week after 1L, ~$2,500 after 2L. Texas big firms
+     * pay 1Ls and 2Ls the same — ~$4,327 a week ($225k a year), ~$43k a summer — but those
+     * seats are few from Texas Tech, and fewer for 1Ls. Mid-size weekly rates are MY
+     * ESTIMATE; the BigLaw rate is from 2026 firm postings. Planner lever (21 Nov).
+     */
+    summerGross: { '2028': 20000, '2029': 25000 } as Record<string, number>,
     /**
      * PLANNING CASE: tax or transactional work in Austin at a mid-size firm or a
      * Big 4 tax practice — where a JD with a CPA is the profile they hire. Not BigLaw:
@@ -357,6 +385,25 @@ export interface PathMonth {
   inSchool: boolean
   /** Your own practice, valued at 1× trailing-12-month revenue (0 unless sole proprietor). */
   businessValue: number
+  /** The replacement car's loan, if one is running. */
+  carLoan: number
+}
+
+/** The month 628 Chamberlain is sold on this path, or null if it is kept. */
+export function saleMonth(key: PathKey, a = PATH_ASSUMPTIONS): string | null {
+  return a.houseSaleMonth ?? (key === 'law' && a.law.house === 'sell' ? a.law.schoolStart : null)
+}
+
+/** The re-enlistment bonus on this path, if any. */
+export function reenlistOf(key: PathKey, a = PATH_ASSUMPTIONS): { bonus: number; month: string } | null {
+  if (a.reenlist) return a.reenlist.bonus > 0 ? a.reenlist : null
+  return key !== 'macc' && a.law.reenlistBonus > 0 ? { bonus: a.law.reenlistBonus, month: a.law.reenlistMonth } : null
+}
+
+/** The months a modelled emergency lands. */
+export function emergencyMonths(a = PATH_ASSUMPTIONS): string[] {
+  const e = a.emergencies
+  return Array.from({ length: Math.max(0, e.count) }, (_, k) => addMonths(e.first, k * Math.max(1, e.everyMonths)))
 }
 
 export interface PathProjection {
@@ -466,6 +513,11 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
   /** The practice's revenue, month by month — its value is the last twelve. */
   const revenueLog: number[] = []
   let inCountry = false
+  let carLoan = 0
+  let carPmt = 0
+  const sale = saleMonth(key, a)
+  const bonus = reenlistOf(key, a)
+  const shocks = emergencyMonths(a)
   const priceIdx = (m: string) => Math.pow(1 + a.homeAppreciation, (monthIndex(m) - monthIndex('2027-01')) / 12)
 
   const law = a.law
@@ -529,6 +581,19 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
       let taxableWages = drill
       let salary = 0
       let summerTax = 0
+      if (bonus && m === bonus.month) {
+        income['Re-enlistment bonus'] = bonus.bonus
+        summerTax += bonus.bonus * 0.22
+      }
+      // Selling 628 Chamberlain: 11% selling costs, then the mortgage is cleared.
+      if (sale && m === sale && !sold) {
+        const proceeds = homeValue * (1 - HOUSE.sellingCostRate) - mortgage
+        if (proceeds >= 0) income['Corpus house — sale, after 11% costs and the mortgage'] = proceeds
+        else costs['Corpus house — sale shortfall brought to closing'] = -proceeds
+        sold = true
+        homeValue = 0
+        mortgage = 0
+      }
 
       if (key === 'law') {
         const inSchool = between(m, law.schoolStart, law.schoolEnd)
@@ -560,21 +625,8 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
           if (!upgraded) costs[`Rent in ${law.market}`] = law.marketRent * infl
           costs[`${law.market} cost premium (general)`] = law.marketCostPremium * infl
         }
-        if (m === law.reenlistMonth && law.reenlistBonus > 0) {
-          income['Re-enlistment bonus'] = law.reenlistBonus
-          summerTax += law.reenlistBonus * 0.22
-        }
-        // Sell on leaving for Lubbock: 11% selling costs, then the mortgage is cleared.
-        if (law.house === 'sell' && m === law.schoolStart) {
-          const proceeds = homeValue * (1 - HOUSE.sellingCostRate) - mortgage
-          if (proceeds >= 0) income['Corpus house — sale, after 11% costs and the mortgage'] = proceeds
-          else costs['Corpus house — sale shortfall brought to closing'] = -proceeds
-          sold = true
-          homeValue = 0
-          mortgage = 0
-        }
-        // Otherwise the house stays let for the whole path: you never move back into it.
-        if (law.house === 'rent' && monthIndex(m) >= monthIndex(law.schoolStart)) {
+        // Unless it is sold, the house stays let for the whole path: you never move back into it.
+        if (!sold && monthIndex(m) >= monthIndex(law.schoolStart)) {
           income['Corpus house — rent'] = HOUSE.monthlyMarketRent * infl
           costs['Corpus house — management & vacancy'] =
             HOUSE.monthlyMarketRent * infl * (HOUSE.managementRate + HOUSE.vacancyMaintenanceRate)
@@ -604,14 +656,12 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
         if (monthIndex(m) >= monthIndex(nt.move)) {
           if (!upgraded) costs[`Rent in ${nt.school.city}`] = nt.rent * infl
           costs[`${nt.school.city} cost premium (general)`] = nt.costPremium * infl
-          income['Corpus house \u2014 rent'] = HOUSE.monthlyMarketRent * infl
-          costs['Corpus house \u2014 management & vacancy'] =
-            HOUSE.monthlyMarketRent * infl * (HOUSE.managementRate + HOUSE.vacancyMaintenanceRate)
-          costs['Corpus house \u2014 non-homestead tax & landlord insurance'] = HOUSE.monthlyRentalTaxInsuranceUplift
-        }
-        if (m === a.law.reenlistMonth && a.law.reenlistBonus > 0) {
-          income['Re-enlistment bonus'] = a.law.reenlistBonus
-          summerTax += a.law.reenlistBonus * 0.22
+          if (!sold) {
+            income['Corpus house \u2014 rent'] = HOUSE.monthlyMarketRent * infl
+            costs['Corpus house \u2014 management & vacancy'] =
+              HOUSE.monthlyMarketRent * infl * (HOUSE.managementRate + HOUSE.vacancyMaintenanceRate)
+            costs['Corpus house \u2014 non-homestead tax & landlord insurance'] = HOUSE.monthlyRentalTaxInsuranceUplift
+          }
         }
       } else {
         const enrolled = macc.enrolledMonths.includes(m)
@@ -743,13 +793,37 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
       }
       if (upgraded || (key === 'macc' && inCountry)) {
         // On the CPA path you move out of 628 Chamberlain, so it is let from here on.
-        if (key === 'macc') {
+        if (key === 'macc' && !sold) {
           income['Corpus house — rent'] = HOUSE.monthlyMarketRent * infl
           costs['Corpus house — management & vacancy'] =
             HOUSE.monthlyMarketRent * infl * (HOUSE.managementRate + HOUSE.vacancyMaintenanceRate)
           costs['Corpus house — non-homestead tax & landlord insurance'] = HOUSE.monthlyRentalTaxInsuranceUplift
         }
       }
+
+      // Sold while you still live in it: the family rents in Corpus.
+      const inChamberlain =
+        key === 'macc' ? !upgraded && !inCountry : key === 'law' ? monthIndex(m) < monthIndex(law.schoolStart) : monthIndex(m) < monthIndex(a.night.move)
+      if (sold && inChamberlain) costs['Rent in Corpus (house sold)'] = a.corpusRent * infl
+
+      // The car: replaced once, a down payment and then a loan.
+      const cr = a.car
+      if (carLoan > 0.005) {
+        const due = Math.min(carPmt, carLoan * (1 + cr.rate / 12))
+        carLoan = carLoan * (1 + cr.rate / 12) - due
+        costs['Car — replacement loan'] = due
+      }
+      if (cr.replaceMonth && m === cr.replaceMonth && cr.price > 0) {
+        const price = cr.price * infl
+        costs['Car — replacement, down payment'] = price * cr.downShare
+        carLoan = price * (1 - cr.downShare)
+        const r = cr.rate / 12
+        carPmt = r > 0 ? (carLoan * r) / (1 - Math.pow(1 + r, -cr.termMonths)) : carLoan / cr.termMonths
+      }
+
+      // Emergencies, if modelled.
+      const shockCount = shocks.filter((x) => x === m).length
+      if (shockCount > 0) costs['Emergency (modelled)'] = a.emergencies.size * infl * shockCount
 
       // Debts.
       debt = debt * (1 + a.debtRate / 12)
@@ -774,7 +848,7 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
     const net = r2(totalIncome - totalCosts)
     if (!dep) cash += net
 
-    const liabilities = mortgage + newMortgage + debt + ut + chargeOffs
+    const liabilities = mortgage + newMortgage + debt + ut + chargeOffs + carLoan
     // The practice is an asset: small accounting practices sell for about 1× a year's revenue.
     const businessValue = revenueLog.slice(-12).reduce((s, v) => s + v, 0)
     months.push({
@@ -795,6 +869,7 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
       netWorth: r2(cash + investments + retirement + homeValue + newValue + businessValue - liabilities),
       inSchool: schoolNow,
       businessValue: r2(businessValue),
+      carLoan: r2(carLoan),
     })
   }
 

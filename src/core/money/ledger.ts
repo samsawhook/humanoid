@@ -17,7 +17,7 @@
 import { DEBTS, minimumPayment } from './debts'
 import { BUCKETS, runPlan, trajectory } from './briefing'
 import { CAR_LOAN_BALANCE, LATE_PAYMENTS_BALANCE, MORTGAGE_ARREARS_BALANCE, MORTGAGE_PAYMENT } from './obligations'
-import { PATH_ASSUMPTIONS, projectPath, type PathKey, type PathMonth } from './paths'
+import { PATH_ASSUMPTIONS, projectPath, saleMonth, type PathKey, type PathMonth } from './paths'
 import { NOV1 } from './reconstruct'
 import { PAYMENT_INFO } from './execution'
 import type { Scenario } from './scenarios'
@@ -68,9 +68,11 @@ export interface LedgerPoint {
 }
 
 /** Cost lines into the groups the cards use. */
-export const PNL_GROUPS = ['Home', 'Wife & Kids', 'Personal', 'Tech', 'Debt', 'Taxes', 'Investing', 'School & moves', 'Other'] as const
+export const PNL_GROUPS = ['Home', 'Wife & Kids', 'Personal', 'Car', 'Tech', 'Debt', 'Taxes', 'Investing', 'School & moves', 'Emergencies', 'Other'] as const
 function pnlGroup(k: string): (typeof PNL_GROUPS)[number] {
   if (/Taxes|Self-employment/.test(k)) return 'Taxes'
+  if (/^Car —/.test(k)) return 'Car'
+  if (/^Emergency/.test(k)) return 'Emergencies'
   if (/Mortgage|New home|Rent in|Corpus house|cost premium|Rural extras|countryside|Home upgrade/.test(k)) return 'Home'
   if (/Wife & Kids|Family support|Children|New baby/.test(k)) return 'Wife & Kids'
   if (/Your spending|Tricare|VA waived/.test(k)) return 'Personal'
@@ -172,6 +174,7 @@ export const ACCOUNTS: AccountDef[] = [
     schedule: true,
   },
   { key: 'car', label: 'Westlake — car loan', group: 'other', apr: 0, paidBy: 'Paid off 18 Nov', schedule: true },
+  { key: 'car_new', label: 'Replacement car — loan', group: 'other', apr: PATH_ASSUMPTIONS.car.rate, aprNote: 'Estimate', note: 'When the Expedition is replaced (a planner lever): the price less the down payment.' },
   { key: 'caine', label: 'Caine & Weiner (Progressive collection)', group: 'other', apr: 0, paidBy: how('late_payments'), schedule: true },
   { key: 'goldman', label: 'Goldman (sued, dismissed)', group: 'other', held: true, note: debt('goldman').note },
   { key: 'psecu', label: 'PSECU (sued, dismissed)', group: 'other', held: true, note: debt('psecu').note },
@@ -256,6 +259,7 @@ export function buildLedger(path: PathKey | 'country' | Scenario): Ledger {
   bal.chamberlain = a.mortgageBalance
   bal.new_home = 0
   bal.gap = 0
+  bal.car_new = 0
   const opening: Record<string, number> = {
     ...bal,
     tsp: proj.months[0]!.retirement - a.tspDeployedMonthly,
@@ -282,7 +286,7 @@ export function buildLedger(path: PathKey | 'country' | Scenario): Ledger {
 
     // Interest first, on what was owed coming into the month.
     for (const acc of ACCOUNTS) {
-      if (!DEBT_KEYS.includes(acc.key) || acc.held || !acc.apr || acc.key === 'chamberlain' || acc.key === 'new_home' || acc.key === 'gap') continue
+      if (!DEBT_KEYS.includes(acc.key) || acc.held || !acc.apr || acc.key === 'chamberlain' || acc.key === 'new_home' || acc.key === 'gap' || acc.key === 'car_new') continue
       if (acc.key === 'ut_loan' && deployed) continue
       const i = r2(Math.max(0, bal[acc.key]!) * (acc.apr / 12))
       if (i > 0) {
@@ -293,7 +297,8 @@ export function buildLedger(path: PathKey | 'country' | Scenario): Ledger {
     // The Chamberlain mortgage, as the path model amortises it (from December).
     if (m !== '2026-11') {
       const i = r2(bal.chamberlain! * (a.mortgageRate / 12))
-      const sold = pathKey === 'law' && a.law.house === 'sell' && m >= a.law.schoolStart
+      const sm = saleMonth(pathKey, a)
+      const sold = !!sm && m >= sm
       if (sold) {
         bal.chamberlain = 0
       } else if (bal.chamberlain! > 0) {
@@ -362,6 +367,7 @@ export function buildLedger(path: PathKey | 'country' | Scenario): Ledger {
     const homeTotal = pm ? pm.homeValue : a.houseValue
     const mortgageTotal = pm ? pm.mortgage : bal.chamberlain!
     bal.new_home = r2(Math.max(0, mortgageTotal - bal.chamberlain!))
+    bal.car_new = r2(pm ? pm.carLoan : 0)
 
     const out: Record<string, number> = {}
     if (pm) {

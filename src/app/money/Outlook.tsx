@@ -9,6 +9,7 @@
 
 import { useEffect, useState } from 'react'
 import { TrendChart, type TrendSeries } from '@/components/TrendChart'
+import { Planner } from './Planner'
 import type { AccountDef, GroupKey, Ledger, LedgerPoint, PathSummary, Side } from '@/core/money/ledger'
 import {
   ARRANGEMENT_LABEL,
@@ -267,6 +268,8 @@ const PNL_COLOR: Record<string, string> = {
   Home: '#3987e5',
   'Wife & Kids': '#199e70',
   Personal: '#c98500',
+  Car: '#e0884a',
+  Emergencies: '#e5534b',
   Tech: '#2fb5c9',
   Debt: '#d55181',
   Taxes: '#6b7280',
@@ -281,7 +284,7 @@ const PNL_COLOR: Record<string, string> = {
  */
 function PnlChart({ points, months }: { points: LedgerPoint[]; months: number }) {
   const unit: 'month' | 'quarter' | 'year' = months <= 18 ? 'month' : months <= 60 ? 'quarter' : 'year'
-  type Period = { label: string; income: number; out: Record<string, number> }
+  type Period = { label: string; income: number; out: Record<string, number>; cash: number }
   const periods: Period[] = []
   const keyOf = (m: string) => {
     const y = m.slice(0, 4)
@@ -292,15 +295,17 @@ function PnlChart({ points, months }: { points: LedgerPoint[]; months: number })
     const k = keyOf(p.month)
     let per = periods.at(-1)
     if (!per || per.label !== k) {
-      per = { label: k, income: 0, out: {} }
+      per = { label: k, income: 0, out: {}, cash: 0 }
       periods.push(per)
     }
+    // Cash at the end of the period: checking + savings, less anything borrowed.
+    per.cash = (p.bal.checking ?? 0) + (p.bal.savings ?? 0) - (p.bal.gap ?? 0)
     per.income += p.income
     for (const [g, v] of Object.entries(p.out)) per.out[g] = (per.out[g] ?? 0) + v
   }
   if (!periods.length) return null
   const outTotal = (p: Period) => Object.values(p.out).reduce((t, v) => t + v, 0)
-  const max = Math.max(1, ...periods.map((p) => Math.max(p.income, outTotal(p))))
+  const max = Math.max(1, ...periods.map((p) => Math.max(p.income, outTotal(p), Math.abs(p.cash))))
   const W = 1000
   const H = 300
   const top = 16
@@ -308,7 +313,7 @@ function PnlChart({ points, months }: { points: LedgerPoint[]; months: number })
   const half = (H - 40) / 2
   const y = (v: number) => (v / max) * half
   const bw = (W - 60) / periods.length
-  const groupsOrder = ['Home', 'Wife & Kids', 'Personal', 'Tech', 'Debt', 'Taxes', 'Investing', 'School & moves', 'Other']
+  const groupsOrder = ['Home', 'Wife & Kids', 'Personal', 'Car', 'Tech', 'Debt', 'Taxes', 'Investing', 'School & moves', 'Emergencies', 'Other']
   const present = groupsOrder.filter((g) => periods.some((p) => (p.out[g] ?? 0) > 0))
   const fmt = (n: number) => (Math.abs(n) >= 100000 ? `$${Math.round(n / 1000)}k` : usd0(n))
   const label = (k: string) => (unit === 'month' ? monLabel(k).replace(' 20', ' ’') : k)
@@ -316,7 +321,7 @@ function PnlChart({ points, months }: { points: LedgerPoint[]; months: number })
   return (
     <figure className="pnl">
       <figcaption className="fig-title">
-        Profit & loss — {unit === 'month' ? 'monthly' : unit === 'quarter' ? 'quarterly' : 'yearly'} · income up, costs down, net ●
+        Profit & loss — {unit === 'month' ? 'monthly' : unit === 'quarter' ? 'quarterly' : 'yearly'} · income up, costs down, net ● · cash at period end ◆
       </figcaption>
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Profit and loss by period">
         <line x1={50} x2={W - 6} y1={mid} y2={mid} stroke="var(--muted)" strokeWidth={1} />
@@ -339,7 +344,8 @@ function PnlChart({ points, months }: { points: LedgerPoint[]; months: number })
               <title>
                 {`${label(p.label)}\nIncome ${usd0(p.income)}\n` +
                   present.map((g) => `${g} −${usd0(p.out[g] ?? 0)}`).join('\n') +
-                  `\nNet ${net < 0 ? '−' : '+'}${usd0(Math.abs(net))}`}
+                  `\nNet ${net < 0 ? '−' : '+'}${usd0(Math.abs(net))}` +
+                  `\nCash at end ${p.cash < 0 ? '−' : ''}${usd0(Math.abs(p.cash))}`}
               </title>
               <rect x={x} y={mid - y(p.income)} width={w} height={Math.max(0.5, y(p.income))} rx={2} fill="#c9d3df" opacity={0.9} />
               {present.map((g) => {
@@ -357,6 +363,31 @@ function PnlChart({ points, months }: { points: LedgerPoint[]; months: number })
             </g>
           )
         })}
+        {(() => {
+          // Cash at the end of each period, on the same dollar scale: the solvency check.
+          const xs = periods.map((_, i) => 52 + i * bw + bw / 2)
+          const ys = periods.map((p) => mid - y(p.cash))
+          return (
+            <g>
+              <polyline points={xs.map((x, i) => `${x},${ys[i]}`).join(' ')} fill="none" stroke="#2fa4a9" strokeWidth={2} strokeLinejoin="round" />
+              {periods.map((p, i) => (
+                <rect
+                  key={p.label}
+                  x={xs[i]! - 3.5}
+                  y={ys[i]! - 3.5}
+                  width={7}
+                  height={7}
+                  transform={`rotate(45 ${xs[i]} ${ys[i]})`}
+                  fill={p.cash < 0 ? '#e5534b' : '#2fa4a9'}
+                  stroke="var(--panel)"
+                  strokeWidth={1.2}
+                >
+                  <title>{`${label(p.label)} — cash at end ${p.cash < 0 ? '−' : ''}${usd0(Math.abs(p.cash))}`}</title>
+                </rect>
+              ))}
+            </g>
+          )
+        })()}
       </svg>
       <div className="split-legend">
         <span><i className="swatch-dot" style={{ background: '#c9d3df' }} />Income</span>
@@ -367,13 +398,14 @@ function PnlChart({ points, months }: { points: LedgerPoint[]; months: number })
           </span>
         ))}
         <span><i className="swatch-dot" style={{ background: '#3fc56b', borderRadius: '50%' }} />Net (red below zero)</span>
+        <span><i className="swatch-dot" style={{ background: '#2fa4a9', transform: 'rotate(45deg)' }} />Cash at period end (red below zero)</span>
       </div>
     </figure>
   )
 }
 
-function Balances({ ledger, groups }: { ledger: Ledger; groups: Group[] }) {
-  const [span, setSpan] = useState('1y')
+export function Balances({ ledger, groups }: { ledger: Ledger; groups: Group[] }) {
+  const [span, setSpan] = useState('5y')
   const [open, setOpen] = useState<string | null>(null)
   // The mortgage and the house dwarf everything else; off by default, one tap to add.
   const [hidden, setHidden] = useState<GroupKey[]>(['mortgage', 'house'])
@@ -562,7 +594,7 @@ export interface PlanGap {
 const LIGHT_LABEL: Record<string, string> = { green: 'No missing funds', yellow: 'Some missing funds', red: 'Large missing funds' }
 
 /** The quick review: lights, the numbers that decide it, then the months. */
-function ReviewHeader({ meta, summary, planGaps }: { meta: ScenarioMeta; summary: PathSummary; planGaps: PlanGap[] }) {
+export function ReviewHeader({ meta, summary, planGaps }: { meta: ScenarioMeta; summary: PathSummary; planGaps: PlanGap[] }) {
   const gapTotal = planGaps.reduce((t, g) => t + g.amount, 0)
   const nw = (k: string) => summary.netWorth.find((n) => n.label === k)!
   return (
@@ -630,7 +662,7 @@ function ReviewHeader({ meta, summary, planGaps }: { meta: ScenarioMeta; summary
   )
 }
 
-function Scenarios({ ledger, groups }: { ledger: Ledger; groups: Group[] }) {
+export function Scenarios({ ledger, groups }: { ledger: Ledger; groups: Group[] }) {
   const accs = ledger.accounts
   const side = (p: Bal, sd: Side) => groups.filter((g) => g.side === sd).reduce((t, g) => t + groupTotal(p, accs, g.key), 0)
   const cashOf = (p: Bal) => (p.bal.checking ?? 0) + (p.bal.savings ?? 0) - (p.bal.gap ?? 0)
@@ -687,11 +719,8 @@ function Scenarios({ ledger, groups }: { ledger: Ledger; groups: Group[] }) {
   const totOut = sum((r) => r.m.totalCosts)
   return (
     <>
-      <h3 className="fig-title" style={{ marginTop: 14 }}>The first twelve months home — tap a heading to open it</h3>
-      <YearAhead ledger={ledger} />
-      <h3 className="fig-title" style={{ marginTop: 6 }}>Cash, debt and net worth</h3>
-      <TrendChart series={series} height={260} ariaLabel="Cash, debt and net worth, first year home" monthly tipTitle="" />
-      <div className="tablewrap" style={{ marginTop: 10 }}>
+      <h3 className="fig-title" style={{ marginTop: 14 }}>The first twelve months home</h3>
+      <div className="tablewrap" style={{ marginTop: 6 }}>
         <table className="baltable cf">
           <thead>
             <tr>
@@ -741,12 +770,14 @@ function Scenarios({ ledger, groups }: { ledger: Ledger; groups: Group[] }) {
         Cash flow is income less costs (costs include the 401(k) and Nth). Cash is checking + savings, less anything borrowed to
         cover a gap (below zero = borrowed). Debt leaves out the mortgage and that borrowing, and includes Goldman and PSECU, held flat. Δ NW also counts TSP growth, mortgage principal and house value.
       </p>
+      <h3 className="fig-title" style={{ marginTop: 6 }}>Month by month — tap a heading to open it</h3>
+      <YearAhead ledger={ledger} />
     </>
   )
 }
 
 /** Every scenario side by side — the comparison the PDF made, kept current. */
-function AllView({ ledgers, summaries, metas }: { ledgers: Ledger[]; summaries: Record<string, PathSummary>; metas: ScenarioMeta[] }) {
+export function AllView({ ledgers, summaries, metas }: { ledgers: Ledger[]; summaries: Record<string, PathSummary>; metas: ScenarioMeta[] }) {
   const [group, setGroup] = useState<'law' | 'evening' | 'cpa' | 'all'>('all')
   const COLORS = ['var(--series-1)', 'var(--series-2)', 'var(--series-4)', 'var(--series-5)', 'var(--series-7)', 'var(--series-3)']
   const shown = metas.filter((m) => group === 'all' || m.group === group)
@@ -1402,13 +1433,12 @@ function ReturnBudget({ metas }: { metas: ScenarioMeta[] }) {
   )
 }
 
-type View = 'paychecks' | 'scenarios' | 'balances' | 'home' | 'briefing'
+type View = 'paychecks' | 'planner' | 'home' | 'briefing'
 
 const NAV: { key: View; label: string; hint: string }[] = [
   { key: 'home', label: 'Back-home budget', hint: 'A normal month home, worked back to the salary' },
   { key: 'paychecks', label: 'Paycheck allocation', hint: 'Every payday to the end of the deployment' },
-  { key: 'scenarios', label: 'Return scenarios', hint: 'First year home, by path' },
-  { key: 'balances', label: 'Balance sheet', hint: 'Debts & assets over time' },
+  { key: 'planner', label: 'Planner', hint: 'Scenarios, levers, cash and the balance sheet over time' },
   { key: 'briefing', label: 'Briefing & detail', hint: 'Attention items, advice, working' },
 ]
 
@@ -1431,11 +1461,12 @@ export function MoneyShell({
   briefing: React.ReactNode
 }) {
   const [view, setViewState] = useState<View>('paychecks')
-  const [path, setPath] = useState<string>('law_ttu')
   // The side rail (layout) switches views by the address's #hash.
   useEffect(() => {
     const read = () => {
-      const h = window.location.hash.slice(1) as View
+      const raw = window.location.hash.slice(1)
+      // The old views live on in the planner.
+      const h = (raw === 'scenarios' || raw === 'balances' ? 'planner' : raw) as View
       setViewState(NAV.some((n) => n.key === h) ? h : 'paychecks')
       window.scrollTo({ top: 0 })
     }
@@ -1450,33 +1481,6 @@ export function MoneyShell({
     } catch {}
     window.scrollTo({ top: 0 })
   }
-  const ledger = ledgers.find((l) => l.path === path) ?? ledgers[0]!
-  const meta = metas.find((m) => m.id === ledger.path) ?? metas[0]!
-  const GL: Record<string, string> = { law: 'Law, full-time', evening: 'Law at night', cpa: 'MAcc → CPA' }
-  const pathPicker = (withAll: boolean) => (
-    <div className="picker" role="group" aria-label="Scenario">
-      {withAll && (
-        <div className="picker-row">
-          <span className="picker-label" />
-          <button className={path === 'all' ? 'on' : ''} onClick={() => setPath('all')}>
-            All — compare
-          </button>
-        </div>
-      )}
-      {(['law', 'evening', 'cpa'] as const).map((g) => (
-        <div className="picker-row" key={g}>
-          <span className="picker-label">{GL[g]}</span>
-          {metas
-            .filter((m) => m.group === g)
-            .map((m) => (
-              <button key={m.id} className={m.id === path ? 'on' : ''} onClick={() => setPath(m.id)}>
-                {m.short}
-              </button>
-            ))}
-        </div>
-      ))}
-    </div>
-  )
   return (
     <div className="mlayout">
       <div className="mview">
@@ -1487,31 +1491,7 @@ export function MoneyShell({
             <ReturnBudget metas={metas} />
           </section>
         )}
-        {view === 'scenarios' && (
-          <section className="outlook viz">
-            <h2 style={{ marginTop: 0 }}>Return scenarios</h2>
-            {pathPicker(true)}
-            {path === 'all' ? (
-              <AllView ledgers={ledgers} summaries={summaries} metas={metas} />
-            ) : (
-              <>
-                <p className="sub" style={{ margin: '10px 0 8px' }}>
-                  <strong>{ledger.label}.</strong> From {monLabel(ledger.homeMonth)}, starting from where the deployment plan leaves you.
-                </p>
-                <ReviewHeader meta={meta} summary={summaries[ledger.path]!} planGaps={planGaps} />
-                <Scenarios ledger={ledger} groups={groups} />
-              </>
-            )}
-          </section>
-        )}
-        {view === 'balances' && (
-          <section className="outlook viz">
-            <h2 style={{ marginTop: 0 }}>Balance sheet progression</h2>
-            {pathPicker(false)}
-            <div style={{ height: 10 }} />
-            <Balances ledger={ledger} groups={groups} />
-          </section>
-        )}
+        {view === 'planner' && <Planner metas={metas} groups={groups} planGaps={planGaps} />}
         <div hidden={view !== 'briefing'}>{briefing}</div>
       </div>
     </div>
