@@ -766,19 +766,16 @@ body:has(nav.rail) main { margin-left: 60px; }
 .archive-list a { display: block; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; color: var(--text); text-decoration: none; }
 .archive-list a span { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; }
 
-/* Levers fold to a line: title and current value */
-.lever { padding: 0; gap: 0; align-self: start; }
-.lever > summary.lever-head { list-style: none; cursor: pointer; padding: 9px 12px; display: flex; align-items: center; gap: 10px; }
-.lever > summary::-webkit-details-marker { display: none; }
-.lever > summary::before { content: '▸'; color: var(--muted); font-size: 11px; transition: transform .15s; }
-.lever[open] > summary::before { transform: rotate(90deg); }
+/* Levers: one caret for the whole set */
+.levers-wrap > summary { list-style: none; cursor: pointer; }
+.levers-wrap > summary::-webkit-details-marker { display: none; }
+.levers-wrap > summary h3::before { content: '▸'; display: inline-block; margin-right: 8px; font-size: 11px; transition: transform .15s; }
+.levers-wrap[open] > summary h3::before { transform: rotate(90deg); }
+.lever-head { display: flex; align-items: center; gap: 10px; }
 .lever-title { flex: 1; min-width: 0; }
-.lever-val { font-weight: 500; font-size: 12.5px; color: var(--muted); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 55%; }
+.lever-val { font-weight: 500; font-size: 12.5px; color: var(--muted); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lever.changed .lever-val { color: var(--text); }
-.lever[open] { padding-bottom: 10px; }
-.lever[open] > .lever-body, .lever[open] > .lever-hint, .lever[open] > .lever-reset { margin: 0 12px; }
-.lever[open] > .lever-hint { margin-top: 8px; }
-.lever-reset { margin-top: 6px !important; font-size: 12px; }
+.lever-reset { align-self: flex-start; font-size: 12px; }
 
 /* Results dashboard */
 .results-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 18px 0 8px; }
@@ -794,7 +791,5 @@ body:has(nav.rail) main { margin-left: 60px; }
 .results-foot { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: flex-start; justify-content: space-between; margin: 10px 0 4px; }
 .results-foot .export-row { margin: 0; }
 .levers { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
-.lever-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lever-val { max-width: 50%; }
 .lv-va input[type=range] { min-width: 0; }
 .lv-va b { min-width: 0; }

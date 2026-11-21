@@ -135,17 +135,20 @@ function solvency(l: Ledger) {
 
 // ── Small controls ───────────────────────────────────────────────────────────
 
-/** One lever, folded to its title and current value; open it to change it. */
+const showVal = (v: unknown) =>
+  typeof v === 'number' ? (v >= 1000 ? usd0(v) : String(v)) : typeof v === 'boolean' ? (v ? 'on' : 'off') : v == null ? 'none' : /^\d{4}-\d{2}$/.test(String(v)) ? monLabel(String(v)) : String(v)
+
+/** One lever: its title and current value, the controls, and a reset when changed. */
 function Lever({ title, value, changed, onReset, children, hint }: { title: string; value: string; changed: boolean; onReset: () => void; children: React.ReactNode; hint?: string }) {
   return (
-    <details className={`lever ${changed ? 'changed' : ''}`}>
-      <summary className="lever-head">
+    <div className={`lever ${changed ? 'changed' : ''}`}>
+      <div className="lever-head">
         <span className="lever-title">
           {title}
           {changed && <i className="lever-dot" title="Changed from the scenario" />}
         </span>
         <span className="lever-val">{value}</span>
-      </summary>
+      </div>
       <div className="lever-body">{children}</div>
       {hint && <div className="lever-hint">{hint}</div>}
       {changed && (
@@ -153,7 +156,7 @@ function Lever({ title, value, changed, onReset, children, hint }: { title: stri
           Reset to the scenario
         </button>
       )}
-    </details>
+    </div>
   )
 }
 
@@ -558,6 +561,7 @@ function Export({ sc, lv, base, ledger, solv }: { sc: Scenario; lv: Levers; base
 export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; groups: Group[]; planGaps: PlanGap[] }) {
   const [id, setId] = useState<string>('law_ttu')
   const [compare, setCompare] = useState(false)
+  const [leversOpen, setLeversOpen] = useState(false)
   /** Changes per lever, kept across scenarios: what you set is what you are testing. */
   const [changes, setChanges] = useState<Partial<Levers>>({})
   useEffect(() => {
@@ -654,21 +658,26 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
         </div>
       </div>
 
-      <div className="levers-head">
-        <h3>Levers</h3>
-        <span className="sub" style={{ margin: 0 }}>
-          {nChanged ? (
-            <>
-              {nChanged} changed from the scenario ·{' '}
-              <button className="linkish" onClick={() => setChanges({})}>
-                reset all
-              </button>
-            </>
-          ) : (
-            'All at the scenario’s own assumptions'
+      <details className="levers-wrap" open={leversOpen} onToggle={(e) => setLeversOpen((e.target as HTMLDetailsElement).open)}>
+        <summary className="levers-head">
+          <h3>Levers</h3>
+          <span className="sub" style={{ margin: 0 }}>
+            {nChanged
+              ? `${nChanged} changed from the scenario${leversOpen ? '' : ': ' + (Object.keys(changes) as (keyof Levers)[]).map((k) => `${LEVER_LABEL[k]} ${showVal(changes[k])}`).join(' · ')}`
+              : 'All at the scenario’s own assumptions'}
+          </span>
+          {nChanged > 0 && (
+            <button
+              className="linkish"
+              onClick={(e) => {
+                e.preventDefault()
+                setChanges({})
+              }}
+            >
+              reset all
+            </button>
           )}
-        </span>
-      </div>
+        </summary>
       <div className="levers">
         <Lever
           title="Whose money" value={lv.who === 'sam' ? 'Sam' : lv.who === 'sommer' ? 'Sommer' : 'Combined'}
@@ -843,6 +852,7 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
           </Lever>
         )}
       </div>
+      </details>
 
       {compare && all ? (
         <AllView ledgers={all.ledgers} summaries={all.summaries} metas={metas} />
