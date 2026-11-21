@@ -10,7 +10,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import { buildLedger, summarize, type GroupKey, type Ledger, type Side } from '@/core/money/ledger'
+import { buildLedger, buildSommerLedger, summarize, type GroupKey, type Ledger, type Side } from '@/core/money/ledger'
 import { emergencyMonths, reenlistOf, saleMonth } from '@/core/money/paths'
 import { SCENARIOS, type Scenario } from '@/core/money/scenarios'
 import { VA_MONTHLY } from '@/core/money/returnBudget'
@@ -22,11 +22,13 @@ type A = Scenario['a']
 const usd0 = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const monLabel = (m: string) => `${MON[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`
-const STORE = 'planner-v1'
+const STORE = 'planner-v2'
+type Who = 'sam' | 'sommer' | 'both'
+const ledgerFor = (sc: Scenario, who: Who) => (who === 'sommer' ? buildSommerLedger(sc) : buildLedger(sc))
 
 /** Every lever, as values. A scenario's own assumptions give the starting set. */
 interface Levers {
-  withSommer: boolean
+  who: Who
   houseSell: boolean
   houseMonth: string
   bonus: number
@@ -51,7 +53,7 @@ function baseLevers(sc: Scenario): Levers {
   const sale = saleMonth(sc.path, a)
   const bonus = reenlistOf(sc.path, a)
   return {
-    withSommer: a.sommer.included,
+    who: a.sommer.included ? 'both' : 'sam',
     houseSell: !!sale,
     houseMonth: sale ?? a.law.schoolStart,
     bonus: bonus?.bonus ?? 0,
@@ -76,7 +78,7 @@ function apply(sc: Scenario, l: Levers): Scenario {
   const a: A = {
     ...sc.a,
     houseSaleMonth: l.houseSell ? l.houseMonth : null,
-    sommer: { ...sc.a.sommer, included: l.withSommer },
+    sommer: { ...sc.a.sommer, included: l.who === 'both' },
     law: { ...sc.a.law, house: l.houseSell ? 'sell' : 'rent', summerGross: { '2028': l.summer1L, '2029': l.summer2L } },
     reenlist: { bonus: l.bonus, month: l.bonusMonth },
     vaRating: l.va,
@@ -196,7 +198,7 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
   const isChanged = (...ks: (keyof Levers)[]) => ks.some((k) => k in changes)
   const nChanged = Object.keys(changes).length
 
-  const ledger = useMemo(() => buildLedger(apply(sc, lv)), [sc, JSON.stringify(lv)]) // eslint-disable-line react-hooks/exhaustive-deps
+  const ledger = useMemo(() => ledgerFor(apply(sc, lv), lv.who), [sc, JSON.stringify(lv)]) // eslint-disable-line react-hooks/exhaustive-deps
   const summary = useMemo(() => summarize(ledger), [ledger])
   const solv = useMemo(() => solvency(ledger), [ledger])
   const meta = metas.find((m) => m.id === sc.id) ?? metas[0]!
@@ -204,7 +206,10 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
   // Compare: every scenario with the same levers (only when asked — it runs fifteen models).
   const all = useMemo(() => {
     if (!compare) return null
-    const ls = SCENARIOS.map((s) => buildLedger(apply(s, { ...baseLevers(s), ...changes })))
+    const ls = SCENARIOS.map((s) => {
+      const l = { ...baseLevers(s), ...changes }
+      return ledgerFor(apply(s, l), l.who)
+    })
     return { ledgers: ls, summaries: Object.fromEntries(ls.map((l) => [l.path, summarize(l)])) }
   }, [compare, JSON.stringify(changes)]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -267,15 +272,17 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
       <div className="levers">
         <Lever
           title="Whose money"
-          changed={isChanged('withSommer')}
-          onReset={() => reset('withSommer')}
+          changed={isChanged('who')}
+          onReset={() => reset('who')}
           hint={
-            lv.withSommer
-              ? 'The household: Sommer’s $4,200/mo take-home in; her bills ($2,500) and fun money ($850) out — her other $850 is saved. From the month you’re home.'
-              : 'Your side only: her pay, bills and savings left out — but childcare and the children’s costs stay on your side.'
+            lv.who === 'both'
+              ? 'Both of you: your pay and hers; every expense once. What she saves while you are away joins the cash when you are home.'
+              : lv.who === 'sam'
+                ? 'Your side: your pay, VA and drill; your expenses — childcare and the children, the house, debts, the $300/mo you give Sommer.'
+                : 'Sommer’s side: her $4,200/mo take-home and your $300/mo in; her bills ($2,500), her fun money and her car share out; the rest saved.'
           }
         >
-          <Seg value={lv.withSommer} options={[[true, 'Household — with Sommer'], [false, 'Your side only']]} onChange={(v) => set('withSommer', v)} />
+          <Seg value={lv.who} options={[['sam', 'Sam'], ['sommer', 'Sommer'], ['both', 'Combined']]} onChange={(v) => set('who', v)} />
         </Lever>
         <Lever title="628 Chamberlain" changed={isChanged('houseSell', 'houseMonth')} onReset={() => reset('houseSell', 'houseMonth')} hint={lv.houseSell ? 'Sold at 11% costs; the mortgage is cleared from the proceeds. Sold while you live there, you rent in Corpus ($1,800/mo).' : 'Kept. Let out once you move out; you never move back in.'}>
           <Seg value={lv.houseSell} options={[[false, 'Keep'], [true, 'Sell']]} onChange={(v) => set('houseSell', v)} />
@@ -409,7 +416,7 @@ export function Planner({ metas, groups, planGaps }: { metas: ScenarioMeta[]; gr
           </div>
           <p className="sub" style={{ margin: '10px 0 8px' }}>
             <strong>{ledger.label}.</strong>{' '}
-            {lv.withSommer ? 'The household — your money and Sommer’s, from the month you’re home.' : 'Your side of the money only: Sommer’s pay and savings are left out.'}
+            {lv.who === 'both' ? 'Combined — your money and Sommer’s.' : lv.who === 'sam' ? 'Sam — your income and your expenses only.' : 'Sommer — her income and her expenses only.'}
           </p>
           <ReviewHeader meta={meta} summary={summary} planGaps={planGaps} />
           <Balances ledger={ledger} groups={groups} />

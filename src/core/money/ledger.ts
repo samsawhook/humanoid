@@ -17,7 +17,7 @@
 import { DEBTS, minimumPayment } from './debts'
 import { BUCKETS, runPlan, trajectory } from './briefing'
 import { CAR_LOAN_BALANCE, LATE_PAYMENTS_BALANCE, MORTGAGE_ARREARS_BALANCE, MORTGAGE_PAYMENT } from './obligations'
-import { PATH_ASSUMPTIONS, projectPath, saleMonth, type PathKey, type PathMonth } from './paths'
+import { PATH_ASSUMPTIONS, projectPath, saleMonth, sommerPath, sommerSaving, type PathKey, type PathMonth } from './paths'
 import { NOV1 } from './reconstruct'
 import { PAYMENT_INFO } from './execution'
 import type { Scenario } from './scenarios'
@@ -73,7 +73,7 @@ function pnlGroup(k: string): (typeof PNL_GROUPS)[number] {
   if (/Taxes|Self-employment/.test(k)) return 'Taxes'
   if (/^Car —/.test(k)) return 'Car'
   if (/^Sommer — her bills/.test(k)) return 'Home'
-  if (/^Sommer — her fun/.test(k)) return 'Personal'
+  if (/^Sommer — her fun|^Her spending/.test(k)) return 'Personal'
   if (/^Emergency/.test(k)) return 'Emergencies'
   if (/Mortgage|New home|Rent in|Corpus house|cost premium|Rural extras|countryside|Home upgrade/.test(k)) return 'Home'
   if (/Wife & Kids|Family support|Children|New baby/.test(k)) return 'Wife & Kids'
@@ -201,6 +201,11 @@ export const ACCOUNTS: AccountDef[] = [
 ]
 
 const DEBT_KEYS = ACCOUNTS.filter((a) => GROUPS.find((g) => g.key === a.group)!.side === 'debt').map((a) => a.key)
+
+function monthsIndex(m: string): number {
+  const [y, mo] = m.split('-').map(Number)
+  return y! * 12 + (mo! - 1)
+}
 
 function addMonths(m: string, n: number): string {
   const [y, mo] = m.split('-').map(Number)
@@ -356,6 +361,8 @@ export function buildLedger(path: PathKey | 'country' | Scenario): Ledger {
         s -= (x.draws ?? []).reduce((t, d) => t + d.amount, 0)
       }
       savings = r2(Math.max(0, s))
+      // Combined: Sommer's savings build while you are away (joined to the household's cash at home).
+      if (a.sommer.included) savings = r2(savings + (monthsIndex(m) - monthsIndex('2026-11') + 1) * sommerSaving(a))
       bal.gap = 0
     } else {
       checking = r2(Math.max(0, Math.min(cash, CHECKING_FLOAT)))
@@ -397,6 +404,14 @@ export function buildLedger(path: PathKey | 'country' | Scenario): Ledger {
     })
   }
 
+  const points = thinPoints(monthly)
+
+  const yearAhead = proj.months.filter((m) => m.month >= homeMonth && m.month <= addMonths(homeMonth, 11))
+  return { path: sc ? sc.id : (path as string), label: proj.label, accounts: ACCOUNTS, opening, points, homeMonth, yearAhead }
+}
+
+/** Monthly for five years, then a point a year with that year's payments summed. */
+function thinPoints(monthly: LedgerPoint[]): LedgerPoint[] {
   // Monthly for five years, then a point a year with that year's payments summed.
   const points: LedgerPoint[] = []
   let acc: LedgerPoint | null = null
@@ -421,8 +436,31 @@ export function buildLedger(path: PathKey | 'country' | Scenario): Ledger {
     }
   })
 
-  const yearAhead = proj.months.filter((m) => m.month >= homeMonth && m.month <= addMonths(homeMonth, 11))
-  return { path: sc ? sc.id : (path as string), label: proj.label, accounts: ACCOUNTS, opening, points, homeMonth, yearAhead }
+  return points
+}
+
+/**
+ * Sommer's side as a ledger: her savings over time and her own P&L, for the planner's
+ * Sommer view. Only her accounts: everything else is zero.
+ */
+export function buildSommerLedger(sc: Scenario): Ledger {
+  const months = sommerPath(sc.path, sc.a)
+  const homeMonth = projectPath(sc.path, sc.a).months.find((x) => x.phase !== 'Deployed')!.month
+  const zero = Object.fromEntries(ACCOUNTS.map((x) => [x.key, 0]))
+  const monthly: LedgerPoint[] = months.map((pm) => {
+    const out: Record<string, number> = {}
+    for (const [k, v] of Object.entries(pm.costs)) out[pnlGroup(k)] = r2((out[pnlGroup(k)] ?? 0) + v)
+    return { month: pm.month, phase: pm.phase, income: pm.totalIncome, out, bal: { ...zero, savings: Math.max(0, pm.cash), gap: Math.max(0, -pm.cash) }, pay: {}, int: {} }
+  })
+  return {
+    path: sc.id,
+    label: `${sc.label} — Sommer’s side`,
+    accounts: ACCOUNTS,
+    opening: zero,
+    points: thinPoints(monthly),
+    homeMonth,
+    yearAhead: months.filter((m) => m.month >= homeMonth && m.month <= addMonths(homeMonth, 11)),
+  }
 }
 
 export function groupTotal(p: { bal: Record<string, number> }, g: GroupKey): number {

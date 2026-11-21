@@ -411,6 +411,66 @@ export function reenlistOf(key: PathKey, a = PATH_ASSUMPTIONS): { bonus: number;
   return key !== 'macc' && a.law.reenlistBonus > 0 ? { bonus: a.law.reenlistBonus, month: a.law.reenlistMonth } : null
 }
 
+/** Sommer's monthly saving: her take-home less her bills and fun money. */
+export const sommerSaving = (a = PATH_ASSUMPTIONS) => a.sommer.takeHome - a.sommer.bills - a.sommer.fun
+
+/** What Sommer has saved by the month you are home: her saving every month from Nov 2026. */
+export function sommerSavedBefore(homeMonth: string, a = PATH_ASSUMPTIONS): number {
+  return Math.max(0, monthIndex(homeMonth) - monthIndex('2026-11')) * sommerSaving(a)
+}
+
+/**
+ * Sommer's side on its own, month by month from Nov 2026: her take-home and what you give
+ * her in; her bills, her fun money, her share of the car out; the rest saved. During the
+ * deployment the nanny money passes through her (in from you, out to the nanny), so it is
+ * left out here; from the month you are home, your $300/mo is hers to spend.
+ */
+export function sommerPath(key: PathKey, a = PATH_ASSUMPTIONS): PathMonth[] {
+  const proj = projectPath(key, { ...a, sommer: { ...a.sommer, included: false } })
+  const homeIdx = proj.months.findIndex((x) => x.phase !== 'Deployed')
+  const homeMonth = proj.months[homeIdx]!.month
+  const out: PathMonth[] = []
+  let saved = 0
+  for (const m of ['2026-11', ...proj.months.map((x) => x.month)]) {
+    const infl = monthIndex(m) < monthIndex(homeMonth) ? 1 : Math.pow(1 + a.inflation, (monthIndex(m) - monthIndex(homeMonth)) / 12)
+    const home = monthIndex(m) >= monthIndex(homeMonth)
+    const income: Record<string, number> = { 'Sommer — take-home pay': r2(a.sommer.takeHome * infl) }
+    const costs: Record<string, number> = {
+      'Sommer — her bills (utilities, groceries, gas, baby…)': r2(a.sommer.bills * infl),
+      'Sommer — her fun money': r2(a.sommer.fun * infl),
+    }
+    if (home) {
+      income['From Sam — her spending & extras'] = r2(a.familySupportMonthly * infl)
+      costs['Her spending & extras (from Sam)'] = r2(a.familySupportMonthly * infl)
+    }
+    if (a.car.replaceMonth === m && a.car.sommerShare > 0) costs['Car — replacement, her share (from savings)'] = r2(a.car.price * infl * a.car.sommerShare)
+    const totalIncome = r2(Object.values(income).reduce((t, v) => t + v, 0))
+    const totalCosts = r2(Object.values(costs).reduce((t, v) => t + v, 0))
+    saved = r2(saved + totalIncome - totalCosts)
+    out.push({
+      month: m,
+      phase: home ? 'Home' : 'Deployed',
+      income,
+      costs,
+      totalIncome,
+      totalCosts,
+      net: r2(totalIncome - totalCosts),
+      invested: 0,
+      cash: saved,
+      investments: 0,
+      retirement: 0,
+      homeValue: 0,
+      mortgage: 0,
+      debt: 0,
+      netWorth: saved,
+      inSchool: false,
+      businessValue: 0,
+      carLoan: 0,
+    })
+  }
+  return out
+}
+
 /** The months a modelled emergency lands. */
 export function emergencyMonths(a = PATH_ASSUMPTIONS): string[] {
   const e = a.emergencies
@@ -574,7 +634,8 @@ export function projectPath(key: PathKey, a = PATH_ASSUMPTIONS): PathProjection 
       debt = dep.debt
     } else {
       if (m === homeMonth) {
-        cash = deployed.comingHomeCash
+        // Combined: what Sommer saved while you were away joins the household's cash.
+        cash = deployed.comingHomeCash + (a.sommer.included ? sommerSavedBefore(homeMonth, a) : 0)
         debt = deployed.debtLeft
         if (deployed.finalPay > 0) income['Last active-duty pay (July leave, taxed)'] = deployed.finalPay
       }
