@@ -42,8 +42,8 @@ export default function TodoPage() {
     <main>
       <h1>To-do</h1>
       <p className="sub">
-        Only what needs you: a call, a letter, a form, a payment to move by hand. Autopays and the plan&rsquo;s own transfers are
-        not here. Ticks are kept in this browser.
+        What you can do today, soonest deadline first: a call, a letter, a form. Things that can&rsquo;t be done yet (a payday&rsquo;s
+        transfers before the money lands, letters that need a posted payment) wait below until their day. Ticks are kept in this browser.
       </p>
       <TodoList todos={TODOS} today={today} paydays={paydays} />
     </main>

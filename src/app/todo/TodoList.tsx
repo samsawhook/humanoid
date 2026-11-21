@@ -44,22 +44,17 @@ export function TodoList({ todos, today, paydays }: { todos: Todo[]; today: stri
       next: `Spendable ~${nice(p.spendable)}.`,
       why: '',
       due: p.spendable,
+      from: p.spendable as string | undefined,
       area: 'Payday',
       detail: p.lines,
     })),
-    ...todos.map((t) => ({ ...t, detail: null as PaydayTask['lines'] | null })),
+    ...todos.map((t) => ({ ...t, from: t.from as string | undefined, detail: null as PaydayTask['lines'] | null })),
   ].sort((a, b) => (a.due ?? '9999') .localeCompare(b.due ?? '9999'))
-  const open = items.filter((i) => !done[i.id])
+  const [showLater, setShowLater] = useState(false)
+  // Lead with what can be done today; the rest waits, folded, until its day comes.
+  const open = items.filter((i) => !done[i.id] && (!i.from || i.from <= today))
+  const later = items.filter((i) => !done[i.id] && i.from && i.from > today).sort((a, b) => a.from!.localeCompare(b.from!))
   const closed = items.filter((i) => done[i.id])
-  const bucket = (due: string | null) => {
-    if (!due) return 'Whenever — no date'
-    if (due < today) return 'Overdue'
-    const days = (Date.parse(due) - Date.parse(today)) / 86400000
-    if (days <= 7) return 'This week'
-    if (days <= 31) return 'This month'
-    return 'Later'
-  }
-  const ORDER = ['Overdue', 'This week', 'This month', 'Later', 'Whenever — no date']
   const row = (i: (typeof items)[number]) => (
     <li key={i.id} className={`todo ${done[i.id] ? 'done' : ''} ${i.due && i.due < today && !done[i.id] ? 'late' : ''}`}>
       <label>
@@ -80,7 +75,7 @@ export function TodoList({ todos, today, paydays }: { todos: Todo[]; today: stri
           )}
         </span>
         <span className="todo-meta">
-          {i.due && <span className="todo-due">{nice(i.due)}</span>}
+          {i.from && i.from > today ? <span className="todo-due">from {nice(i.from)}</span> : i.due && <span className="todo-due">by {nice(i.due)}</span>}
           <span className="todo-area">{i.area}</span>
         </span>
       </label>
@@ -88,18 +83,20 @@ export function TodoList({ todos, today, paydays }: { todos: Todo[]; today: stri
   )
   return (
     <div className="todos">
-      {ORDER.map((b) => {
-        const list = open.filter((i) => bucket(i.due) === b)
-        if (!list.length) return null
-        return (
-          <section key={b}>
-            <h3>
-              {b} <span>{list.length}</span>
-            </h3>
-            <ul>{list.map(row)}</ul>
-          </section>
-        )
-      })}
+      <section>
+        <h3>
+          Do now <span>{open.length}</span>
+        </h3>
+        {open.length ? <ul>{open.map(row)}</ul> : <p className="sub">Nothing can be done today. Next up below.</p>}
+      </section>
+      {later.length > 0 && (
+        <section>
+          <button className="linkish" onClick={() => setShowLater(!showLater)}>
+            {showLater ? 'Hide' : 'Show'} coming up ({later.length}) — not doable yet
+          </button>
+          {showLater && <ul>{later.map(row)}</ul>}
+        </section>
+      )}
       {closed.length > 0 && (
         <section>
           <button className="linkish" onClick={() => setShowDone(!showDone)}>

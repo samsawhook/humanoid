@@ -20,6 +20,8 @@ export interface Todo {
   /** Why it matters, in a line. */
   why: string
   due: LocalDate | null
+  /** The first day it can actually be done (null: now). The list leads with what can be done today. */
+  from?: LocalDate
   area: TodoArea
 }
 
@@ -38,6 +40,7 @@ export const TODOS: Todo[] = [
     next: 'With the 1 Dec pay (~27 Nov): pay October’s payment and pick “oldest past-due” — not principal.',
     why: 'Two behind. Applied to principal, it leaves the delinquency in place.',
     due: '2026-11-27',
+    from: '2026-11-27',
     area: 'Money',
   },
   {
@@ -78,6 +81,7 @@ export const TODOS: Todo[] = [
     next: 'Watch for the title; call Westlake if nothing by mid-December. Keep the payoff letter.',
     why: 'Paid off 18 Nov. The title proves it, and you will sell or trade the Expedition.',
     due: '2026-12-15',
+    from: '2026-12-15',
     area: 'Debt & credit',
   },
   {
@@ -94,14 +98,16 @@ export const TODOS: Todo[] = [
     next: 'Once the 15 Jan payment posts, ask for it in writing.',
     why: 'For the review file.',
     due: '2027-01-31',
+    from: '2027-01-20',
     area: 'Money',
   },
   {
     id: 'macc-course',
     title: 'MAcc catch-up course — Spring II',
-    next: 'Register; $875 on 8 Mar and $875 on 8 Apr. It has to be an A.',
+    next: 'Register when Spring II opens; $875 on 8 Mar and $875 on 8 Apr. It has to be an A.',
     why: 'Brings the GPA to 3.00 and restores Hazlewood.',
     due: '2027-02-15',
+    from: '2027-01-05',
     area: 'School',
   },
   {
@@ -123,9 +129,10 @@ export const TODOS: Todo[] = [
   {
     id: 'va-claim',
     title: 'VA claim for the new rating',
-    next: 'File through BDD 180–90 days before release, so the rating lands soon after you are home.',
+    next: 'File through BDD — the window opens 180 days before release (~Jan 2027) — so the rating lands soon after you are home.',
     why: 'The planner pays 10% until ~4 months home, then 30% with back pay.',
     due: '2027-03-01',
+    from: '2027-01-01',
     area: 'Army & VA',
   },
   {
@@ -142,6 +149,7 @@ export const TODOS: Todo[] = [
     next: 'Joint checking, the pending and posted list.',
     why: 'Keeps the paycheck cards tied to the bank.',
     due: null,
+    from: '2026-11-27',
     area: 'Planner',
   },
 ]
