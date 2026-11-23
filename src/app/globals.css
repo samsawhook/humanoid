@@ -793,3 +793,6 @@ body:has(nav.rail) main { margin-left: 60px; }
 .levers { grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
 .lv-va input[type=range] { min-width: 0; }
 .lv-va b { min-width: 0; }
+/* Planner: "Expand across" on a period card takes the full width, above the table */
+.period-pick:has(.wide-toggle input:checked) { grid-template-columns: 1fr; }
+.period-pick:has(.wide-toggle input:checked) .period-card { order: -1; }
