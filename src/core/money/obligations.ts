@@ -896,7 +896,7 @@ export const OBLIGATIONS: Obligation[] = [
      * the credit line, not the obligation.
      */
     amountPerPaycheck: CLOSED_CARD_MINIMUMS,
-    payDays: 'fifteenth',
+    payDays: 'first', // moved to the 1st, which pays more (your call, 23 Nov); 15 Nov's was never sent
     activeFrom: null,
     activeTo: null,
     priority: 37,
