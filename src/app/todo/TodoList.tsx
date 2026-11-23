@@ -17,8 +17,18 @@ export interface PaydayTask {
   lines: { label: string; amount: number; howTo?: string; short: number }[]
 }
 
+export interface DebtTask {
+  id: string
+  payday: string
+  spendable: string
+  label: string
+  amount: number
+  howTo?: string
+  short: number
+}
+
 /** The list, with checkboxes kept in this browser. */
-export function TodoList({ todos, today, paydays }: { todos: Todo[]; today: string; paydays: PaydayTask[] }) {
+export function TodoList({ todos, today, paydays, debts }: { todos: Todo[]; today: string; paydays: PaydayTask[]; debts: DebtTask[] }) {
   const [done, setDone] = useState<Record<string, boolean>>({})
   const [showDone, setShowDone] = useState(false)
   useEffect(() => {
@@ -48,12 +58,26 @@ export function TodoList({ todos, today, paydays }: { todos: Todo[]; today: stri
       area: 'Payday',
       detail: p.lines,
     })),
+    ...debts.map((d) => ({
+      id: d.id,
+      title: `Pay by hand: ${d.label} — ${usd(d.amount)}${d.short > 0 ? ` (short ${usd(d.short)})` : ''}`,
+      next: d.howTo ?? 'Not on autopay: send it from Joint Checking once the pay lands.',
+      why: `From the ${nice(d.payday)} pay, spendable ~${nice(d.spendable)}.`,
+      due: d.spendable,
+      from: d.spendable as string | undefined,
+      area: 'Debt payment',
+      detail: null as PaydayTask['lines'] | null,
+    })),
     ...todos.map((t) => ({ ...t, from: t.from as string | undefined, detail: null as PaydayTask['lines'] | null })),
   ].sort((a, b) => (a.due ?? '9999') .localeCompare(b.due ?? '9999'))
   const [showLater, setShowLater] = useState(false)
   // Lead with what can be done today; the rest waits, folded, until its day comes.
   const open = items.filter((i) => !done[i.id] && (!i.from || i.from <= today))
-  const later = items.filter((i) => !done[i.id] && i.from && i.from > today).sort((a, b) => a.from!.localeCompare(b.from!))
+  const later = items
+    .filter((i) => !done[i.id] && i.from && i.from > today && i.area !== 'Debt payment')
+    .sort((a, b) => a.from!.localeCompare(b.from!))
+  // Debt payments not on autopay stay in view even before their money lands.
+  const debtNext = items.filter((i) => !done[i.id] && i.area === 'Debt payment' && i.from! > today).sort((a, b) => a.from!.localeCompare(b.from!))
   const closed = items.filter((i) => done[i.id])
   const row = (i: (typeof items)[number]) => (
     <li key={i.id} className={`todo ${done[i.id] ? 'done' : ''} ${i.due && i.due < today && !done[i.id] ? 'late' : ''}`}>
@@ -89,6 +113,14 @@ export function TodoList({ todos, today, paydays }: { todos: Todo[]; today: stri
         </h3>
         {open.length ? <ul>{open.map(row)}</ul> : <p className="sub">Nothing can be done today. Next up below.</p>}
       </section>
+      {debtNext.length > 0 && (
+        <section>
+          <h3>
+            Debt payments by hand — next 3 months <span>{debtNext.length}</span>
+          </h3>
+          <ul>{debtNext.map(row)}</ul>
+        </section>
+      )}
       {later.length > 0 && (
         <section>
           <button className="linkish" onClick={() => setShowLater(!showLater)}>

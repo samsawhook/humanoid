@@ -13,11 +13,11 @@
 import type { LocalDate } from '../types'
 
 export const ACTUALS_AS_OF = {
-  date: '2026-11-21' as LocalDate,
-  time: '09:31',
+  date: '2026-11-23' as LocalDate,
+  time: '21:49',
   source: 'Wells Fargo app screenshot (Joint Checking)',
   /** Available balance the bank showed at that moment. */
-  availableBalance: 663.33,
+  availableBalance: 197.96,
 }
 
 /**
@@ -201,6 +201,23 @@ export const ACTUALS: Actual[] = [
     description: 'Five Guys',
     lineKey: 'living_deployed',
     sub: 'personal_local',
+    payday: '2026-11-15',
+    status: 'pending',
+  },
+  // ── 23 Nov screenshot: $663.33 − 210.02 − 255.35 = $197.96 available ──
+  {
+    date: '2026-11-23',
+    amount: 210.02,
+    description: 'Avant — monthly payment (ACH, 20 Nov)',
+    lineKey: 'avant_payment',
+    payday: '2026-11-15',
+    status: 'pending',
+  },
+  {
+    date: '2026-11-23',
+    amount: 255.35,
+    description: 'T-Mobile — November bill (autopay)',
+    lineKey: 'phone_nov',
     payday: '2026-11-15',
     status: 'pending',
   },
