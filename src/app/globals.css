@@ -796,3 +796,10 @@ body:has(nav.rail) main { margin-left: 60px; }
 /* Planner: "Expand across" on a period card takes the full width, above the table */
 .period-pick:has(.wide-toggle input:checked) { grid-template-columns: 1fr; }
 .period-pick:has(.wide-toggle input:checked) .period-card { order: -1; }
+/* Saving: the money set aside in checking, and what it is for */
+.cash-glance .cg-aside { color: var(--muted); }
+.set-aside { margin: 8px 0 4px; padding: 10px 12px; border-radius: 10px; background: var(--panel-2); border-left: 3px solid #2fa4a9; font-size: 13px; }
+.set-aside ul { list-style: none; margin: 6px 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.set-aside li { display: flex; justify-content: space-between; gap: 12px; font-variant-numeric: tabular-nums; }
+.set-aside li em { font-style: normal; color: var(--muted); }
+.sa-note { font-size: 11.5px; color: var(--muted); margin-top: 4px; }

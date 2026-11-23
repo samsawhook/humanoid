@@ -8,6 +8,8 @@ import { combineStatements, paycheckStatement, type PaycheckStatement, type Stat
 import { benchmarkRows, type BenchRow, type BenchStatus } from '@/core/money/benchmarks'
 import { PATH_ASSUMPTIONS } from '@/core/money/paths'
 import { combinedStatement, HER_CHECKING_START, HER_SAVINGS_START, sommerStatement } from '@/core/money/sides'
+import { setAsideFor, type SetAside } from '@/core/money/setAside'
+import { OBLIGATIONS, ONE_OFFS } from '@/core/money/obligations'
 import { WhoSwitch } from './WhoSwitch'
 import { limitsFor, tspYear } from '@/core/money/limits'
 import { projectPaycheck } from '@/core/money/paychecks'
@@ -727,7 +729,10 @@ export function PaydayCard({
   hers,
   householdMonthly,
   nowFromBank = false,
+  setAside,
 }: {
+  /** What this paycheck leaves in checking, and the later bills it is held for — part of Saving. */
+  setAside?: SetAside
   /** Combined: this is the live paycheck, so the Cash strip shows the bank's to-date figures. */
   nowFromBank?: boolean
   /** The household's average monthly spending, for "months covered". */
@@ -881,6 +886,12 @@ export function PaydayCard({
         <span>
           End <b>{usd(end)}</b>
         </span>
+        {setAside && setAside.amount > 0.5 && (
+          <span className="cg-aside">
+            + set aside in checking <b>{usd(setAside.amount)}</b>
+            {setAside.spare ? ' · spare' : setAside.until ? ` · to ${nice(setAside.until)}` : ''}
+          </span>
+        )}
       </div>
     )
   })()
@@ -960,8 +971,35 @@ export function PaydayCard({
         {maxing && <MaxingBox m={maxing} />}
       </Section>
 
-      {(savingSec.lines.length > 0 || savings > 0.005) && (
-        <Section sec={savingSec} gross={g} spendable={spendable} showActuals={false} sign={savingSec.total < 0 ? '−' : '+'} bar={false} bench={bx('cash')} extra={savingGlance} />
+      {(savingSec.lines.length > 0 || savings > 0.005 || (setAside?.amount ?? 0) > 0.5) && (
+        <Section sec={savingSec} gross={g} spendable={spendable} showActuals={false} sign={savingSec.total < 0 ? '−' : '+'} bar={false} bench={bx('cash')} extra={savingGlance}>
+          {setAside && setAside.amount > 0.5 && (
+            <div className="set-aside">
+              <div className="sa-head">
+                Set aside in checking: <b>{usd(setAside.amount)}</b>
+                {setAside.spare
+                  ? ' — not needed for anything coming; it carries forward.'
+                  : setAside.until
+                    ? ` — held so the ${nice(setAside.until)} paycheck and those before it can pay:`
+                    : ''}
+              </div>
+              {setAside.items.length > 0 && (
+                <ul>
+                  {setAside.items.map((x) => (
+                    <li key={x.label + x.date}>
+                      <span>
+                        {x.label}
+                        {x.date && <em> · {nice(x.date)}</em>}
+                      </span>
+                      <span>{usd(x.amount)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="sa-note">Kept in checking, not moved: it is the plan&rsquo;s savings for bills it can already see. The emergency fund is only drawn for an emergency.</div>
+            </div>
+          )}
+        </Section>
       )}
 
       <Section sec={netCashTied} gross={g} spendable={spendable} showActuals={false} sign={netCashTied.total < 0 ? '−' : '+'} bar={false} extra={cashGlance}>
@@ -1308,6 +1346,7 @@ export function PaydayFocus({
       savings: savingsAfter[i] ?? 0,
       short: a.lines.reduce((s, l) => s + l.shortfall, 0),
       spendable: spendableFrom(a.paycheck.payDate),
+      setAside: setAsideFor(allocations, i, OBLIGATIONS, ONE_OFFS) as SetAside | undefined,
     }
   }
 
@@ -1343,6 +1382,7 @@ export function PaydayFocus({
             savings: 0,
             short: 0,
             spendable: '2026-10-28',
+            setAside: undefined,
           }
         }
         const present = cards.filter((c): c is NonNullable<typeof c> => c !== null)
