@@ -14,10 +14,10 @@ import type { LocalDate } from '../types'
 
 export const ACTUALS_AS_OF = {
   date: '2026-11-23' as LocalDate,
-  time: '21:49',
+  time: '22:33',
   source: 'Wells Fargo app screenshot (Joint Checking)',
   /** Available balance the bank showed at that moment. */
-  availableBalance: 197.96,
+  availableBalance: 123.96,
 }
 
 /**
@@ -205,9 +205,16 @@ export const ACTUALS: Actual[] = [
     status: 'pending',
   },
   // ── 23 Nov screenshot: $663.33 − 210.02 − 255.35 = $197.96 available ──
-  // Texas registration, $74 (your note, 23 Nov): paid by card after paying the card $74
-  // from checking. That payment is not on the screenshot yet, so it is not entered here —
-  // it stays "still to go out" on the card until it posts.
+  {
+    // Paid by card (the only one that would load) after paying the card $74 first —
+    // this transfer (your note and 22:33 screenshot, 23 Nov). $197.96 − 74 = $123.96.
+    date: '2026-11-23',
+    amount: 74,
+    description: 'Texas registration — paid by card, card prepaid by transfer',
+    oneOffKey: 'tx_registration',
+    payday: '2026-11-15',
+    status: 'pending',
+  },
   {
     date: '2026-11-23',
     amount: 210.02,
