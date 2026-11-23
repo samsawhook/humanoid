@@ -205,6 +205,9 @@ export const ACTUALS: Actual[] = [
     status: 'pending',
   },
   // ── 23 Nov screenshot: $663.33 − 210.02 − 255.35 = $197.96 available ──
+  // Texas registration, $74 (your note, 23 Nov): paid by card after paying the card $74
+  // from checking. That payment is not on the screenshot yet, so it is not entered here —
+  // it stays "still to go out" on the card until it posts.
   {
     date: '2026-11-23',
     amount: 210.02,
@@ -221,6 +224,7 @@ export const ACTUALS: Actual[] = [
     payday: '2026-11-15',
     status: 'pending',
   },
+
 ]
 
 /** Spent so far against one plan line or one-off, on one paycheck. */

@@ -243,6 +243,19 @@ export const ALL_ONE_OFFS: OneOff[] = [
     amount: -74,
   },
   {
+    key: 'tx_registration',
+    label: 'Texas vehicle registration — Expedition',
+    date: '2026-11-23',
+    amount: -74,
+    note:
+      'Your note, 23 Nov: put on a credit card (the only one that would load), with the same ' +
+      '$74 paid to the card first — so the card nets to zero and the cash comes from checking.',
+  },
+  // Wife & Kids money is never the give: the $74 comes out of your own spending instead of
+  // Christmas — the $52 still unspent on the 15 Nov cheque, and $22 on the 1 Dec one.
+  { key: 'spend_trim_registration', label: '$52 less personal spending (registration)', date: '2026-11-26', amount: 52 },
+  { key: 'spend_trim_registration_2', label: '$22 less personal spending (registration, rest)', date: '2026-12-10', amount: 22 },
+  {
     key: 'macc_catchup_1',
     label: 'MAcc catch-up course (Spring II) — first half',
     date: '2027-03-08',
