@@ -71,14 +71,27 @@ const SHORT: Record<string, { typical?: number; advisor?: { text: string; min?: 
 const r1x = (n: number) => Math.round(n * 10) / 10
 
 /** Within a bound: green; a little outside (≤2 pts): yellow; further: red. */
-function lightBound(v: number, min?: number, max?: number): Light {
+/**
+ * Which way is bad (your call, 23 Nov): spending is only off when it is ABOVE the advice;
+ * investing, saving and paying down debt only when BELOW it. On the good side the light
+ * stays green however far off the figure is.
+ */
+export type Direction = 'spend' | 'save'
+export const SAVE_KEYS = new Set(['invest', 'brokerage', 'business', 'cash', 'debt'])
+export const directionOf = (key: string): Direction => (SAVE_KEYS.has(key) ? 'save' : 'spend')
+
+function lightBound(v: number, min?: number, max?: number, dir: Direction = 'spend'): Light {
   if (min === undefined && max === undefined) return 'none'
-  const off = Math.max(0, min !== undefined ? min - v : 0, max !== undefined ? v - max : 0)
+  const below = dir === 'save' && min !== undefined ? min - v : 0
+  const above = dir === 'spend' && max !== undefined ? v - max : 0
+  // A bound only on the harmless side (a floor on spending, a ceiling on saving) never warns.
+  if ((dir === 'spend' && max === undefined) || (dir === 'save' && min === undefined)) return 'green'
+  const off = Math.max(0, below, above)
   return off <= 0 ? 'green' : off <= 2 ? 'yellow' : 'red'
 }
 /** Near a point: within 2 pts green, within 5 yellow, beyond red. */
-function lightPoint(v: number, p: number): Light {
-  const d = Math.abs(v - p)
+function lightPoint(v: number, p: number, dir: Direction = 'spend'): Light {
+  const d = dir === 'spend' ? v - p : p - v
   return d <= 2 ? 'green' : d <= 5 ? 'yellow' : 'red'
 }
 
@@ -392,6 +405,7 @@ export function benchmarkRows(st: PaycheckStatement, profile: 'sam' | 'household
   }
   const homeAndDebt = r1(you.home! + you.debt!)
   return rules.map((r) => {
+    const dir = directionOf(r.key)
     const vo = voices[r.key]!
     const v = you[r.key]!
     /** The share without one-time payments (a payoff, a catch-up), when there are any. */
@@ -439,7 +453,7 @@ export function benchmarkRows(st: PaycheckStatement, profile: 'sam' | 'household
         label: 'Typical',
         text: sh.typical !== undefined ? `${sh.typical}%` : '—',
         tip: `Typical, age 25–34: ${r.typical}`,
-        light: fixedRow || sh.typical === undefined ? 'none' : lightPoint(adj, sh.typical),
+        light: fixedRow || sh.typical === undefined ? 'none' : lightPoint(adj, sh.typical, dir),
       },
       {
         key: 'advisor',
@@ -448,38 +462,38 @@ export function benchmarkRows(st: PaycheckStatement, profile: 'sam' | 'household
         tip: `Advisor rule: ${r.advisor}`,
         light:
           r.key === 'debt'
-            ? lightBound(r1x(adj + you.home!), undefined, 36)
+            ? lightBound(r1x(adj + you.home!), undefined, 36, 'spend')
             : fixedRow || !sh.advisor
               ? 'none'
-              : lightBound(adj, sh.advisor.min, sh.advisor.max),
+              : lightBound(adj, sh.advisor.min, sh.advisor.max, dir),
       },
       {
         key: 'robo',
         label: 'Robo',
         text: `${vo.robo.pct}%`,
         tip: `Robo, tuned to you: ${vo.robo.why}`,
-        light: r.key === 'deductions' ? 'none' : vo.robo.min !== undefined || vo.robo.max !== undefined ? lightBound(adj, vo.robo.min, vo.robo.max) : lightPoint(adj, vo.robo.pct),
+        light: r.key === 'deductions' ? 'none' : vo.robo.min !== undefined || vo.robo.max !== undefined ? lightBound(adj, vo.robo.min, vo.robo.max, dir) : lightPoint(adj, vo.robo.pct, dir),
       },
       {
         key: 'ramsey',
         label: 'Ramsey',
         text: `${vo.ramsey.pct}%`,
         tip: `Dave Ramsey (paraphrased): ${vo.ramsey.why}`,
-        light: r.key === 'deductions' ? 'none' : lightPoint(adj, vo.ramsey.pct),
+        light: r.key === 'deductions' ? 'none' : lightPoint(adj, vo.ramsey.pct, dir),
       },
       {
         key: 'kiyosaki',
         label: 'Kiyosaki',
         text: `${vo.kiyosaki.pct}%`,
         tip: `Robert Kiyosaki (paraphrased): ${vo.kiyosaki.why}`,
-        light: r.key === 'deductions' ? 'none' : lightPoint(adj, vo.kiyosaki.pct),
+        light: r.key === 'deductions' ? 'none' : lightPoint(adj, vo.kiyosaki.pct, dir),
       },
       {
         key: 'target',
         label: 'Plan',
         text: r.max !== undefined ? `≤${r.max}%` : r.min !== undefined ? `≥${r.min}%` : r.fixed ? 'fixed' : '—',
         tip: `Plan target: ${r.target}${verdict ? ` — ${verdict}` : ''}`,
-        light: fixedRow ? 'none' : status === 'on' ? 'green' : lightBound(adj, r.min, r.max),
+        light: fixedRow ? 'none' : status === 'on' ? 'green' : lightBound(adj, r.min, r.max, dir),
       },
     ]
     return {

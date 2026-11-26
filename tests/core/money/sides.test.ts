@@ -32,3 +32,25 @@ describe('Sommer and Combined paycheck statements', () => {
     expect(rows.some((r) => r.key === 'sent')).toBe(false)
   })
 })
+
+describe('advisor lights: red only on the harmful side', () => {
+  it('spending below an advisor figure is never red; investing above one is never red', async () => {
+    const { benchmarkRows } = await import('@/core/money/benchmarks')
+    const { runPlan } = await import('@/core/money/briefing')
+    const { paycheckStatement } = await import('@/core/money/statement')
+    const al = runPlan().allocations
+    for (let i = 0; i < al.length - 1; i++) {
+      const st = paycheckStatement(al[i]!, al[i + 1])
+      for (const row of benchmarkRows(st, 'sam')) {
+        const save = ['invest', 'brokerage', 'business', 'cash', 'debt'].includes(row.key)
+        for (const c of row.cells) {
+          if (c.light !== 'red' || c.key === 'target' || row.key === 'debt' && c.key === 'advisor') continue
+          const n = Number(c.text.replace(/[^0-9.]/g, ''))
+          if (!Number.isFinite(n) || c.text.includes('–')) continue
+          if (save) expect(row.adjusted).toBeLessThan(n)
+          else expect(row.adjusted).toBeGreaterThan(n)
+        }
+      }
+    }
+  })
+})
