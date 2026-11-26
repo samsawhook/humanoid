@@ -9,6 +9,7 @@ import Link from 'next/link'
 import type { Route } from 'next'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { InstallApp } from './InstallApp'
 
 type Item = { href: string; label: string; icon: React.ReactNode }
 
@@ -129,6 +130,8 @@ export function SideNav() {
       {MONEY.map(link)}
       <i className="rail-sep" aria-hidden />
       {PAGES.map(link)}
+      <i className="rail-sep" aria-hidden />
+      <InstallApp />
     </nav>
   )
 }
