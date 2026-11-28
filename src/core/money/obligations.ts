@@ -255,6 +255,9 @@ export const ALL_ONE_OFFS: OneOff[] = [
   // Christmas — the $52 still unspent on the 15 Nov cheque, and $22 on the 1 Dec one.
   { key: 'spend_trim_registration', label: '$52 less personal spending (registration)', date: '2026-11-26', amount: 52 },
   { key: 'spend_trim_registration_2', label: '$22 less personal spending (registration, rest)', date: '2026-12-10', amount: 22 },
+  // Starlink ($22/mo from Dec, 28 Nov): on the 1 Dec cheque it would come out of
+  // Christmas — Wife & Kids money is never the give — so it comes off your spending.
+  { key: 'spend_trim_starlink_dec', label: '$22 less personal spending (Starlink, December)', date: '2026-12-10', amount: 22 },
   {
     key: 'macc_catchup_1',
     label: 'MAcc catch-up course (Spring II) — first half',
@@ -648,6 +651,22 @@ export const OBLIGATIONS: Obligation[] = [
     priority: 30,
     kind: 'living',
     execution: 'automatic',
+  },
+  {
+    key: 'starlink',
+    label: 'Starlink — monthly share (Venmo)',
+    /**
+     * Your note, 28 Nov: $22 a month, paid by Venmo — first on 27 Nov from the 1 Dec
+     * cheque. Assumed to run while you are deployed; tell me if it carries on at home.
+     */
+    amountPerPaycheck: 22,
+    payDays: 'first',
+    activeFrom: '2026-12-01',
+    activeTo: '2027-06-30',
+    priority: 39.5,
+    kind: 'living',
+    execution: 'manual',
+    howTo: 'Venmo the $22 share.',
   },
   {
     key: 'nordvpn',

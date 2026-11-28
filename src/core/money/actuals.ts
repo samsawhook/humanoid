@@ -252,11 +252,11 @@ export const ACTUALS: Actual[] = [
     status: 'pending',
   },
   {
-    // Starlink, paid by Venmo (your note, 28 Nov): tech, with the subscriptions.
+    // Starlink, paid by Venmo (your note, 28 Nov): its own monthly tech line.
     date: '2026-11-27',
     amount: 22,
     description: 'Starlink (via Venmo)',
-    lineKey: 'subscriptions',
+    lineKey: 'starlink',
     payday: '2026-12-01',
     status: 'pending',
   },

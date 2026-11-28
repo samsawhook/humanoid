@@ -104,6 +104,7 @@ const LINE_HOME: Record<string, string> = {
   subscriptions: 'tech',
   subscriptions_mid: 'tech',
   nordvpn: 'tech',
+  starlink: 'tech',
   hvac_plan: 'home',
   mortgage_current: 'home',
   // Past-due mortgage payments are debt catch-up, not this month's housing (your call, 19 Nov).
