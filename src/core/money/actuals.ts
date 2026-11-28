@@ -244,11 +244,20 @@ export const ACTUALS: Actual[] = [
   {
     // Venmo to a friend: from the 15 Nov cheque's personal money still unspent.
     date: '2026-11-27',
-    amount: 42,
-    description: 'Venmo to a friend ($20 + $22)',
+    amount: 20,
+    description: 'Venmo to a friend',
     lineKey: 'living_deployed',
     sub: 'personal_local',
     payday: '2026-11-15',
+    status: 'pending',
+  },
+  {
+    // Starlink, paid by Venmo (your note, 28 Nov): tech, with the subscriptions.
+    date: '2026-11-27',
+    amount: 22,
+    description: 'Starlink (via Venmo)',
+    lineKey: 'subscriptions',
+    payday: '2026-12-01',
     status: 'pending',
   },
   {
