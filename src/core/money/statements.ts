@@ -96,6 +96,7 @@ export const DFAS_PAYCHECKS: { date: LocalDate; amount: number; payday: 'first' 
   { date: '2026-10-15', amount: 3491.26, payday: 'fifteenth' },
   { date: '2026-10-30', amount: 4005.1, payday: 'first' }, // 1 Nov, a Sunday
   { date: '2026-11-13', amount: 3491.26, payday: 'fifteenth' }, // 15 Nov, a Sunday (21 Nov screenshots)
+  { date: '2026-11-30', amount: 4005.1, payday: 'first' }, // 1 Dec, spendable 27 Nov (28 Nov screenshot)
 ]
 
 /** The DFAS deposit that paid a scheduled payday, if it has landed (within a week before it). */

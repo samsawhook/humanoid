@@ -13,11 +13,11 @@
 import type { LocalDate } from '../types'
 
 export const ACTUALS_AS_OF = {
-  date: '2026-11-23' as LocalDate,
-  time: '22:33',
+  date: '2026-11-28' as LocalDate,
+  time: '09:28',
   source: 'Wells Fargo app screenshot (Joint Checking)',
   /** Available balance the bank showed at that moment. */
-  availableBalance: 123.96,
+  availableBalance: 3054.07,
 }
 
 /**
@@ -221,7 +221,7 @@ export const ACTUALS: Actual[] = [
     description: 'Avant — monthly payment (ACH, 20 Nov)',
     lineKey: 'avant_payment',
     payday: '2026-11-15',
-    status: 'pending',
+    status: 'posted',
   },
   {
     date: '2026-11-23',
@@ -232,6 +232,41 @@ export const ACTUALS: Actual[] = [
     status: 'pending',
   },
 
+  // ── 28 Nov screenshot: $123.96 − 30 − 1,000 − 22 − 20 − 2.99 + 4,005.10 = $3,054.07 ──
+  {
+    date: '2026-11-24',
+    amount: 30,
+    description: 'Credit One — autopay',
+    lineKey: 'card_minimums_open',
+    payday: '2026-11-15',
+    status: 'posted',
+  },
+  {
+    // Venmo to a friend: from the 15 Nov cheque's personal money still unspent.
+    date: '2026-11-27',
+    amount: 42,
+    description: 'Venmo to a friend ($20 + $22)',
+    lineKey: 'living_deployed',
+    sub: 'personal_local',
+    payday: '2026-11-15',
+    status: 'pending',
+  },
+  {
+    date: '2026-11-27',
+    amount: 1000,
+    description: 'Venmo to Sommer — nanny',
+    lineKey: 'support_home_deployed',
+    payday: '2026-12-01',
+    status: 'pending',
+  },
+  {
+    date: '2026-11-27',
+    amount: 2.99,
+    description: 'Apple — subscription',
+    lineKey: 'subscriptions',
+    payday: '2026-12-01',
+    status: 'pending',
+  },
 ]
 
 /** Spent so far against one plan line or one-off, on one paycheck. */
